@@ -1,0 +1,8 @@
+[template]
+src = "appctl.sh.tmpl"
+dest = "/opt/app/bin/tmpl/appctl.sh"
+mode = "0700"
+keys = [
+  "/",
+]
+reload_cmd = "/opt/app/bin/tmpl/appctl.sh"

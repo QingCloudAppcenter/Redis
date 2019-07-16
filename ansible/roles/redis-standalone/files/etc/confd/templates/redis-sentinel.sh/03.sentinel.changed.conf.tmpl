@@ -1,0 +1,25 @@
+sentinelRenameCommands() {
+  local unsafeCommands="
+    CONFIG
+    REPLICAOF
+    SLAVEOF
+  "
+
+  local allowedCommands="$(echo " {{ replace (getv "/env/enable-commands" "DISABLE_ALL") "," " " -1 }} " | sed "/ DISABLE_ALL /d")"
+  local cmd; for cmd in $unsafeCommands; do
+    local renamed=$cmd
+    if [[ " $allowedCommands " != *" $cmd "* ]]; then
+      renamed=$(echo -n ${cmd}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1)
+    fi
+    echo sentinel rename-command master $cmd $renamed
+  done
+}
+
+cat > /opt/app/conf/redis-standalone/sentinel.changed.conf << SENTINEL_CONF_EOF
+sentinel auth-pass master "{{ getv "/env/requirepass" "" }}"
+sentinel client-reconfig-script master /opt/app/bin/node/failover.sh
+sentinel down-after-milliseconds master {{ getv "/env/sentinel.down-after-milliseconds" "4000" }}
+sentinel failover-timeout master {{ getv "/env/sentinel.failover-timeout" "60000" }}
+sentinel parallel-syncs master {{ getv "/env/parallel-syncs" "4" }}
+$(sentinelRenameCommands)
+SENTINEL_CONF_EOF

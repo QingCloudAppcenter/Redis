@@ -1,0 +1,13 @@
+[Unit]
+Description=Redis Sentinel
+After=syslog.target
+
+[Service]
+User=redis
+Group=svc
+WorkingDirectory=/tmp
+ExecStart=/opt/redis/current/redis-sentinel /data/redis/sentinel.conf
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

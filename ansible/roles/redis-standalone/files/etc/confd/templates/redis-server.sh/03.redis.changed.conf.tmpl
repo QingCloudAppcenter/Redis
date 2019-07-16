@@ -1,0 +1,27 @@
+cat > /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EOF
+activerehashing {{ getv "/env/activerehashing" "yes" }}
+appendfsync {{ getv "/env/appendfsync" "everysec" }}
+appendonly {{ getv "/env/appendonly" "yes" }}
+hash-max-ziplist-entries {{ getv "/env/hash-max-ziplist-entries" "512" }}
+hash-max-ziplist-value {{ getv "/env/hash-max-ziplist-value" "64" }}
+latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
+lua-time-limit {{ getv "/env/lua-time-limit" "5000" }}
+maxclients {{ getv "/env/maxclients" "65000" }}
+maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/maxmemory_portion" "80") }}
+maxmemory-policy {{ getv "/env/maxmemory-policy" "volatile-lru" }}
+maxmemory-samples {{ getv "/env/maxmemory-samples" "3" }}
+min-slaves-max-lag {{ getv "/env/min-slaves-max-lag" "10" }}
+min-slaves-to-write {{ getv "/env/min-slaves-to-write" "0" }}
+no-appendfsync-on-rewrite {{ getv "/env/no-appendfsync-on-rewrite" "yes" }}
+notify-keyspace-events "{{ getv "/env/notify-keyspace-events" "" }}"
+repl-backlog-size {{ getv "/env/repl-backlog-size" "1048576" }}
+repl-backlog-ttl {{ getv "/env/repl-backlog-ttl" "3600" }}
+repl-timeout {{ getv "/env/repl-timeout" "60" }}
+set-max-intset-entries {{ getv "/env/set-max-intset-entries" "512" }}
+slowlog-log-slower-than {{ getv "/env/slowlog-log-slower-than" "-1" }}
+slowlog-max-len {{ getv "/env/slowlog-max-len" "128" }}
+tcp-keepalive {{ getv "/env/tcp-keepalive" "0" }}
+timeout {{ getv "/env/timeout" "0" }}
+zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
+zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
+REDIS_CHANGED_CONF_EOF

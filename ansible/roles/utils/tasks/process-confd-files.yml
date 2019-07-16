@@ -1,0 +1,37 @@
+---
+- name: compile
+  shell: |
+    compileTmpls() {
+      local commonFiles="$(ls roles/utils/files/etc/confd/templates/*)"
+      local srcFiles="$commonFiles ${@:2}" destFile=$1
+      for tmpl in $srcFiles; do
+        (cat $tmpl; echo) >> $destFile
+      done
+    }
+
+    set -euo pipefail
+
+    srcRootDir="roles/{{ role_name }}/files/etc/confd/templates"
+    [ -d "$srcRootDir" ]
+    destDir=roles/{{ role_name }}/files/tmp/confd/templates
+    mkdir -p $destDir && rm -rf $destDir/*
+    for srcDir in $(ls -d $srcRootDir/*); do
+      compileTmpls $destDir/$(basename $srcDir).tmpl $(ls $srcDir/*)
+    done
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+
+- name: install
+  copy:
+    src: "{{ path.src }}/"
+    dest: /etc/confd/{{ path.dest }}/
+    owner: root
+    group: root
+  loop:
+  - src: etc/confd/conf.d
+    dest: conf.d
+  - src: tmp/confd/templates
+    dest: templates
+  loop_control:
+    loop_var: path

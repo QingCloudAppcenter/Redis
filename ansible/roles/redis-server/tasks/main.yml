@@ -1,0 +1,110 @@
+---
+- name: set vars
+  set_fact:
+    redis_version: 5.0.5
+
+- name: add the service group
+  group:
+    name: svc
+    state: present
+
+- name: add the service user
+  user:
+    name: redis
+    groups: svc
+    shell: /sbin/nologin
+    create_home: no
+    home: /data/redis
+    append: yes
+    comment: "Service User"
+    state: present
+
+- name: create directories
+  file:
+    path: /opt/redis/{{ redis_version }}
+    state: directory
+
+- name: link binary dir
+  file:
+    src: "{{ redis_version }}"
+    dest: /opt/redis/current
+    state: link
+
+- name: download src
+  get_url:
+    url: http://download.redis.io/releases/redis-{{ redis_version }}.tar.gz
+    dest: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}.tgz
+  delegate_to: localhost
+
+- name: extract src
+  unarchive:
+    src: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}.tgz
+    dest: "{{ playbook_dir}}/roles/{{ role_name }}/files/tmp/"
+  delegate_to: localhost
+
+- name: make binaries
+  make:
+    chdir: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}
+  delegate_to: localhost
+
+- name: install binaries
+  copy:
+    src: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}/src/{{ file_name }}
+    dest: /opt/redis/current/
+    mode: preserve
+  loop:
+  - redis-server
+  - redis-sentinel
+  - redis-cli
+  - redis-benchmark
+  - redis-check-aof
+  - redis-check-rdb
+  loop_control:
+    loop_var: file_name
+
+- name: install services
+  copy:
+    src: roles/{{ role_name }}/files/lib/systemd/system/
+    dest: /lib/systemd/system/
+
+- name: mask services
+  systemd:
+    name: "{{ service_name }}"
+    enabled: no
+    masked: yes
+    state: stopped
+  loop:
+  - redis-server
+  - redis-sentinel
+  loop_control:
+    loop_var: service_name
+
+- name: add commands to PATH
+  copy:
+    dest: /etc/profile.d/redis-path.sh
+    content: 'PATH=$PATH:/opt/redis/current'
+
+- name: add sysctl
+  copy:
+    src: files/etc/sysctl.d/
+    dest: /etc/sysctl.d/
+    mode: preserve
+
+- name: disable huge page
+  lineinfile:
+    path: /etc/rc.local
+    insertbefore: '^exit 0'
+    line: echo never > /sys/kernel/mm/transparent_hugepage/enabled
+
+- name: copy logging config files
+  copy:
+    src: files/{{ path }}/
+    dest: /{{ path }}
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - etc/logrotate.d
+    - etc/rsyslog.d
+  loop_control:
+    loop_var: path

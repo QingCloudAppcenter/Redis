@@ -1,0 +1,14 @@
+[Unit]
+Description=Redis
+After=syslog.target
+
+[Service]
+Type=notify
+User=redis
+Group=svc
+WorkingDirectory=/data/redis
+ExecStart=/opt/redis/current/redis-server /data/redis/redis.conf
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+---
+- name: copy logging config files
+  copy:
+    src: files/{{ path }}/
+    dest: /{{ path }}
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - etc/logrotate.d
+    - etc/rsyslog.d
+  loop_control:
+    loop_var: path
+
+- name: create svc group
+  group:
+    name: svc
+    state: present
+
+- name: copy app files
+  copy:
+    src: files/opt/app/
+    dest: /opt/app
+    owner: root
+    group: svc
+    mode: preserve
+    directory_mode: u=rwx,g=rx,o=
+
+- name: create symbolic link
+  file:
+    src: /opt/app/bin/ctl.sh
+    dest: /usr/bin/appctl
+    state: link
+
+- name: install confd files
+  include_tasks: ../../utils/tasks/process-confd-files.yml
+
