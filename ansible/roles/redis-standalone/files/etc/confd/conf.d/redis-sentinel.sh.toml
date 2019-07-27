@@ -1,8 +1,0 @@
-[template]
-src = "redis-sentinel.sh.tmpl"
-dest = "/opt/app/bin/tmpl/redis-sentinel.sh"
-mode = "0700"
-keys = [
-  "/",
-]
-reload_cmd = "/opt/app/bin/tmpl/redis-sentinel.sh; appctl update redis-sentinel"

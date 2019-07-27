@@ -9,5 +9,11 @@ WorkingDirectory=/tmp
 ExecStart=/opt/redis/current/redis-sentinel /data/redis/sentinel.conf
 Restart=always
 
+LimitNOFILE=65536
+
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+NoNewPrivileges=true
+
 [Install]
 WantedBy=multi-user.target

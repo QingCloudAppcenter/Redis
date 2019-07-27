@@ -35,3 +35,8 @@
 - name: install confd files
   include_tasks: ../../utils/tasks/process-confd-files.yml
 
+- name: set up dev env
+  copy:
+    dest: /opt/app/bin/envs/appdev.env
+    content: APPCTL_ENV=dev
+  when: target_env == 'dev'

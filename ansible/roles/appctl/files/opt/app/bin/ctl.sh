@@ -18,7 +18,12 @@ command=$1
 args="${@:2}"
 
 log() {
-  logger -t appctl --id=$$ [cmd=$command] "$@"
+  if [ "$1" == "--debug" ]; then
+    [ "$APPCTL_ENV" == "dev" ] || return 0
+    shift
+  fi
+
+  logger -t appctl --id=$$ "[cmd=$command args='$args'] $@"
 }
 
 retry() {
@@ -42,8 +47,18 @@ retry() {
   log "'$cmd' still returned errors after $tried attempts. Stopping ..." && return $retCode
 }
 
+rotate() {
+  local maxFilesCount=5
+  for path in $@; do
+    for i in $(seq 1 $maxFilesCount | tac); do
+      if [ -f "${path}.$i" ]; then mv ${path}.$i ${path}.$(($i+1)); fi
+    done
+    if [ -f "$path" ]; then cp $path ${path}.1; fi
+  done
+}
+
 execute() {
-  local cmd=$1
+  local cmd=$1; log --debug "Executing command ..."
   [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
   $cmd ${@:2}
 }
@@ -89,7 +104,7 @@ checkEndpoint() {
 
 isInitialized() {
   local svcs="$(getServices -a)"
-  [ "$(systemctl is-enabled ${svcs%%/*})" = "disabled" ]
+  [ "$(systemctl is-enabled ${svcs%%/*})" == "disabled" ]
 }
 
 initSvc() {
@@ -125,12 +140,8 @@ restartSvc() {
 ### app management
 
 _init() {
-  mkdir -p /data/appctl/logs
-  chown -R syslog.adm /data/appctl/logs
-  systemctl restart rsyslog
-
   rm -rf /data/lost+found
-
+  install -d -o syslog -g svc /data/appctl/logs
   local svc; for svc in $(getServices -a); do initSvc $svc; done
 }
 
@@ -139,7 +150,7 @@ _revive() {
     if [ "$1" == "--check-only" ]; then
       checkSvc $svc
     else
-      checkSvc $svc || restartSvc $svc
+      checkSvc $svc || restartSvc $svc || log "ERROR: failed to restart '$svc' ($?)."
     fi
   done
 }
@@ -158,6 +169,7 @@ _start() {
 }
 
 _stop() {
+  log "Stopping all services ..."
   local svc; for svc in $(getServices -a | xargs -n1 | tac); do stopSvc $svc; done
 }
 
@@ -167,11 +179,8 @@ _restart() {
 
 _update() {
   if ! isInitialized; then return 0; fi # only update after initialized
-
   local svcs="${@:-$(getServices -a)}"
-
   local svc; for svc in $(echo $svcs | xargs -n1 | tac); do stopSvc $svc; done
-
   local svc; for svc in $svcs; do
     if isSvcEnabled $svc; then startSvc $svc; fi
   done

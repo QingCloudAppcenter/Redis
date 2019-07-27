@@ -1,0 +1,16 @@
+---
+- name: jq vars
+  set_fact:
+    jq_version: "1.6"
+
+- name: download jq
+  get_url:
+    url: https://github.com/stedolan/jq/releases/download/jq-{{ jq_version }}/jq-linux64
+    dest: roles/{{ role_name }}/files/tmp/jq-{{ jq_version }}
+  delegate_to: localhost
+
+- name: install jq
+  copy:
+    src: roles/{{ role_name }}/files/tmp/jq-{{ jq_version }}
+    dest: /usr/bin/jq
+    mode: 0755

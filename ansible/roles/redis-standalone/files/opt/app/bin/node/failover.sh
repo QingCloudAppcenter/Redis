@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-appctl failover $@
+set -eo pipefail
+
+appctl setUpVip

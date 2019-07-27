@@ -10,5 +10,7 @@ WorkingDirectory=/data/redis
 ExecStart=/opt/redis/current/redis-server /data/redis/redis.conf
 Restart=always
 
+LimitNOFILE=infinity
+
 [Install]
 WantedBy=multi-user.target

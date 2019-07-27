@@ -1,8 +1,0 @@
-cat > /opt/app/conf/caddy/Caddyfile << CADDYFILE_EOF
-{{ getv "/host/ip" }}:80 {
-  root /data
-  gzip
-  browse /redis/logs
-  tls off
-}
-CADDYFILE_EOF
