@@ -13,7 +13,7 @@
   "memory_label": "内存",
   "memory_description": "每个节点的内存大小(单位 MB)",
   "volume_size_label": "磁盘大小",
-  "volume_size_description": "节点磁盘的大小，至少为节点内存的2倍",
+  "volume_size_description": "节点磁盘的大小，建议最少设置为节点内存的三倍",
   "instance_class_label": "主机类型",
   "instance_class_description": "节点主机的类型",
   "count_label": "节点个数",
@@ -119,5 +119,12 @@
   "password of admin web console": "用来访问管理员网页控制台的密码，默认为空表示不需要密码，可以直接访问",
   "err_code212": "为了避免数据丢失，请选择从节点进行删除，主从关系可以通过监控项获取",
   "err_code213": "刚才可能发生了主从切换，导致要删除的节点中包含主节点；为了避免数据丢失，请稍后选择从节点进行删除",
-  "err_code1": "内部错误"
+  "err_code1": "内部错误",
+  "disabled-commands_label": "禁用 FLUSH 命令",
+  "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
+  "flush_cmd": "清空数据",
+  "database": "数据库",
+  "command": "命令",
+  "The common for master node": "清空主节点数据的命令",
+  "The database for master node": "待清空的数据库"
 }

@@ -1,6 +1,6 @@
 init() {
   install -d -o redis -g svc /data/redis; install -d -o syslog -g svc /data/redis/logs
-  local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
+  local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -sn /opt/app/conf/caddy/index.html $htmlFile
   _init
 }
 
@@ -91,8 +91,11 @@ restore() {
 runtimeSentinelFile=/data/redis/sentinel.conf
 findMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
-  isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-    && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+  isSvcEnabled redis-sentinel && checkActive redis-sentinel && \
+  for nodeInfo in $REDIS_NODES:
+  do  
+    runRedisCmd --assign ${nodeInfo##*/} -p 26379 sentinel get-master-addr-by-name master && break
+  done \
     || echo -n ${firstRedisNode##*/}
 }
 
@@ -102,6 +105,7 @@ findMasterNodeId() {
 
 runRedisCmd() {
   local redisIp=$MY_IP; if [ "$1" == "--vip" ]; then redisIp=$REDIS_VIP && shift; fi
+  if [ "$1" == "--assign" ]; then redisIp=$2 && shift 2; fi
   timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a '$REDIS_PASSWORD' $@
 }
 
@@ -190,4 +194,10 @@ configure() {
   fi
 
   setUpVip $masterIp
+}
+
+flushData(){
+  local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
+  local result=$(echo "$ALLOWED_COMMANDS" |grep $flushCmd)
+  runRedisCmd --vip -n $db $([[ "$result" != "" ]] && echo $flushCmd || encodeCmd $flushCmd)
 }

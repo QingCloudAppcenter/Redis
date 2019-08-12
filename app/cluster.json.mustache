@@ -16,11 +16,11 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-7npua0s8"
+      "image": "img-s8fddhmz"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
-    "cpu": 2,
+    "cpu": 1,
     "memory": {{cluster.node.memory}},
     "volume": {
       "size": {{cluster.node.volume_size}}
@@ -48,10 +48,20 @@
       },
       "destroy": {
         "cmd": "appctl destroy"
-      }
+      },
+      "flush_cmd": {
+        "type": "custom",
+        "nodes_to_execute_on": 1,
+        "cmd": "appctl flushData",
+        "timeout": 86400,
+        "service_params": {
+            "cmd": {{service_params.cmd}},
+            "db": {{service_params.db}}
+                }
     }
-  }],
+    }}],
   "env": {
+    "disabled-commands": {{env.disabled-commands}},
     "activerehashing": {{env.activerehashing}},
     "appendonly": {{env.appendonly}},
     "appendfsync": {{env.appendfsync}},
