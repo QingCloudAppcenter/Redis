@@ -135,7 +135,10 @@
           "key": "disabled-commands",
           "type": "string",
           "changeable": false,
-          "range": ["yes", "no"]
+          "range": [
+            "yes",
+            "no"
+          ]
         },
         {
           "description": "maxmemory_portion_description",
@@ -442,6 +445,18 @@
           "key": "lua-time-limit",
           "type": "integer",
           "min": -1
+        },
+        {
+          "key": "web.console.enabled",
+          "label": "Open web console",
+          "description": "open or not for web console",
+          "type": "string",
+          "default": "no",
+          "required": "no",
+          "range": [
+            "yes",
+            "no"
+          ]
         },
         {
           "key": "web.console.username",

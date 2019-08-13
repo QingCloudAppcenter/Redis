@@ -1,6 +1,6 @@
 init() {
   install -d -o redis -g svc /data/redis; install -d -o syslog -g svc /data/redis/logs
-  local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -sn /opt/app/conf/caddy/index.html $htmlFile
+  local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -sfn /opt/app/conf/caddy/index.html $htmlFile
   _init
 }
 
@@ -164,7 +164,7 @@ reload() {
 }
 
 checkFileChanged() {
-  ! ([ -f "$1.1" ] && cmp -s $1 $1.1)
+  ! ([ -f "$1.1" ] && if [ $(ls -s $1.1 |awk '{print $1}') != 0 ];then cmp -s $1 $1.1;fi)
 }
 
 configure() {
