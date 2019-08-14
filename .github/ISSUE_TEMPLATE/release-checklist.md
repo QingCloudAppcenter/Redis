@@ -21,6 +21,12 @@ assignees: ''
 ## Tech debt
 - [ ] Tech debt
 
+# 通用
+- [ ] 关闭 SSH 服务
+- [ ] 清除 .bash_history（包括 ubuntu 和 root 用户）
+- [ ] 安装 arping 防止同网段虚机和 IP 地址频繁重建引起的问题（apt install iputils-arping）
+- [ ] TCP keepalive timeout（基础网络）
+
 # 服务功能测试
 
 - [ ] 写入数据，自定义客户端正常读取
@@ -89,9 +95,6 @@ assignees: ''
 
 # 上线
 
-- [ ] 关闭 SSH 服务
-- [ ] 清除 .bash_history（包括 ubuntu 和 root 用户）
-- [ ] 安装 arping 防止同网段虚机和 IP 地址频繁重建引起的问题（apt install iputils-arping）
 - [ ] 老区（广东 1 区、亚太 1 区）有可部署的版本
 - [ ] 所有区可以正常部署
 - [ ] 服务价格改为 0
