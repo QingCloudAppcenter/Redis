@@ -189,6 +189,6 @@ _update() {
 applyEnvFiles
 applyRoleScripts
 
-set -xeo pipefail
+set -eo pipefail
 
 execute $command $args

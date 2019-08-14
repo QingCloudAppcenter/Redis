@@ -3,9 +3,11 @@ renameCommands() {
     BGREWRITEAOF
     BGSAVE
     CONFIG
-    DEBUG{{ if (eq (getv "/env/disabled-commands") "yes") }}
+    DEBUG
+    {{- if (eq (getv "/env/disabled-commands") "yes") }}
     FLUSHALL
-    FLUSHDB{{ end }}
+    FLUSHDB
+    {{- end }}
     KEYS
     REPLICAOF
     SAVE

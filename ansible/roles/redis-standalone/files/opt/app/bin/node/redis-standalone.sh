@@ -92,9 +92,8 @@ runtimeSentinelFile=/data/redis/sentinel.conf
 findMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
   isSvcEnabled redis-sentinel && checkActive redis-sentinel && \
-  for nodeInfo in $REDIS_NODES:
-  do  
-    runRedisCmd --assign ${nodeInfo##*/} -p 26379 sentinel get-master-addr-by-name master && break
+  local nodeInfo;for nodeInfo in $REDIS_NODES;do  
+    runRedisCmd --ip ${nodeInfo##*/} -p 26379 sentinel get-master-addr-by-name master |sed -n 1p && break
   done \
     || echo -n ${firstRedisNode##*/}
 }
@@ -104,13 +103,12 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP; if [ "$1" == "--vip" ]; then redisIp=$REDIS_VIP && shift; fi
-  if [ "$1" == "--assign" ]; then redisIp=$2 && shift 2; fi
+  local redisIp=$MY_IP; if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
   timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a '$REDIS_PASSWORD' $@
 }
 
 checkVip() {
-  local vipResponse; vipResponse="$(runRedisCmd --vip ROLE | sed -n '1{p;q}')"
+  local vipResponse; vipResponse="$(runRedisCmd --ip $REDIS_VIP ROLE | sed -n '1{p;q}')"
   [ "$vipResponse" == "master" ]
 }
 
@@ -189,6 +187,9 @@ configure() {
     sed -i '/^sentinel rename-(slaveof|config)/d' $runtimeSentinelFile
     awk '$0~/^[^ #$]/ ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
       $monitorFile $changedSentinelFile $runtimeSentinelFile.1 > $runtimeSentinelFile
+    local runtimePwdContent=$(sed -n '/^sentinel auth-pass master/p' $runtimeSentinelFile) changedPwdContent=$(sed -n '/^sentinel auth-pass master/p' $changedSentinelFile)
+    [[ $runtimePwdContent == $changedPwdContent ]] \
+      || sed -i "s/$runtimePwdContent/$changedPwdContent/g" $runtimeSentinelFile
   else
     rm -f $runtimeSentinelFile*
   fi
@@ -199,5 +200,5 @@ configure() {
 flushData(){
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
   local result=$(echo "$ALLOWED_COMMANDS" |grep $flushCmd)
-  runRedisCmd --vip -n $db $([[ "$result" != "" ]] && echo $flushCmd || encodeCmd $flushCmd)
+  runRedisCmd --ip $REDIS_VIP -n $db $([[ "$result" != "" ]] && echo $flushCmd || encodeCmd $flushCmd)
 }

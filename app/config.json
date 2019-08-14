@@ -269,7 +269,8 @@
           "required": "no",
           "label": "requirepass_label",
           "key": "requirepass",
-          "type": "password"
+          "type": "password",
+          "pattern": "^[^\x20\x22\x27]*$"
         },
         {
           "description": "maxmemory-policy_description",
@@ -450,12 +451,12 @@
           "key": "web.console.enabled",
           "label": "Open web console",
           "description": "open or not for web console",
-          "type": "string",
-          "default": "no",
+          "type": "boolean",
+          "default": false,
           "required": "no",
           "range": [
-            "yes",
-            "no"
+            true,
+            false
           ]
         },
         {
