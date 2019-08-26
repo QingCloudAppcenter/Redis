@@ -164,7 +164,6 @@ _start() {
     execute init
     systemctl restart rsyslog # output to log files under /data
   }
-
   local svc; for svc in $(getServices); do startSvc $svc; done
 }
 

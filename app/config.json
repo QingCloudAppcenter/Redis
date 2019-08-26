@@ -270,7 +270,7 @@
           "label": "requirepass_label",
           "key": "requirepass",
           "type": "password",
-          "pattern": "^[^\\x20\\x22\\x27]*$"
+          "pattern": "^[A-Za-z0-9-_!@#$%^&*()]{0,20}$"
         },
         {
           "description": "maxmemory-policy_description",
