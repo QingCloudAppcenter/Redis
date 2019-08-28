@@ -6,8 +6,7 @@ init() {
 
 start() {
   isInitialized || execute init
-  configure && \
-  _start
+  configure && _start
 }
 
 stop() {
@@ -22,8 +21,6 @@ stop() {
 }
 
 revive() {
-  # 修改配置文件，防止重启后出现短时间双主及双vip
-  configure && 
   _revive $@
   checkVip || setUpVip
 }
@@ -93,7 +90,7 @@ restore() {
 runtimeSentinelFile=/data/redis/sentinel.conf
 findMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
-  isSvcEnabled redis-sentinel && 
+  isSvcEnabled redis-sentinel && \
   # 防止 revive 时从本地文件获取，导致双主以及vip 解绑
   if [[ $command == revive ]];then
     local nodeInfo;for nodeInfo in $REDIS_NODES;do
@@ -173,31 +170,53 @@ checkFileChanged() {
   ! ([ -f "$1.1" ] && cmp -s $1 $1.1)
 }
 
-configure() {
-  local runtimeConfigFile=/data/redis/redis.conf slaveofFile=$rootConfDir/redis.slaveof.conf \
-        defaultConfigFile=$rootConfDir/redis.default.conf monitorFile=$rootConfDir/sentinel.monitor.conf
-  sudo -u redis touch $runtimeConfigFile $runtimeSentinelFile $nodesFile && rotate $runtimeConfigFile $runtimeSentinelFile $nodesFile
+configureForRedis() {
+  local runtimeConfigFile=/data/redis/redis.conf defaultConfigFile=$rootConfDir/redis.default.conf \
+        slaveofFile=$rootConfDir/redis.slaveof.conf
+  sudo -u redis touch $runtimeConfigFile && rotate $runtimeConfigFile
+  local masterIp; masterIp="$(findMasterIp)" 
+  log --debug "masterIp is $masterIp"
+  # flush every time even no master IP switches, but port is changed or in case double-master in revive
+  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
+
+  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
+    $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+}
+
+configureForChangeVxnet() {
+  local runtimeConfigFile=/data/redis/redis.conf 
+  sudo -u redis touch $nodesFile && rotate $nodesFile
   echo $REDIS_NODES | xargs -n1 > $nodesFile
+
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
     local replaceCmd="$(join -j1 -t/ -o1.3,2.3 $nodesFile.1 $nodesFile | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
     sed -i "$replaceCmd" $runtimeConfigFile $runtimeSentinelFile
   fi
-  local masterIp; masterIp="$(findMasterIp)"
+}
 
+configureForSentinel() {
+  local monitorFile=$rootConfDir/sentinel.monitor.conf
+  sudo -u redis touch $runtimeSentinelFile && rotate $runtimeSentinelFile
+  local masterIp; masterIp="$(findMasterIp)"
+  log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
-  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "SLAVEOF $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
   echo "sentinel monitor master $masterIp $REDIS_PORT 2" > $monitorFile
 
-  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
   if isSvcEnabled redis-sentinel; then
     awk '$0~/^[^ #$]/ ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
       $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass master|rename-slaveof|rename-config|known-replica)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
   else
     rm -f $runtimeSentinelFile*
   fi
+}
 
+
+configure() {
+  configureForChangeVxnet
+  configureForSentinel
+  configureForRedis  
+  local masterIp; masterIp="$(findMasterIp)"
   setUpVip $masterIp
 }
 
