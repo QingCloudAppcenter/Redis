@@ -3,6 +3,7 @@ Description=Redis Server
 After=network.target
 
 [Service]
+Type=notify
 User=redis
 Group=svc
 WorkingDirectory=/data/redis
