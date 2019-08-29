@@ -17,12 +17,11 @@ sentinelRenameCommands() {
 
 flush /opt/app/conf/redis-standalone/sentinel.changed.conf << SENTINEL_CONF_EOF
 bind 0.0.0.0
+daemonize yes
+dir /tmp
+logfile /data/redis/logs/redis-sentinel.log
 port 26379
 protected-mode no
-daemonize no
-dir /tmp
-syslog-enabled yes
-syslog-ident redis-sentinel
 
 
 {{- if (ne (getv "/env/requirepass") "") }}
