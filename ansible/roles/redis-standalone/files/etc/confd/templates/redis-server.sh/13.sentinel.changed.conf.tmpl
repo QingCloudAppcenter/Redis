@@ -18,6 +18,7 @@ sentinelRenameCommands() {
 flush /opt/app/conf/redis-standalone/sentinel.changed.conf << SENTINEL_CONF_EOF
 bind 0.0.0.0
 daemonize yes
+supervised systemd
 dir /tmp
 logfile /data/redis/logs/redis-sentinel.log
 port 26379
