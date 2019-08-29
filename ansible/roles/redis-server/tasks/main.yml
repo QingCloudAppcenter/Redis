@@ -105,6 +105,5 @@
     mode: u=rw,go=r
   loop:
     - etc/logrotate.d
-    - etc/rsyslog.d
   loop_control:
     loop_var: path

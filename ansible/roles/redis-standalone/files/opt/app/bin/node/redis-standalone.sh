@@ -8,9 +8,7 @@ init() {
 # in case permission denied after upgrade
 initForUpgrade() {
   local redisDir="/data/redis/" 
-  local logsDir="${redisDir}logs/"
-  local path destPath; for path in $(ls $redisDir);do destPath="$redisDir$path"; [[ -f $destPath ]] && chown redis:svc $destPath; done
-  local path destPath; for path in $(ls $logsDir);do destPath="$logsDir$path"; [[ -f $destPath ]] && chown syslog:syslog $destPath; done
+  chown -R redis.svc $redisDir
 }
 
 start() {
@@ -190,8 +188,7 @@ configureForRedis() {
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
   [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
 
-  # $1=="logfile" {$2=""} 处理升级问题
-  awk '$1=="logfile" {$2="\"\""};$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
+  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
     $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
 }
 
@@ -218,8 +215,8 @@ configureForSentinel() {
   echo "sentinel monitor master $masterIp $REDIS_PORT 2" > $monitorFile
 
   if isSvcEnabled redis-sentinel; then
-    # 防止莫名的单个$0 出现, $1=="logfile" {$2=""} 处理升级问题
-    awk '$1=="logfile" {$2="\"\""}; NF==1 {$0=""};$0~/^[^ #$]/ ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
+    # 防止莫名的单个$0 出现
+    awk 'NF==1 {$0=""};$0~/^[^ #$]/ ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
       $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass master|rename-slaveof|rename-config|known-replica|known-slave)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
   else
     rm -f $runtimeSentinelFile*
