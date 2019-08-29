@@ -126,9 +126,7 @@ checkSvc() {
 }
 
 startSvc() {
-  local svc=${1%%/*}
-  [[ "$svc" == "redis-server" ]] && configureForRedis
-  systemctl start $svc
+  systemctl start ${1%%/*}
 }
 
 stopSvc() {
