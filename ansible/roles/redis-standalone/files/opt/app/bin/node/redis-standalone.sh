@@ -1,5 +1,5 @@
 init() {
-  install -d -o redis -g svc /data/redis; install -d -o syslog -g svc /data/redis/logs
+  install -d -o redis -g svc /data/redis /data/redis/logs
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _init
 }

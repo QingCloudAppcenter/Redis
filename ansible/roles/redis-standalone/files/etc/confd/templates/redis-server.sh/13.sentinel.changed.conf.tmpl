@@ -20,8 +20,7 @@ bind 0.0.0.0
 port 26379
 protected-mode no
 dir /tmp
-syslog-enabled yes
-syslog-ident redis-sentinel
+logfile /data/redis/logs/redis-sentinel.log
 
 sentinel auth-pass master "{{ getv "/env/requirepass" "" }}"
 sentinel client-reconfig-script master /opt/app/bin/node/failover.sh

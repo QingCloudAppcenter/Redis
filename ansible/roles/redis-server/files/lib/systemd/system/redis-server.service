@@ -1,9 +1,8 @@
 [Unit]
-Description=Redis
-After=syslog.target
+Description=Redis Server
+After=network.target
 
 [Service]
-Type=notify
 User=redis
 Group=svc
 WorkingDirectory=/data/redis
@@ -11,6 +10,10 @@ ExecStart=/opt/redis/current/redis-server /data/redis/redis.conf
 Restart=always
 
 LimitNOFILE=infinity
+
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
