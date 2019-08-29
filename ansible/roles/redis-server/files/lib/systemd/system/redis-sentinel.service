@@ -3,6 +3,7 @@ Description=Redis Sentinel
 After=network.target
 
 [Service]
+Type=notify
 User=redis
 Group=svc
 WorkingDirectory=/tmp
