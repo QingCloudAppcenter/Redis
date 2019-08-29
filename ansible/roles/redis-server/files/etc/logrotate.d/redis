@@ -3,6 +3,6 @@
   maxsize 1M
   rotate 20
   missingok
-  create 0644 syslog svc
+  create 0644 redis svc
   notifempty
 }
