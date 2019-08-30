@@ -16,7 +16,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-sidmcfpv"
+      "image": "img-t0995q19"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -49,10 +49,10 @@
       "destroy": {
         "cmd": "appctl destroy"
       },
-      "flush_cmd": {
+      "run_command": {
         "type": "custom",
         "nodes_to_execute_on": 1,
-        "cmd": "appctl flushData",
+        "cmd": "appctl runCommand",
         "timeout": 86400,
         "service_params": {
           "cmd": {{service_params.cmd}},

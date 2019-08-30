@@ -11,6 +11,7 @@
     - caddy
     - jq
     - redis-server
+    - del-patch
     loop_control:
       loop_var: name
 

@@ -122,11 +122,11 @@
   "err_code1": "内部错误",
   "disabled-commands_label": "禁用 FLUSH 命令",
   "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
-  "flush_cmd": "清空数据",
+  "run_command": "清空数据",
   "database": "数据库",
   "command": "命令",
-  "The common for master node": "清空主节点数据的命令",
-  "The database for master node": "待清空的数据库",
+  "The common for master node": "对主节点执行的命令",
+  "The database for master node": "待清空的数据库，执行 FLUSHDB 时生效",
   "Enable web console": "开启 WebConsole",
   "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭"
 }

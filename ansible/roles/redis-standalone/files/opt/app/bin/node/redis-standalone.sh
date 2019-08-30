@@ -1,14 +1,7 @@
 init() {
-  install -d -o redis -g svc /data/redis /data/redis/logs
+  mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
-  initForUpgrade
   _init
-}
-
-# in case permission denied after upgrade
-initForUpgrade() {
-  local redisDir="/data/redis/" 
-  chown -R redis.svc $redisDir
 }
 
 start() {
@@ -81,7 +74,8 @@ preScaleIn() {
 }
 
 destroy() {
-  preScaleIn && execute stop
+  preScaleIn
+  execute stop
   checkVip || ( execute start && return 213 )
 }
 
@@ -232,7 +226,7 @@ configure() {
   setUpVip $masterIp
 }
 
-flushData(){
+runCommand(){
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
   local cmd=$(echo -e $ALLOWED_COMMANDS | grep -o $flushCmd || encodeCmd $flushCmd)
   runRedisCmd --ip $REDIS_VIP -n $db $cmd

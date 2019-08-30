@@ -75,7 +75,9 @@ flush /opt/app/conf/caddy/index.html << HTML_EOF
         {{- range $redisNodes }}
         {{- if eq . (getv "/host/ip") }}
         <li><span>⊟</span>{{ . }}</li>
-        <li><span class="sub-1">⊞</span><a href="./redis/logs/">redis</a></li>
+        <li><span class="sub-1">⊞</span><a href="./redis/logs/">redis 日志目录</a></li>
+        <li><span class="sub-1">⊞</span><a href="./redis/dump.rdb">redis RDB 文件，点击可直接下载（需在下载前执行 BGSAVE 或者 SAVE，保证该文件存在且最新）</a></li>
+        <li><span class="sub-1">⊞</span><a href="./redis/appendonly.aof">redis AOF 文件，点击可直接下载</a></li>
         {{- else }}
         <li><span>⊞</span><a href="//{{ . }}/">{{ . }}</a></li>
         {{- end }}

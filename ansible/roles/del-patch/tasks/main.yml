@@ -1,0 +1,11 @@
+---
+- name: copy grub file
+  copy:
+    src: roles/{{ role_name }}/files/{{grub_file}}
+    dest: /{{grub_file}}
+  loop:
+    - etc/default/grub
+  loop_control:
+    loop_var: grub_file
+- name: update grub
+  shell: update-grub
