@@ -67,16 +67,22 @@ measure() {
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics" && return $rc )
 }
 
-preScaleIn() {
-  [ -n "$LEAVING_REDIS_NODES" ] || return 210
+checkMasterNotLeaving() {
   local master; master="$(findMasterIp)" || return 211
   if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return 212; fi
 }
 
+preScaleIn() {
+  [ -n "$LEAVING_REDIS_NODES" ] || return 210
+  checkMasterNotLeaving
+}
+
 destroy() {
-  preScaleIn
-  execute stop
-  checkVip || ( execute start && return 213 )
+  if [[ -n "$LEAVING_REDIS_NODES" ]]; then
+    checkMasterNotLeaving
+    execute stop
+    checkVip || ( execute start && return 213 )
+  fi
 }
 
 scaleIn() {

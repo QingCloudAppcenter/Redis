@@ -115,8 +115,8 @@
   "hit_rate_min": "命中率最小值",
   "hit_rate_max": "命中率最大值",
   "Times": "次",
-  "username of admin web console": "用来访问管理员网页控制台的用户名，可以包含小写字母、数字、半角句点（.）和短横线（-)",
-  "password of admin web console": "用来访问管理员网页控制台的密码，默认为空表示不需要密码，可以直接访问",
+  "username of admin web console": "用来访问管理员网页控制台的用户名，可以包含小写字母、数字、半角句点（.）和短横线（-)，不会重启 redis",
+  "password of admin web console": "用来访问管理员网页控制台的密码，默认为空表示不需要密码，可以直接访问，不会重启 redis",
   "err_code212": "为了避免数据丢失，请选择从节点进行删除，主从关系可以通过监控项获取",
   "err_code213": "刚才可能发生了主从切换，导致要删除的节点中包含主节点；为了避免数据丢失，请稍后选择从节点进行删除",
   "err_code1": "内部错误",
@@ -128,5 +128,5 @@
   "The common for master node": "对主节点执行的命令",
   "The database for master node": "待清空的数据库，执行 FLUSHDB 时生效",
   "Enable web console": "开启 WebConsole",
-  "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭"
+  "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭，不会重启 redis"
 }
