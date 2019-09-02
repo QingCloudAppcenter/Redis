@@ -41,10 +41,25 @@
               "label": "instance_class_label",
               "description": "instance_class_description",
               "type": "integer",
-              "default": 0,
+              "default": 1,
               "range": [
                 0,
-                1
+                1,
+                101,
+                201,
+                301
+              ],
+              "required": "yes"
+            },
+            {
+              "key": "cpu",
+              "label": "cpu_label",
+              "description": "cpu_description",
+              "type": "integer",
+              "default": 1,
+              "range": [
+                1,
+                2
               ],
               "required": "yes"
             },
