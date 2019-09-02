@@ -96,21 +96,38 @@ restore() {
 }
 
 runtimeSentinelFile=/data/redis/sentinel.conf
-findMasterIp() {
+
+initMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
-  isSvcEnabled redis-sentinel && \
-  # 防止 revive 时从本地文件获取，导致双主以及vip 解绑
-  if [[ $command == revive ]];then
-    local nodeInfo;for nodeInfo in $REDIS_NODES;do
-      [[ ${nodeInfo##*/} == $MY_IP ]] && continue
-      runRedisCmd --ip ${nodeInfo##*/} -p 26379 sentinel get-master-addr-by-name master |xargs \
-      |awk '{if ($2 == '$REDIS_PORT') print $1; else exit 1}' && break
-      done
-  else  
-    [ -f "$runtimeSentinelFile" ] \
-      && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile 
-  fi \
-    || echo -n ${firstRedisNode##*/}
+  echo -n ${firstRedisNode##*/}
+}
+
+# 防止 revive 时从本地文件获取，导致双主以及vip 解绑
+checkMasterIpForRevive() {
+  local rc=0
+  if $isSvcEnabled redis-sentinel;then
+    local otherFirstNodeIp=$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}'|awk 'BEGIN{FS="/"} {print $3}')
+    runRedisCmd --ip ${otherFirstNodeIp} -p 26379 sentinel get-master-addr-by-name master |xargs \
+      |awk '{if ($2 == '$REDIS_PORT') print $1; else 'rc'=1 exit 1}' || \
+        log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
+    return $rc
+  else
+    initMasterIp
+  fi
+}
+
+checkMasterIpByConf() {
+  isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
+      && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+        || initMasterIp
+}
+
+findMasterIp() {
+  if [[ "$command" == "revive" ]]then;
+    checkMasterIpForRevive
+  else
+    checkMasterIpByConf
+  fi
 }
 
 findMasterNodeId() {
