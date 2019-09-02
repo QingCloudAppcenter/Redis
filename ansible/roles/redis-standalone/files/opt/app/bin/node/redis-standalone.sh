@@ -97,7 +97,7 @@ restore() {
 
 runtimeSentinelFile=/data/redis/sentinel.conf
 
-initMasterIp() {
+getInitMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
   echo -n ${firstRedisNode##*/}
 }
@@ -112,14 +112,14 @@ checkMasterIpForRevive() {
         log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
     return $rc
   else
-    initMasterIp
+    getInitMasterIp
   fi
 }
 
 checkMasterIpByConf() {
   isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
       && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
-        || initMasterIp
+        || getInitMasterIp
 }
 
 findMasterIp() {
@@ -136,7 +136,7 @@ findMasterNodeId() {
 
 runRedisCmd() {
   local redisIp=$MY_IP; if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" $(echo $@ |grep -q "-p" || echo "-p $REDIS_PORT") $@
+  timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@
 }
 
 checkVip() {
