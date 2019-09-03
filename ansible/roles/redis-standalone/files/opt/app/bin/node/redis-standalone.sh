@@ -233,7 +233,7 @@ configureForSentinel() {
 
   if isSvcEnabled redis-sentinel; then
     # 防止莫名的单个$0 出现
-    awk 'NF==1 {$0=""};$0~/^[^ #$]/ ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
+    awk '(NF>1 && $0~/^[^ #$]/) ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
       $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass master|rename-slaveof|rename-config|known-replica|known-slave)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
   else
     rm -f $runtimeSentinelFile*
