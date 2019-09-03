@@ -1,0 +1,6 @@
+---
+- name: install arping
+  apt:
+    name: [ 'iputils-arping' ]
+    state: present
+    update_cache: yes
