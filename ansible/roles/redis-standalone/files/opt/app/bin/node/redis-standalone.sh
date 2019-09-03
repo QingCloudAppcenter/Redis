@@ -1,11 +1,11 @@
-init() {
+initNode() {
   mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
-  _init
+  _initNode
 }
 
 start() {
-  isInitialized || execute init
+  isNodeInitialized || execute initNode
   configure && _start
 }
 
@@ -135,8 +135,15 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP; if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@
+  local redisIp=$MY_IP timeout=5 result retCode=0
+  if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
+  result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
+  if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
+    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=220
+  else
+    echo "$result"
+  fi
+  return $retCode
 }
 
 checkVip() {
@@ -177,17 +184,21 @@ rootConfDir=/opt/app/conf/redis-standalone
 changedConfigFile=$rootConfDir/redis.changed.conf
 changedSentinelFile=$rootConfDir/sentinel.changed.conf
 reload() {
-  isInitialized || return 0
+  isNodeInitialized || return 0
 
-  if [ -n "${JOINING_REDIS_NODES}" ]; then
-    log --debug "scaling out ..."
-    configure && startSvc redis-sentinel
-  elif [ -n "${LEAVING_REDIS_NODES}" ]; then
-    log --debug "scaling in ..."
-  elif checkFileChanged $changedConfigFile; then
-    execute restart
-  elif checkFileChanged $changedSentinelFile; then
-    _update redis-sentinel
+  if [ "$1" == "redis-server" ]; then
+    if [ -n "${JOINING_REDIS_NODES}" ]; then
+      log --debug "scaling out ..."
+      configure && startSvc redis-sentinel
+    elif [ -n "${LEAVING_REDIS_NODES}" ]; then
+      log --debug "scaling in ..."
+    elif checkFileChanged $changedConfigFile; then
+      execute restart
+    elif checkFileChanged $changedSentinelFile; then
+      _reload redis-sentinel
+    fi
+  else
+    _reload $@
   fi
 }
 
@@ -239,7 +250,6 @@ configureForSentinel() {
     rm -f $runtimeSentinelFile*
   fi
 }
-
 
 configure() {
   configureForChangeVxnet

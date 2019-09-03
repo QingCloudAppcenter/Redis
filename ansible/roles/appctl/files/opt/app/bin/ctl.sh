@@ -23,7 +23,7 @@ log() {
     shift
   fi
 
-  logger -t appctl --id=$$ "[cmd=$command args='$args'] $@"
+  logger -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
 }
 
 retry() {
@@ -64,7 +64,7 @@ execute() {
 }
 
 applyEnvFiles() {
-  for envFile in $(find /opt/app/bin/envs -name "*.env"); do . $envFile; done
+  local envFile; for envFile in $(find /opt/app/bin/envs -name "*.env"); do . $envFile; done
 }
 
 applyRoleScripts() {
@@ -81,7 +81,8 @@ getServices() {
 }
 
 isSvcEnabled() {
-  [ "$(echo $(getServices -a) | xargs -n1 | awk -F/ '$1=="'$1'" {print $2}')" = "true" ]
+  local svc="${1%%/*}"
+  [ "$(echo $(getServices -a) | xargs -n1 | awk -F/ '$1=="'$svc'" {print $2}')" = "true" ]
 }
 
 checkActive() {
@@ -102,7 +103,7 @@ checkEndpoint() {
   fi
 }
 
-isInitialized() {
+isNodeInitialized() {
   local svcs="$(getServices -a)"
   [ "$(systemctl is-enabled ${svcs%%/*})" == "disabled" ]
 }
@@ -139,7 +140,7 @@ restartSvc() {
 
 ### app management
 
-_init() {
+_initNode() {
   rm -rf /data/lost+found
   install -d -o syslog -g svc /data/appctl/logs
   local svc; for svc in $(getServices -a); do initSvc $svc; done
@@ -160,8 +161,8 @@ _check() {
 }
 
 _start() {
-  isInitialized || {
-    execute init
+  isNodeInitialized || {
+    execute initNode
     systemctl restart rsyslog # output to log files under /data
   }
   local svc; for svc in $(getServices); do startSvc $svc; done
@@ -176,8 +177,8 @@ _restart() {
   execute stop && execute start
 }
 
-_update() {
-  if ! isInitialized; then return 0; fi # only update after initialized
+_reload() {
+  if ! isNodeInitialized; then return 0; fi # only reload after initialized
   local svcs="${@:-$(getServices -a)}"
   local svc; for svc in $(echo $svcs | xargs -n1 | tac); do stopSvc $svc; done
   local svc; for svc in $svcs; do

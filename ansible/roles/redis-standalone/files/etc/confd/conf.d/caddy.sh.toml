@@ -5,4 +5,4 @@ mode = "0700"
 keys = [
   "/",
 ]
-reload_cmd = "/opt/app/bin/tmpl/caddy.sh; appctl update caddy"
+reload_cmd = "/opt/app/bin/tmpl/caddy.sh; appctl reload caddy"
