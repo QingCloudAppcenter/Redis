@@ -1,0 +1,43 @@
+buildRunId() {
+  echo -n $1 | sha1sum | cut -d' ' -f1
+}
+
+listNodes() {
+  echo '
+    {{- range ls "/hosts/master" }}
+    {{ getv (printf "/hosts/master/%s/gid" .) }}/master/{{ getv (printf "/hosts/master/%s/instance_id" .) }}/{{ getv (printf "/hosts/master/%s/ip" .) }}
+    {{- end }}
+    {{- range ls "/hosts/master-replica" }}
+    {{ getv (printf "/hosts/master-replica/%s/gid" .) }}/slave/{{ getv (printf "/hosts/master-replica/%s/instance_id" .) }}/{{ getv (printf "/hosts/master-replica/%s/ip" .) }}
+    {{- end }}
+  ' | xargs -n1 | sort -V
+}
+
+generateNodesConf() {
+  local firstShard lastShard mastersCount={{ len (ls "/hosts/master") }}
+  local shardsPerNode=$(( 16383 / $mastersCount ))
+  local node i=0; for node in $(listNodes); do
+    local nodeRole=$(echo $node | awk -F/ '{print $2}')
+    local instanceId=$(echo $node | awk -F/ '{print $3}')
+    local ip=$(echo $node | awk -F/ '{print $4}')
+    local runId=$(buildRunId $instanceId) masterRunId myMaster shardsRange
+    if [ "$nodeRole" == "master" ]; then
+      masterRunId="$runId"
+      myMaster="-"
+      i=$(( $i + 1 ))
+      if [ -z "$firstShard" ]; then firstShard=0; else firstShard=$(( $lastShard + 1 )); fi
+      lastShard=$(( $firstShard + $shardsPerNode - 1 ))
+      if [ "$i" -eq $mastersCount -a "$lastShard" -lt 16383 ]; then lastShard=16383; fi
+      shardsRange="$firstShard-$lastShard"
+    else
+      myMaster="$masterRunId"
+      shardsRange=""
+    fi
+    if [ "$ip" == "{{ getv "/host/ip" }}" ]; then nodeRole="myself,$nodeRole"; fi
+    echo $runId $ip:{{ getv "/env/port" "6379" }}@16379 $nodeRole $myMaster 0 0 0 connected $shardsRange
+  done
+}
+
+flush /opt/app/conf/redis-cluster/nodes.conf << NODES_CONF_EOF
+$(generateNodesConf)
+NODES_CONF_EOF

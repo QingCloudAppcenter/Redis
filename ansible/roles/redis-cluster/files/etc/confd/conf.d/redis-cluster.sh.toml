@@ -1,0 +1,8 @@
+[template]
+src = "redis-cluster.sh.tmpl"
+dest = "/opt/app/bin/tmpl/redis-cluster.sh"
+mode = "0700"
+keys = [
+  "/",
+]
+reload_cmd = "/opt/app/bin/tmpl/redis-cluster.sh; appctl reload redis-server"
