@@ -21,6 +21,7 @@
   args:
     executable: /bin/bash
   delegate_to: localhost
+  run_once: True
 
 - name: install
   copy:

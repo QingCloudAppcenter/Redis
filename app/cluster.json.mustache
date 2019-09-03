@@ -16,11 +16,11 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-7npua0s8"
+      "image": "img-umc2r0ep"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
-    "cpu": 2,
+    "cpu": {{cluster.node.cpu}},
     "memory": {{cluster.node.memory}},
     "volume": {
       "size": {{cluster.node.volume_size}}
@@ -48,10 +48,21 @@
       },
       "destroy": {
         "cmd": "appctl destroy"
+      },
+      "run_command": {
+        "type": "custom",
+        "nodes_to_execute_on": 1,
+        "cmd": "appctl runCommand",
+        "timeout": 86400,
+        "service_params": {
+          "cmd": {{service_params.cmd}},
+          "db": {{service_params.db}}
+        }
       }
     }
   }],
   "env": {
+    "disabled-commands": {{env.disabled-commands}},
     "activerehashing": {{env.activerehashing}},
     "appendonly": {{env.appendonly}},
     "appendfsync": {{env.appendfsync}},
@@ -82,6 +93,7 @@
     "timeout": {{env.timeout}},
     "zset-max-ziplist-entries": {{env.zset-max-ziplist-entries}},
     "zset-max-ziplist-value": {{env.zset-max-ziplist-value}},
+    "web.console.enabled": {{env.web.console.enabled}},
     "web.console.username": {{env.web.console.username}},
     "web.console.password": {{env.web.console.password}}
   },

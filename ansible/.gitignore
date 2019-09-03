@@ -1,3 +1,4 @@
 **/files/tmp/
-hosts
+hosts*
 make.retry
+**/*.zip

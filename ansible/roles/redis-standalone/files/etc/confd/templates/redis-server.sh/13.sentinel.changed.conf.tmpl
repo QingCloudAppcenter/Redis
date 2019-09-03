@@ -24,7 +24,10 @@ logfile /data/redis/logs/redis-sentinel.log
 port 26379
 protected-mode no
 
+
+{{- if (ne (getv "/env/requirepass") "") }}
 sentinel auth-pass master "{{ getv "/env/requirepass" "" }}"
+{{- end }}
 sentinel client-reconfig-script master /opt/app/bin/node/failover.sh
 sentinel down-after-milliseconds master {{ getv "/env/sentinel.down-after-milliseconds" "4000" }}
 sentinel failover-timeout master {{ getv "/env/sentinel.failover-timeout" "60000" }}

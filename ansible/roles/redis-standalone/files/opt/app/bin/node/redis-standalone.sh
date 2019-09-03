@@ -1,13 +1,12 @@
 init() {
-  install -d -o redis -g svc /data/redis /data/redis/logs
+  mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _init
 }
 
 start() {
   isInitialized || execute init
-  configure
-  _start
+  configure && _start
 }
 
 stop() {
@@ -22,6 +21,7 @@ stop() {
 }
 
 revive() {
+  checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
 }
@@ -67,15 +67,22 @@ measure() {
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics" && return $rc )
 }
 
-preScaleIn() {
-  [ -n "$LEAVING_REDIS_NODES" ] || return 210
+checkMasterNotLeaving() {
   local master; master="$(findMasterIp)" || return 211
   if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return 212; fi
 }
 
+preScaleIn() {
+  [ -n "$LEAVING_REDIS_NODES" ] || return 210
+  checkMasterNotLeaving
+}
+
 destroy() {
-  preScaleIn && execute stop
-  checkVip || ( execute start && return 213 )
+  if [[ -n "$LEAVING_REDIS_NODES" ]]; then
+    checkMasterNotLeaving
+    execute stop
+    checkVip || ( execute start && return 213 )
+  fi
 }
 
 scaleIn() {
@@ -89,11 +96,38 @@ restore() {
 }
 
 runtimeSentinelFile=/data/redis/sentinel.conf
-findMasterIp() {
+
+getInitMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
+  echo -n ${firstRedisNode##*/}
+}
+
+# 防止 revive 时从本地文件获取，导致双主以及vip 解绑
+getMasterIpForRevive() {
+  local rc=0
+  if isSvcEnabled redis-sentinel;then
+    local otherFirstNodeIp=$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')
+    runRedisCmd --ip ${otherFirstNodeIp} -p 26379 sentinel get-master-addr-by-name master |xargs \
+      |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
+        log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
+    return $rc
+  else
+    getInitMasterIp
+  fi
+}
+
+getMasterIpByConf() {
   isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-    && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
-    || echo -n ${firstRedisNode##*/}
+      && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+        || getInitMasterIp
+}
+
+findMasterIp() {
+  if [[ "$command" == "revive" ]];then
+    getMasterIpForRevive
+  else
+    getMasterIpByConf
+  fi
 }
 
 findMasterNodeId() {
@@ -101,12 +135,12 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP; if [ "$1" == "--vip" ]; then redisIp=$REDIS_VIP && shift; fi
-  timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a '$REDIS_PASSWORD' $@
+  local redisIp=$MY_IP; if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
+  timeout --preserve-status 5s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@
 }
 
 checkVip() {
-  local vipResponse; vipResponse="$(runRedisCmd --vip ROLE | sed -n '1{p;q}')"
+  local vipResponse; vipResponse="$(runRedisCmd --ip $REDIS_VIP ROLE | sed -n '1{p;q}')"
   [ "$vipResponse" == "master" ]
 }
 
@@ -150,8 +184,6 @@ reload() {
     configure && startSvc redis-sentinel
   elif [ -n "${LEAVING_REDIS_NODES}" ]; then
     log --debug "scaling in ..."
-  elif checkFileChanged $nodesFile; then
-    log --debug "changing network ..."
   elif checkFileChanged $changedConfigFile; then
     execute restart
   elif checkFileChanged $changedSentinelFile; then
@@ -163,31 +195,62 @@ checkFileChanged() {
   ! ([ -f "$1.1" ] && cmp -s $1 $1.1)
 }
 
-configure() {
-  local runtimeConfigFile=/data/redis/redis.conf slaveofFile=$rootConfDir/redis.slaveof.conf \
-        defaultConfigFile=$rootConfDir/redis.default.conf monitorFile=$rootConfDir/sentinel.monitor.conf
-  sudo -u redis touch $runtimeConfigFile $runtimeSentinelFile $nodesFile && rotate $runtimeConfigFile $runtimeSentinelFile $nodesFile
+configureForRedis() {
+  log --debug "exec configureForRedis"
+  local runtimeConfigFile=/data/redis/redis.conf defaultConfigFile=$rootConfDir/redis.default.conf \
+        slaveofFile=$rootConfDir/redis.slaveof.conf
+  sudo -u redis touch $runtimeConfigFile && rotate $runtimeConfigFile
+  local masterIp; masterIp="$(findMasterIp)" 
+  log --debug "masterIp is $masterIp"
+  # flush every time even no master IP switches, but port is changed or in case double-master in revive
+  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
+
+  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
+    $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+}
+
+configureForChangeVxnet() {
+  log --debug "exec configureForChangeVxnet"
+  local runtimeConfigFile=/data/redis/redis.conf 
+  sudo -u redis touch $nodesFile && rotate $nodesFile
   echo $REDIS_NODES | xargs -n1 > $nodesFile
+
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
     local replaceCmd="$(join -j1 -t/ -o1.3,2.3 $nodesFile.1 $nodesFile | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
     sed -i "$replaceCmd" $runtimeConfigFile $runtimeSentinelFile
   fi
-  local masterIp; masterIp="$(findMasterIp)"
+}
 
+configureForSentinel() {
+  log --debug "exec configureForSentinel"
+  local monitorFile=$rootConfDir/sentinel.monitor.conf
+  sudo -u redis touch $runtimeSentinelFile && rotate $runtimeSentinelFile
+  local masterIp; masterIp="$(findMasterIp)"
+  log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
-  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo "SLAVEOF $masterIp $REDIS_PORT" > $slaveofFile
   echo "sentinel monitor master $masterIp $REDIS_PORT 2" > $monitorFile
 
-  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
   if isSvcEnabled redis-sentinel; then
-    sed -i '/^sentinel rename-(slaveof|config)/d' $runtimeSentinelFile
-    awk '$0~/^[^ #$]/ ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
-      $monitorFile $changedSentinelFile $runtimeSentinelFile.1 > $runtimeSentinelFile
+    # 防止莫名的单个$0 出现
+    awk '(NF>1 && $0~/^[^ #$]/) ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
+      $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass master|rename-slaveof|rename-config|known-replica|known-slave)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
   else
     rm -f $runtimeSentinelFile*
   fi
+}
 
+
+configure() {
+  configureForChangeVxnet
+  configureForSentinel
+  configureForRedis  
+  local masterIp; masterIp="$(findMasterIp)"
   setUpVip $masterIp
+}
+
+runCommand(){
+  local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
+  local cmd=$(echo -e $ALLOWED_COMMANDS | grep -o $flushCmd || encodeCmd $flushCmd)
+  runRedisCmd --ip $REDIS_VIP -n $db $cmd
 }
