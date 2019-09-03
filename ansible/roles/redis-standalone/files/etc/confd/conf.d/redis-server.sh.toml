@@ -5,4 +5,4 @@ mode = "0700"
 keys = [
   "/",
 ]
-reload_cmd = "/opt/app/bin/tmpl/redis-server.sh; appctl reload"
+reload_cmd = "/opt/app/bin/tmpl/redis-server.sh; appctl reload redis-server"

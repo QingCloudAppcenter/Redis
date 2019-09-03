@@ -35,17 +35,20 @@
     url: http://download.redis.io/releases/redis-{{ redis_version }}.tar.gz
     dest: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}.tgz
   delegate_to: localhost
+  run_once: True
 
 - name: extract src
   unarchive:
     src: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}.tgz
     dest: "{{ playbook_dir}}/roles/{{ role_name }}/files/tmp/"
   delegate_to: localhost
+  run_once: True
 
 - name: make binaries
   make:
     chdir: roles/{{ role_name }}/files/tmp/redis-{{ redis_version }}
   delegate_to: localhost
+  run_once: True
 
 - name: install binaries
   copy:
