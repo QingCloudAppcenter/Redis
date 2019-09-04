@@ -7,16 +7,14 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-    "appv-m2kn3sl6",
-    "appv-p313cfew",
-    "appv-2koqx590",
-    "appv-tse5x72c"
-  ],
+     "appv-2koqx590",
+     "appv-tse5x72c"
+   ],
   "nodes": [{
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-umc2r0ep"
+      "image": "img-m37f2n70"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -53,7 +51,7 @@
         "type": "custom",
         "nodes_to_execute_on": 1,
         "cmd": "appctl runCommand",
-        "timeout": 86400,
+        "timeout": 1200,
         "service_params": {
           "cmd": {{service_params.cmd}},
           "db": {{service_params.db}}

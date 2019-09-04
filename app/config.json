@@ -173,7 +173,8 @@
           "range": [
             "DISABLE_ALL",
             "CONFIG",
-            "SAVE"
+            "SAVE",
+            "KEYS"
           ],
           "default": "DISABLE_ALL",
           "changeable": true,
@@ -286,7 +287,7 @@
           "label": "requirepass_label",
           "key": "requirepass",
           "type": "password",
-          "pattern": "^[A-Za-z0-9-_!@#$%^&*()]{0,20}$"
+          "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
         },
         {
           "description": "maxmemory-policy_description",
