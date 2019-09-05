@@ -27,14 +27,7 @@ revive() {
 }
 
 measure() {
-  runRedisCmd info all | awk -F: '
-  function min(num1, num2)
-    { 
-      if (num1 < num2)
-        return num1
-      return num2
-    }
-  BEGIN {
+  runRedisCmd info all | awk -F: 'BEGIN {
     g["hash_based_count"] = "^h"
     g["list_based_count"] = "^(bl|br|l|rp)"
     g["set_based_count"] = "^s[^e]"
@@ -65,7 +58,7 @@ measure() {
         m[k=="role" ? "node_role" : k] = gensub("\r", "", 1, r[k])
       }
     }
-    memUsage = r["maxmemory"] ? min((10000 * r["used_memory"] / r["maxmemory"]), 10000) : 0
+    memUsage = r["maxmemory"] ? 10000 * r["used_memory"] / r["maxmemory"] : 0
     m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
