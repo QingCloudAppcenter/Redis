@@ -1,0 +1,340 @@
+{
+    "type": "array",
+    "properties": [{
+        "key": "cluster",
+        "description": "Redis cluster properties",
+        "type": "array",
+        "properties": [{
+            "key": "name",
+            "label": "Name",
+            "description": "The name of the redis cluster service",
+            "type": "string",
+            "default": "Redis Cluster",
+            "required": "no"
+        }, {
+            "key": "description",
+            "label": "Description",
+            "description": "The description of the redis cluster service",
+            "type": "string",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "vxnet",
+            "label": "VxNet",
+            "description": "Choose a vxnet to join",
+            "type": "string",
+            "default": "",
+            "required": "yes"
+        }, {
+            "key": "master",
+            "label": "Master",
+            "description": "Redis master node",
+            "type": "array",
+            "properties": [{
+                "key": "cpu",
+                "label": "CPU",
+                "description": "Cpus of each node",
+                "type": "integer",
+                "default": 2,
+                "range": [1,2],
+                "required": "yes"
+            }, {
+                "key": "memory",
+                "label": "Memory",
+                "description": "Memory of each node (in MiB)",
+                "type": "integer",
+                "default": 2048,
+                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536],
+                "required": "yes"
+            }, {
+                "key": "count",
+                "label": "Count",
+                "description": "Number of master nodes (shards) for the cluster to create",
+                "type": "integer",
+                "default": 3,
+                "min": 3,
+                "max": 127,
+                "required": "yes"
+            }, {
+                "key": "instance_class",
+                "label": "Instance Class",
+                "description": "The instance type for the cluster to run, such as high performance, high performance plus",
+                "type": "integer",
+                "default": 1,
+                "range": [0, 1, 101, 201, 301],
+                "required": "yes"
+            }, {
+                "key": "replica",
+                "label": "Replica",
+                "description": "The replica number for each master",
+                "type": "integer",
+                "default": 1,
+                "required": "yes"
+            }, {
+                "key": "volume_size",
+                "label": "Volume Size",
+                "description": "The volume size for each instance",
+                "type": "integer",
+                "default": 10,
+                "min":0,
+                "required": "yes"
+            }]
+        }]
+    }, {
+        "key": "env",
+        "description": "Redis service properties",
+        "type": "array",
+        "properties": [{
+            "key": "appctl.maxmemory.percent",
+            "label": "maxmemory-percent",
+            "description": "Max memory percent Redis can make use of.",
+            "type": "integer",
+            "default": 80,
+            "max": 95,
+            "min": 0,
+            "required": "no"
+        }, {
+            "key": "appctl.unsafe.commands.enabled",
+            "label": "enable-config",
+            "description": "Enable config and save commands(strongly not recommended to enable this)",
+            "type": "boolean",
+            "default": false,
+            "required": "no"
+        }, {
+            "key": "disabled-commands",
+            "label": "disabled-commands_label",
+            "description": "disabled-commands_description",
+            "changeable": false,
+            "required": "yes",
+            "type": "string",
+            "default": "no",
+            "range": ["yes", "no"]
+        }, {
+            "key": "requirepass",
+            "label": "requirepass",
+            "description": "Require clients to issue AUTH <PASSWORD> before processing any other commands.",
+            "type": "password",
+            "default": "",
+            "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+            "required": "no"
+        }, {
+            "key": "activerehashing",
+            "label": "activerehashing",
+            "description": "Active rehashing uses 1 millisecond every 100 milliseconds of CPU time in order to help rehashing the main Redis hash table",
+            "type": "string",
+            "default": "yes",
+            "range": ["yes", "no"],
+            "required": "no"
+        }, {
+            "key": "appendonly",
+            "label": "appendonly",
+            "description": "The Append Only File is an alternative persistence mode that provides much better durability.",
+            "type": "string",
+            "default": "yes",
+            "range": ["yes", "no"],
+            "required": "no"
+        }, {
+            "key": "appendfsync",
+            "label": "appendfsync",
+            "description": "It tells the Operating System to actually write data on disk instead of waiting for more data in the output buffer.",
+            "type": "string",
+            "default": "everysec",
+            "range": ["everysec", "no", "always"],
+            "required": "no"
+        }, {
+            "key": "cluster-node-timeout",
+            "label": "cluster-node-timeout",
+            "description": "Cluster node timeout is the amount of milliseconds a node must be unreachable for it to be considered in failure state",
+            "type": "integer",
+            "min": 1000,
+            "default": 15000,
+            "required": "no"
+        }, {
+            "key": "hash-max-ziplist-entries",
+            "label": "hash-max-ziplist-entries",
+            "description": "Hashes are encoded using a memory efficient data structure when they have a small number of entries",
+            "type": "integer",
+            "default": 512,
+            "required": "no"
+        }, {
+            "key": "hash-max-ziplist-value",
+            "label": "hash-max-ziplist-value",
+            "description": "Hashes are encoded using a memory efficient data structure when they have a small number of entries, and the biggest entry does not exceed a given threshold",
+            "type": "integer",
+            "default": 64,
+            "required": "no"
+        }, {
+            "key": "latency-monitor-threshold",
+            "label": "latency-monitor-threshold",
+            "description": "It samples different operations at runtime in order to collect data related to possible sources of latency of a Redis instance.",
+            "type": "integer",
+            "default": 0,
+            "required": "no"
+        }, {
+            "key": "list-max-ziplist-entries",
+            "label": "list-max-ziplist-entries",
+            "description": "Small lists are encoded in a special way in order to save a lot of space.",
+            "type": "integer",
+            "default": 512,
+            "required": "no"
+        }, {
+            "key": "list-max-ziplist-value",
+            "label": "list-max-ziplist-value",
+            "description": "Small lists are encoded in a special way in order to save a lot of space.",
+            "type": "integer",
+            "default": 64,
+            "required": "no"
+        }, {
+            "key": "maxclients",
+            "label": "maxclients",
+            "description": "Set the max number of connected clients at the same time.",
+            "type": "integer",
+            "default": 65000,
+            "required": "no"
+        }, {
+            "key": "maxmemory-policy",
+            "label": "maxmemory-policy",
+            "description": "The eviction policy to remove keys when the memory limit is reached.",
+            "type": "string",
+            "default": "volatile-lru",
+            "range": ["volatile-lru", "allkeys-lru", "volatile-random", "allkeys-random", "volatile-ttl", "noeviction"],
+            "required": "no"
+        }, {
+            "key": "maxmemory-samples",
+            "label": "maxmemory-samples",
+            "description": "LRU and minimal TTL algorithms are not precise algorithms but approximated algorithms (in order to save memory), using this to tune it for speed or accuracy.",
+            "type": "integer",
+            "default": 3,
+            "required": "no"
+        }, {
+            "key": "min-slaves-max-lag",
+            "label": "min-slaves-max-lag",
+            "description": "A master stops accepting writes if there are less than N slaves connected, having a lag less or equal than M seconds.",
+            "type": "integer",
+            "default": 10,
+            "required": "no"
+        }, {
+            "key": "min-slaves-to-write",
+            "label": "min-slaves-to-write",
+            "description": "A master stops accepting writes if there are less than N slaves connected, having a lag less or equal than M seconds.",
+            "type": "integer",
+            "default": 0,
+            "required": "no"
+        }, {
+            "key": "no-appendfsync-on-rewrite",
+            "label": "no-appendfsync-on-rewrite",
+            "description": "It prevents fsync() from being called in the main process while a BGSAVE or BGREWRITEAOF is in progress.",
+            "type": "string",
+            "default": "yes",
+            "range": ["yes", "no"],
+            "required": "no"
+        }, {
+            "key": "notify-keyspace-events",
+            "label": "notify-keyspace-events",
+            "description": "It selects the events that Redis will notify among a set of classes.",
+            "type": "string",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "repl-backlog-size",
+            "label": "repl-backlog-size",
+            "description": "Set the replication backlog size.",
+            "type": "integer",
+            "default": 1048576,
+            "required": "no"
+        }, {
+            "key": "repl-backlog-ttl",
+            "label": "repl-backlog-ttl",
+            "description": "It configures the amount of seconds that need to elapse, starting from the time the last slave disconnected, for the backlog buffer to be freed.",
+            "type": "integer",
+            "default": 3600,
+            "required": "no"
+        }, {
+            "key": "repl-timeout",
+            "label": "repl-timeout",
+            "description": "It is the replication timeout.",
+            "type": "integer",
+            "default": 60,
+            "required": "no"
+        }, {
+            "key": "set-max-intset-entries",
+            "label": "set-max-intset-entries",
+            "description": "It sets the limit in the size of the set in order to use this special memory saving encoding.",
+            "type": "integer",
+            "default": 512,
+            "required": "no"
+        }, {
+            "key": "slowlog-log-slower-than",
+            "label": "slowlog-log-slower-than",
+            "description": "It logs queries that exceeded a specified execution time.",
+            "type": "integer",
+            "default": -1,
+            "required": "no"
+        }, {
+            "key": "slowlog-max-len",
+            "label": "slowlog-max-len",
+            "description": "It logs queries with the length of the slow log.",
+            "type": "integer",
+            "default": 128,
+            "required": "no"
+        }, {
+            "key": "tcp-keepalive",
+            "label": "tcp-keepalive",
+            "description": "TCP keepalive between server and client.",
+            "type": "integer",
+            "default": 0,
+            "required": "no"
+        }, {
+            "key": "timeout",
+            "label": "timeout",
+            "description": "Close the connection after a client is idle for N seconds (0 to disable).",
+            "type": "integer",
+            "default": 0,
+            "required": "no"
+        }, {
+            "key": "web.console.enabled",
+            "label": "Admin Console Enabled",
+            "description": "Whether to enable admin web console",
+            "type": "boolean",
+            "default": false,
+            "required": "no"
+        }, {
+            "key": "web.console.username",
+            "label": "Admin Username",
+            "description": "username of admin web console",
+            "type": "string",
+            "pattern": "^([a-z0-9.-]+)?$",
+            "default": "admin",
+            "required": "no"
+        }, {
+            "key": "web.console.password",
+            "label": "Admin Password",
+            "description": "password of admin web console",
+            "type": "password",
+            "pattern": "^\\w{0,24}$",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "zset-max-ziplist-entries",
+            "label": "zset-max-ziplist-entries",
+            "description": "Sorted sets are specially encoded in order to save a lot of space.",
+            "type": "integer",
+            "default": 128,
+            "required": "no"
+        }, {
+            "key": "zset-max-ziplist-value",
+            "label": "zset-max-ziplist-value",
+            "description": "Sorted sets are specially encoded in order to save a lot of space.",
+            "type": "integer",
+            "default": 64,
+            "required": "no"
+        }, {
+            "key": "lua-time-limit",
+            "label": "lua-time-limit",
+            "description": "Max execution time of a Lua script in milliseconds.",
+            "type": "integer",
+            "default": 5000,
+            "required": "no"
+        }]
+    }]
+}

@@ -1,0 +1,12 @@
+server:
+  port: 8080
+
+logging:
+  file: /tmp/lettuce.log
+  level:
+    ROOT: INFO
+
+spring:
+  redis:
+    cluster:
+      nodes: 192.168.2.42:6379,192.168.2.43:6379,192.168.2.45:6379
