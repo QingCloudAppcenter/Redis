@@ -14,7 +14,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-m37f2n70"
+      "image": "img-g2xhimia"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -34,7 +34,8 @@
       "backup": {
         "selector": "appctl findMasterNodeId",
         "nodes_to_execute_on": 1,
-        "timeout": 3600
+        "timeout": 3600,
+        "cmd": "appctl backup"
       },
       "restore": {
         "cmd": "appctl restore"

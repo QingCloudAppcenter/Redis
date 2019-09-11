@@ -20,6 +20,22 @@ stop() {
   _stop
 }
 
+touchAgent(){
+  local skipCheckFile="/opt/app/bin/node/ignore_agent"
+  [[ ! -f $skipCheckFile ]] && touch $skipCheckFile
+}
+
+rmAgent(){
+  local skipCheckFile="/opt/app/bin/node/ignore_agent"
+  [[ -f $skipCheckFile ]] || rm -rf $skipCheckFile
+}
+
+check(){
+  local skipCheckFile="/opt/app/bin/node/ignore_agent"
+  [[ -f $skipCheckFile ]] && exit 0
+  _check
+}
+
 revive() {
   checkSvc redis-server || configureForRedis
   _revive $@
@@ -91,7 +107,7 @@ scaleIn() {
 
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
-  find /data/redis -mindepth 1 ! -name appendonly.aof -delete
+  find /data/redis -mindepth 1 ! -name dump.rdb -delete
   execute start
 }
 
@@ -130,6 +146,25 @@ findMasterIp() {
   fi
 }
 
+backup(){
+  log "Start backup"
+  local lastsave="LASTSAVE" bgsave="BGSAVE"
+  local lastsaveCmd=$lastsave \
+        bgsaveCmd=$(echo -e $ALLOWED_COMMANDS | grep -o $bgsave || encodeCmd $bgsave) \
+        lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+  runRedisCmd --ip $REDIS_VIP $bgsaveCmd
+  local count nextTime tag=flase;for count in $(seq 1 60);do
+    nextTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+    if [[ $nextTime > $lastTime ]];then
+      tag=true && break
+    else
+      log "Check if the backup is successful, total is 60, check_count is $count"
+      sleep 1
+    fi
+  done
+  if $tag;then log "backup successfully"; else log "backup timeout!" ;return $EC_BACKUP_ERR;fi
+}
+
 findMasterNodeId() {
   echo $REDIS_NODES | xargs -n1 | awk -F/ '$3=="'$(findMasterIp)'" {print $2}'
 }
@@ -163,6 +198,7 @@ setUpVip() {
 }
 
 bindVip() {
+  
   ip addr add $REDIS_VIP/24 dev eth0 || [ "$?" -eq 2 ] # 2: already bound
   arping -q -c 3 -A $REDIS_VIP -I eth0
 }
@@ -262,5 +298,10 @@ configure() {
 runCommand(){
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
   local cmd=$(echo -e $ALLOWED_COMMANDS | grep -o $flushCmd || encodeCmd $flushCmd)
-  runRedisCmd --ip $REDIS_VIP -n $db $cmd
+  if [[ "$flushCmd" == "BGSAVE" ]];then
+    log "runCommand BGSAVE"
+    backup
+  else
+    runRedisCmd --ip $REDIS_VIP -n $db $cmd
+  fi
 }
