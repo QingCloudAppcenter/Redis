@@ -111,36 +111,27 @@ restore() {
   log "Start restore"
   # 仅保留 dump.rdb 文件
   find /data/redis -mindepth 1 ! -name dump.rdb -delete
-  local runtimeConfigFile=/data/redis/redis.conf loadTag="loading the dataset in memory"
+
+  # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
-  execute start && \
+  execute start
   waitUtilLoadDataEnd
   if [[ "$oldValue" == "yes" ]]; then
     waitUtilReWriteAofEnd
     local cmd=$(getEncodeCmd CONFIG)
-    local ret1=$(runRedisCmd $cmd SET appendonly $oldValue) ret2=$(runRedisCmd $cmd REWRITE)
-    if ! ([[ $ret1 =~ ^"OK".*  ]] && [[ $ret2 =~ ^"OK".* ]]);then return $EC_RESTORE_ERR3;fi
+    local retForSet=$(runRedisCmd $cmd SET appendonly $oldValue) retForRewrite=$(runRedisCmd $cmd REWRITE)
+    if ! ([[ $retForSet =~ ^"OK".*  ]] && [[ $retForRewrite =~ ^"OK".* ]]);then return $EC_RESTORE_ERR3;fi
   fi     
 }
 
 waitUtilLoadDataEnd(){
-  local count tag=false; for count in $(seq 1 240);do
-    $(runRedisCmd PING) |grep -q $loadTag || tag=true; break
-    sleep 1
-    log "wait for loaddata End, total is 240s, count is $count s"
-  done
-  if ! $tag;then log "load data Timeout!"; return $EC_RESTORE_ERR1;fi
+  local loadTag="loading the dataset in memory"
+  retry 240 1 $EC_RESTORE_ERR1 $(runRedisCmd PING) |grep -q $loadTag
 }
 
 waitUtilReWriteAofEnd(){
   runRedisCmd $(getEncodeCmd BGREWRITEAOF)
-  local count tag=false rc=1; for count in $(seq 1 80);do
-    rc=$(runRedisCmd info Persistence|awk -F: '$1~/aof_rewrite_in_progress/ {print $2}')
-    [[ $rc == 0 ]] || tag=true;break
-    sleep 3
-    log "wait for RewriteAof End, total is 240 s, wait for $($count*3)s"
-  done
-  if ! $tag; then log "Aof Write Timeout!";return $EC_RESTORE_ERR2;fi
+  retry 80 3 $EC_RESTORE_ERR2 [[ $(runRedisCmd info Persistence|awk -F: '$1~/aof_rewrite_in_progress/ {print $2}') == 0 ]]
 }
 
 getEncodeCmd() {
