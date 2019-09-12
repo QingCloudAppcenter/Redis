@@ -107,8 +107,48 @@ scaleIn() {
 
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
+  oldValue="yes"
+  log "Start restore"
+  # 仅保留 dump.rdb 文件
   find /data/redis -mindepth 1 ! -name dump.rdb -delete
-  execute start
+  local runtimeConfigFile=/data/redis/redis.conf loadTag="loading the dataset in memory"
+  # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
+  execute start && \
+  waitUtilLoadDataEnd
+  if [[ "$oldValue" == "yes" ]]; then
+    waitUtilReWriteAofEnd
+    local cmd=$(getEncodeCmd CONFIG)
+    local ret1=$(runRedisCmd $cmd SET appendonly $oldValue) ret2=$(runRedisCmd $cmd REWRITE)
+    if ! ([[ $ret1 =~ ^"OK".*  ]] && [[ $ret2 =~ ^"OK".* ]]);then return $EC_RESTORE_ERR3;fi
+  fi     
+}
+
+waitUtilLoadDataEnd(){
+  local count tag=false; for count in $(seq 1 240);do
+    $(runRedisCmd PING) |grep -q $loadTag || tag=true; break
+    sleep 1
+    log "wait for loaddata End, total is 240s, count is $count s"
+  done
+  if ! $tag;then log "load data Timeout!"; return $EC_RESTORE_ERR1;fi
+}
+
+waitUtilReWriteAofEnd(){
+  runRedisCmd $(getEncodeCmd BGREWRITEAOF)
+  local count tag=false rc=1; for count in $(seq 1 80);do
+    rc=$(runRedisCmd info Persistence|awk -F: '$1~/aof_rewrite_in_progress/ {print $2}')
+    [[ $rc == 0 ]] || tag=true;break
+    sleep 3
+    log "wait for RewriteAof End, total is 240 s, wait for $($count*3)s"
+  done
+  if ! $tag; then log "Aof Write Timeout!";return $EC_RESTORE_ERR2;fi
+}
+
+getEncodeCmd() {
+  if $(echo -e $PRE_DISABLES_COMMANDS|grep -q $1);then
+    echo -e $ALLOWED_COMMANDS | grep -o $1 || encodeCmd $1
+  else
+    echo $1
+  fi
 }
 
 runtimeSentinelFile=/data/redis/sentinel.conf
@@ -150,7 +190,7 @@ backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
   local lastsaveCmd=$lastsave \
-        bgsaveCmd=$(echo -e $ALLOWED_COMMANDS | grep -o $bgsave || encodeCmd $bgsave) \
+        bgsaveCmd=$(getEncodeCmd $bgsave) \
         lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
   local count nextTime tag=flase;for count in $(seq 1 60);do
@@ -287,17 +327,26 @@ configureForSentinel() {
   fi
 }
 
+configForRestore(){
+  if [[ $command == "restore" ]];then
+    oldValue=$(awk '$1~/appendonly/ {print $2}' $runtimeConfigFile)
+    log "Old Value is $oldValue for appendonly before restore"
+    sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
+  fi
+}
+
 configure() {
   configureForChangeVxnet
   configureForSentinel
   configureForRedis  
   local masterIp; masterIp="$(findMasterIp)"
+  configForRestore
   setUpVip $masterIp
 }
 
 runCommand(){
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
-  local cmd=$(echo -e $ALLOWED_COMMANDS | grep -o $flushCmd || encodeCmd $flushCmd)
+  local cmd=$(getEncodeCmd $flushCmd)
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
