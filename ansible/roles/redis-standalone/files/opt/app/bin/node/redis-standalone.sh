@@ -20,23 +20,12 @@ stop() {
   _stop
 }
 
-touchAgent(){
-  local skipCheckFile="/opt/app/bin/node/ignore_agent"
-  [[ ! -f $skipCheckFile ]] && touch $skipCheckFile
-}
-
-rmAgent(){
-  local skipCheckFile="/opt/app/bin/node/ignore_agent"
-  [[ -f $skipCheckFile ]] || rm -rf $skipCheckFile
-}
-
 check(){
-  local skipCheckFile="/opt/app/bin/node/ignore_agent"
-  [[ -f $skipCheckFile ]] && exit 0
   _check
 }
 
 revive() {
+  if !$REVIVE_ENABLED; then exit 0;fi
   checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
@@ -107,7 +96,8 @@ scaleIn() {
 
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
-  oldValue="yes"
+  local oldValue; oldValue=$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)
+  log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
   find /data/redis -mindepth 1 ! -name dump.rdb -delete
@@ -118,14 +108,13 @@ restore() {
   waitUtilLoadDataEnd
   if [[ "$oldValue" == "yes" ]]; then
     waitUtilReWriteAofEnd
-    local cmd=$(getEncodeCmd CONFIG)
-    local retForSet=$(runRedisCmd $cmd SET appendonly $oldValue) retForRewrite=$(runRedisCmd $cmd REWRITE)
-    if ! ([[ $retForSet =~ ^"OK".*  ]] && [[ $retForRewrite =~ ^"OK".* ]]);then return $EC_RESTORE_ERR3;fi
+    local cmd; cmd=$(getEncodeCmd CONFIG)
+    [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_ERR3
   fi     
 }
 
 waitUtilLoadDataEnd(){
-  local loadTag="loading the dataset in memory"
+  local loadTag; loadTag="loading the dataset in memory"
   retry 240 1 $EC_RESTORE_ERR1 $(runRedisCmd PING) |grep -q $loadTag
 }
 
@@ -135,11 +124,7 @@ waitUtilReWriteAofEnd(){
 }
 
 getEncodeCmd() {
-  if $(echo -e $PRE_DISABLES_COMMANDS|grep -q $1);then
-    echo -e $ALLOWED_COMMANDS | grep -o $1 || encodeCmd $1
-  else
-    echo $1
-  fi
+    echo -e $DISABLED_COMMANDS | grep -o $1 || encodeCmd $1
 }
 
 runtimeSentinelFile=/data/redis/sentinel.conf
@@ -320,8 +305,6 @@ configureForSentinel() {
 
 configForRestore(){
   if [[ $command == "restore" ]];then
-    oldValue=$(awk '$1~/appendonly/ {print $2}' $runtimeConfigFile)
-    log "Old Value is $oldValue for appendonly before restore"
     sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
   fi
 }

@@ -15,11 +15,11 @@ EC_CHECK_PORT_ERR=201
 EC_CHECK_PROTO_ERR=202
 EC_BACKUP_ERR=230
 # 加载数据到内存超时
-EC_RESTORE_ERR1=231
+EC_RESTORE_LOAD_ERR=231
 # BGREWRITEAOF 超时
-EC_RESTORE_ERR2=232
+EC_RESTORE_BGREWRITEAOF_ERR=232
 # 修改 appendonly 失败
-EC_RESTORE_ERR3=233
+EC_RESTORE_UPDATE_APPENDONLY_ERR3=233
 
 command=$1
 args="${@:2}"
@@ -33,7 +33,7 @@ log() {
   logger -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
 }
 
-retry() {
+retry() { 
   local tried=0
   local maxAttempts=$1
   local interval=$2
