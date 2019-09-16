@@ -128,5 +128,9 @@
   "The common for master node": "对主节点执行的命令",
   "The database for master node": "待清空的数据库，执行 FLUSHDB 时生效",
   "Enable web console": "开启 WebConsole",
-  "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭，不会重启 redis"
+  "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭，不会重启 redis",
+  "sentinel.down-after-milliseconds_label": "sentinel.down-after-milliseconds",
+  "sentinel.down-after-milliseconds_description":"master 被 sentinel 标记为主观下线 (sdown) 的超时时间，单位毫秒",
+  "sentinel.failover-timeout_label":"sentinel.failover-timeout",
+  "sentinel.failover-timeout_description": "两次 failover 间的间隔时间"
 }

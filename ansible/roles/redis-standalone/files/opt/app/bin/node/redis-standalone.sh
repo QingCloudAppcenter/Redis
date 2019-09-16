@@ -20,12 +20,8 @@ stop() {
   _stop
 }
 
-check(){
-  _check
-}
-
 revive() {
-  if !$REVIVE_ENABLED; then exit 0;fi
+  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
@@ -96,6 +92,7 @@ scaleIn() {
 
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
+  local runtimeConfigFile=/data/redis/redis.conf
   local oldValue; oldValue=$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
@@ -105,26 +102,29 @@ restore() {
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
   execute start
-  waitUtilLoadDataEnd
+  retry 240 1 $EC_RESTORE_LOAD_ERR waitUntilLoadDataFinished
   if [[ "$oldValue" == "yes" ]]; then
-    waitUtilReWriteAofEnd
+    runRedisCmd $(getEncodeCmd BGREWRITEAOF)
+    retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR waitUntilReWriteAofFinished
     local cmd; cmd=$(getEncodeCmd CONFIG)
-    [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_ERR3
+    [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
   fi     
 }
 
-waitUtilLoadDataEnd(){
-  local loadTag; loadTag="loading the dataset in memory"
-  retry 240 1 $EC_RESTORE_ERR1 $(runRedisCmd PING) |grep -q $loadTag
+waitUntilLoadDataFinished(){
+  runRedisCmd PING |grep -vq "loading the dataset in memory"
 }
 
-waitUtilReWriteAofEnd(){
-  runRedisCmd $(getEncodeCmd BGREWRITEAOF)
-  retry 80 3 $EC_RESTORE_ERR2 [[ $(runRedisCmd info Persistence|awk -F: '$1~/aof_rewrite_in_progress/ {print $2}') == 0 ]]
+waitUntilReWriteAofFinished(){
+  runRedisCmd info Persistence|grep -q "aof_rewrite_in_progress:0"
 }
 
 getEncodeCmd() {
-    echo -e $DISABLED_COMMANDS | grep -o $1 || encodeCmd $1
+  if echo -e $DISABLED_COMMANDS | grep -oq $1;then
+    encodeCmd $1
+  else
+    echo $1
+  fi
 }
 
 runtimeSentinelFile=/data/redis/sentinel.conf
@@ -150,8 +150,8 @@ getMasterIpForRevive() {
 
 getMasterIpByConf() {
   isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-      && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
-        || getInitMasterIp
+    && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+      || getInitMasterIp
 }
 
 findMasterIp() {
@@ -162,23 +162,17 @@ findMasterIp() {
   fi
 }
 
+waitUntilBgsaveFinished(){
+  [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
+}
+
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
   local lastsaveCmd=$lastsave \
-        bgsaveCmd=$(getEncodeCmd $bgsave) \
-        lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+  local bgsaveCmd lastTime; bgsaveCmd=$(getEncodeCmd $bgsave) lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
-  local count nextTime tag=flase;for count in $(seq 1 60);do
-    nextTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
-    if [[ $nextTime > $lastTime ]];then
-      tag=true && break
-    else
-      log "Check if the backup is successful, total is 60, check_count is $count"
-      sleep 1
-    fi
-  done
-  if $tag;then log "backup successfully"; else log "backup timeout!" ;return $EC_BACKUP_ERR;fi
+  retry 60 1 $EC_BACKUP_ERR waitUntilBgsaveFinished $lastTime
 }
 
 findMasterNodeId() {
@@ -214,7 +208,6 @@ setUpVip() {
 }
 
 bindVip() {
-  
   ip addr add $REDIS_VIP/24 dev eth0 || [ "$?" -eq 2 ] # 2: already bound
   arping -q -c 3 -A $REDIS_VIP -I eth0
 }
@@ -247,7 +240,7 @@ reload() {
     elif checkFileChanged $changedConfigFile; then
       execute restart
     elif checkFileChanged $changedSentinelFile; then
-      _reload redis-sentinel
+      configureForSentinel && _reload redis-sentinel
     fi
   else
     _reload $@

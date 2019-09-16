@@ -167,6 +167,26 @@
           "type": "integer"
         },
         {
+          "description": "sentinel.down-after-milliseconds_description",
+          "required": "no",
+          "label": "sentinel.down-after-milliseconds_label",
+          "default": 4000,
+          "key": "sentinel.down-after-milliseconds",
+          "min": 2000,
+          "max": 30000,
+          "type": "integer"
+        },
+        {
+          "description": "sentinel.failover-timeout_description",
+          "required": "no",
+          "label": "sentinel.failover-timeout_label",
+          "default": 60000,
+          "key": "sentinel.failover-timeout",
+          "min": 30000,
+          "max": 180000,
+          "type": "integer"
+        },
+        {
           "description": "enable-commands_description",
           "required": "no",
           "label": "enable-commands_label",

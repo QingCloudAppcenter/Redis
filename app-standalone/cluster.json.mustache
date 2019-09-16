@@ -14,7 +14,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-8o5yndp8"
+      "image": "img-tnbk367i"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -92,6 +92,8 @@
     "timeout": {{env.timeout}},
     "zset-max-ziplist-entries": {{env.zset-max-ziplist-entries}},
     "zset-max-ziplist-value": {{env.zset-max-ziplist-value}},
+    "sentinel.failover-timeout":{{env.sentinel.failover-timeout}},
+    "sentinel.down-after-milliseconds":{{env.sentinel.down-after-milliseconds}},
     "web.console.enabled": {{env.web.console.enabled}},
     "web.console.username": {{env.web.console.username}},
     "web.console.password": {{env.web.console.password}}
@@ -233,19 +235,19 @@
         "scale_factor_when_display": 0.000001
       },
       "memory_usage_min": {
-        "unit": "%",
+        "unit": "Pecent(%)",
         "value_type": "int",
         "statistics_type": "min",
         "scale_factor_when_display": 0.01
       },
       "memory_usage_avg": {
-        "unit": "%",
+        "unit": "Pecent(%)",
         "value_type": "int",
         "statistics_type": "avg",
         "scale_factor_when_display": 0.01
       },
       "memory_usage_max": {
-        "unit": "%",
+        "unit": "Pecent(%)",
         "value_type": "int",
         "statistics_type": "max",
         "scale_factor_when_display": 0.01
