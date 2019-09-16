@@ -33,7 +33,7 @@ log() {
   logger -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
 }
 
-retry() { 
+retry() {
   local tried=0
   local maxAttempts=$1
   local interval=$2
