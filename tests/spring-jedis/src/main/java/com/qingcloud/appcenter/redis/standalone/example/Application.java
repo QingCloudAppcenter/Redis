@@ -11,8 +11,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 
 @SpringBootApplication
 public class Application {
@@ -23,20 +22,19 @@ public class Application {
   }
 
   @Autowired
-  private RedisConnectionFactory redisConnectionFactory;
+  private RedisTemplate<String, String> template;
 
   @Bean
   public CommandLineRunner commandLineRunner(ApplicationContext ctx) {
     return args -> {
       logger.info("Starting to process redis cluster ...");
-      RedisConnection connection = redisConnectionFactory.getConnection();
 
       IntStream.range(0, 0x100000).forEach(i -> {
         try {
-          byte[] key = String.format("key%05d", i).getBytes();
-          byte[] value = String.format("%05d", i).getBytes();
-          connection.set(key, value);
-          logger.info("k={} v={}.", new String(key), new String(connection.get(key)));
+          String key = String.format("key%05d", i);
+          String value = String.format("%05d", i);
+          template.opsForValue().set(key, value);
+          logger.info("k={} v={}.", key, template.opsForValue().get(key));
         } catch (Exception e) {
           logger.error("Exception occurred at key '{}': ", i, e);
         }

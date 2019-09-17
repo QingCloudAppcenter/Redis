@@ -21,6 +21,7 @@ stop() {
 }
 
 revive() {
+  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
@@ -91,8 +92,39 @@ scaleIn() {
 
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
-  find /data/redis -mindepth 1 ! -name appendonly.aof -delete
+  local runtimeConfigFile=/data/redis/redis.conf
+  local oldValue; oldValue=$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)
+  log "Old Value is $oldValue for appendonly before restore"
+  log "Start restore"
+  # 仅保留 dump.rdb 文件
+  find /data/redis -mindepth 1 ! -name dump.rdb -delete
+
+  # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
+  # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
   execute start
+  retry 240 1 $EC_RESTORE_LOAD_ERR checkLoadDataDone
+  if [[ "$oldValue" == "yes" ]]; then
+    runRedisCmd $(getRuntimeNameOfCmd BGREWRITEAOF)
+    retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
+    local cmd; cmd=$(getRuntimeNameOfCmd CONFIG)
+    [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
+  fi     
+}
+
+checkLoadDataDone(){
+  runRedisCmd PING |grep -vq "loading the dataset in memory"
+}
+
+checkReWriteAofDone(){
+  runRedisCmd info Persistence|grep -q "aof_rewrite_in_progress:0"
+}
+
+getRuntimeNameOfCmd() {
+  if echo -e $DISABLED_COMMANDS | grep -oq $1;then
+    encodeCmd $1
+  else
+    echo $1
+  fi
 }
 
 runtimeSentinelFile=/data/redis/sentinel.conf
@@ -118,8 +150,8 @@ getMasterIpForRevive() {
 
 getMasterIpByConf() {
   isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-      && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
-        || getInitMasterIp
+    && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+      || getInitMasterIp
 }
 
 findMasterIp() {
@@ -128,6 +160,20 @@ findMasterIp() {
   else
     getMasterIpByConf
   fi
+}
+
+checkBgsaveDone(){
+  local lastsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd "LASTSAVE")
+  [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
+}
+
+backup(){
+  log "Start backup"
+  local lastsave="LASTSAVE" bgsave="BGSAVE"
+  local lastsaveCmd bgsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd $lastsave) bgsaveCmd=$(getRuntimeNameOfCmd $bgsave)
+  local lastTime; lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+  runRedisCmd --ip $REDIS_VIP $bgsaveCmd
+  retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
 }
 
 findMasterNodeId() {
@@ -195,7 +241,7 @@ reload() {
     elif checkFileChanged $changedConfigFile; then
       execute restart
     elif checkFileChanged $changedSentinelFile; then
-      _reload redis-sentinel
+      configureForSentinel && _reload redis-sentinel
     fi
   else
     _reload $@
@@ -251,16 +297,29 @@ configureForSentinel() {
   fi
 }
 
+configForRestore(){
+  if [[ $command == "restore" ]];then
+    local runtimeConfigFile=/data/redis/redis.conf
+    sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
+  fi
+}
+
 configure() {
   configureForChangeVxnet
   configureForSentinel
   configureForRedis  
   local masterIp; masterIp="$(findMasterIp)"
+  configForRestore
   setUpVip $masterIp
 }
 
 runCommand(){
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
-  local cmd=$(echo -e $ALLOWED_COMMANDS | grep -o $flushCmd || encodeCmd $flushCmd)
-  runRedisCmd --ip $REDIS_VIP -n $db $cmd
+  local cmd=$(getRuntimeNameOfCmd $flushCmd)
+  if [[ "$flushCmd" == "BGSAVE" ]];then
+    log "runCommand BGSAVE"
+    backup
+  else
+    runRedisCmd --ip $REDIS_VIP -n $db $cmd
+  fi
 }
