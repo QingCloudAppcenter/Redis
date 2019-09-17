@@ -102,24 +102,24 @@ restore() {
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
   execute start
-  retry 240 1 $EC_RESTORE_LOAD_ERR waitUntilLoadDataFinished
+  retry 240 1 $EC_RESTORE_LOAD_ERR checkLoadDataDone
   if [[ "$oldValue" == "yes" ]]; then
-    runRedisCmd $(getEncodeCmd BGREWRITEAOF)
-    retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR waitUntilReWriteAofFinished
-    local cmd; cmd=$(getEncodeCmd CONFIG)
+    runRedisCmd $(getRuntimeNameOfCmd BGREWRITEAOF)
+    retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
+    local cmd; cmd=$(getRuntimeNameOfCmd CONFIG)
     [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
   fi     
 }
 
-waitUntilLoadDataFinished(){
+checkLoadDataDone(){
   runRedisCmd PING |grep -vq "loading the dataset in memory"
 }
 
-waitUntilReWriteAofFinished(){
+checkReWriteAofDone(){
   runRedisCmd info Persistence|grep -q "aof_rewrite_in_progress:0"
 }
 
-getEncodeCmd() {
+getRuntimeNameOfCmd() {
   if echo -e $DISABLED_COMMANDS | grep -oq $1;then
     encodeCmd $1
   else
@@ -162,17 +162,18 @@ findMasterIp() {
   fi
 }
 
-waitUntilBgsaveFinished(){
+checkBgsaveDone(){
+  local lastsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd "LASTSAVE")
   [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
 }
 
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
-  local lastsaveCmd=$lastsave \
-  local bgsaveCmd lastTime; bgsaveCmd=$(getEncodeCmd $bgsave) lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+  local lastsaveCmd bgsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd $lastsave) bgsaveCmd=$(getRuntimeNameOfCmd $bgsave)
+  local lastTime; lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
-  retry 60 1 $EC_BACKUP_ERR waitUntilBgsaveFinished $lastTime
+  retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
 }
 
 findMasterNodeId() {
@@ -313,7 +314,7 @@ configure() {
 
 runCommand(){
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
-  local cmd=$(getEncodeCmd $flushCmd)
+  local cmd=$(getRuntimeNameOfCmd $flushCmd)
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
