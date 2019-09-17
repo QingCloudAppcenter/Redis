@@ -299,6 +299,7 @@ configureForSentinel() {
 
 configForRestore(){
   if [[ $command == "restore" ]];then
+    local runtimeConfigFile=/data/redis/redis.conf
     sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
   fi
 }
