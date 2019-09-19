@@ -430,7 +430,7 @@
         },
         {
           "description": "tcp-keepalive_description",
-          "default": 0,
+          "default": 300,
           "required": "no",
           "label": "tcp-keepalive_label",
           "key": "tcp-keepalive",

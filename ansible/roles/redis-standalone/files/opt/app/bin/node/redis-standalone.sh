@@ -13,7 +13,9 @@ stop() {
   if [ -z "$LEAVING_REDIS_NODES" ] && isSvcEnabled redis-sentinel; then
     stopSvc redis-sentinel
     local sentinelHost; for sentinelHost in $REDIS_NODES; do
-      retry 15 1 0 checkSentinelStopped ${sentinelHost##*/} || log "WARN: sentinel '$sentinelHost' is still up."
+      if [[ "${sentinelHost##*/}" != "$MY_IP" ]]; then
+        retry 150 0.1 0 checkSentinelStopped ${sentinelHost##*/} || log "WARN: sentinel '$sentinelHost' is still up."
+      fi
     done
   fi
 
@@ -174,6 +176,7 @@ backup(){
   local lastTime; lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
   retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  log "backup successfully"
 }
 
 findMasterNodeId() {
