@@ -282,7 +282,7 @@
             "label": "tcp-keepalive",
             "description": "TCP keepalive between server and client.",
             "type": "integer",
-            "default": 0,
+            "default": 300,
             "required": "no"
         }, {
             "key": "timeout",

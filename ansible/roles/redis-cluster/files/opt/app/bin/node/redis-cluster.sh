@@ -132,7 +132,7 @@ runRedisCmd() {
 }
 
 encodeCmd() {
-  echo -n ${1?command is required}${CLUSTER_ID} | sha256sum | cut -c1-64
+  echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}"
 }
 
 nodesFile=/data/redis/nodes
