@@ -17,7 +17,7 @@ renameCommands() {
 
   local cmd; for cmd in $disabledCommands; do
     local renamed=$cmd
-    {{- if eq (getv "/env/appctl.unsafe.commands.enabled" "false") "false" }}
+    {{- if eq (getv "/env/enable-config" 0) 0 }}
     renamed="${CLUSTER_ID}${NODE_ID}${cmd}"
     {{- end }}
     echo rename-command $cmd $renamed
