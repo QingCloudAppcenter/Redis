@@ -94,12 +94,13 @@
             "min": 0,
             "required": "no"
         }, {
-            "key": "appctl.unsafe.commands.enabled",
+            "key": "enable-config",
             "label": "enable-config",
             "description": "Enable config and save commands(strongly not recommended to enable this)",
-            "type": "boolean",
-            "default": false,
-            "required": "no"
+            "type": "integer",
+            "default": 0,
+            "required": "no",
+            "range": [0,1]
         }, {
             "key": "disabled-commands",
             "label": "disabled-commands_label",
@@ -282,7 +283,7 @@
             "label": "tcp-keepalive",
             "description": "TCP keepalive between server and client.",
             "type": "integer",
-            "default": 0,
+            "default": 300,
             "required": "no"
         }, {
             "key": "timeout",
