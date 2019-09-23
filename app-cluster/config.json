@@ -80,7 +80,38 @@
                 "required": "yes"
             }]
         }]
-    }, {
+    },
+    {
+        "key": "service_params",
+        "description": "Custom service configuration properties",
+        "type": "array",
+        "properties": [
+          {
+            "key": "cmd",
+            "label": "command",
+            "description": "The common for master node",
+            "type": "string",
+            "default": "FLUSHDB",
+            "range": [
+              "FLUSHDB",
+              "FLUSHALL",
+              "BGSAVE"
+            ],
+            "required": "yes"
+          },
+          {
+            "key": "db",
+            "label": "database",
+            "description": "The database for master node",
+            "type": "integer",
+            "default": 0,
+            "min": 0,
+            "max": 15,
+            "required": "yes"
+          }
+        ]
+      }, 
+    {
         "key": "env",
         "description": "Redis service properties",
         "type": "array",

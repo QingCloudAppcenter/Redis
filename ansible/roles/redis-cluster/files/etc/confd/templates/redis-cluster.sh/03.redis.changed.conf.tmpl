@@ -14,10 +14,10 @@ renameCommands() {
     FLUSHDB
     {{- end }}
   "
-
+  local CLUSTER_ID="{{ getv "/cluster/cluster_id" }}" NODE_ID="{{ getv "/host/node_id" }}"
   local cmd; for cmd in $disabledCommands; do
     local renamed=$cmd
-    {{- if eq (getv "/env/enable-config" 0) 0 }}
+    {{- if eq (getv "/env/enable-config" "0") "0" }}
     renamed="${CLUSTER_ID}${NODE_ID}${cmd}"
     {{- end }}
     echo rename-command $cmd $renamed

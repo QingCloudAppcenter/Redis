@@ -61,6 +61,51 @@ preScaleIn() {
   done
 }
 
+check(){
+  _check
+  local loadingTag="loading the dataset in memory"
+  local response;response=$(runRedisCmd cluster info)
+  egrep -q "(cluster_state:ok|$loadingTag)" <(echo $response)
+}
+
+checkBgsaveDone(){
+  local lastsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd "LASTSAVE")
+  [[ $(runRedisCmd $lastsaveCmd) > ${1?Lastsave time is required} ]]
+}
+
+backup(){
+  log "Start backup"
+  local lastsave="LASTSAVE" bgsave="BGSAVE"
+  local lastsaveCmd bgsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd $lastsave) bgsaveCmd=$(getRuntimeNameOfCmd $bgsave)
+  local lastTime; lastTime=$(runRedisCmd $lastsaveCmd)
+  runRedisCmd $bgsaveCmd
+  retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  log "backup successfully"
+}
+
+getRedisInfo(){
+  runRedisCmd cluster nodes |awk 'BEGIN{print "{"}
+  {
+      split($2,ips,":");
+      redisInfo[$1]="{\"ip\":\""ips[1]"\",\"role\":\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\",\"masterId\":\""$4"\"}";
+  }
+  END{
+      len = length(redisInfo)
+      i = 1
+
+      for(id in redisInfo){
+          if(i<len){
+          print "\""id"\""":"redisInfo[id]","
+          }
+          else{
+          print "\""id"\""":"redisInfo[id]
+          }
+          i++
+      };
+      print "}"
+  }'
+}
+
 reload() {
   if [ "$1" == "redis-server" ]; then
     if echo "$LEAVING_REDIS_NODES " | grep -q "/master/.*/$MY_IP "; then
@@ -131,28 +176,61 @@ runRedisCmd() {
   return $retCode
 }
 
+getRuntimeNameOfCmd() {
+  if echo -e $DISABLED_COMMANDS | grep -oq $1;then
+    encodeCmd $1
+  else
+    echo $1
+  fi
+}
+
 encodeCmd() {
   echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}"
 }
 
 nodesFile=/data/redis/nodes
 rootConfDir=/opt/app/conf/redis-cluster
+
+configureForChangeVxnet(){
+  local runtimeConfigFile=/data/redis/redis.conf
+  if checkFileChanged $nodesFile; then
+    log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
+    local replaceCmd="$(join -j1 -t/ -o1.4,2.4 $nodesFile.1 $nodesFile | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
+    sed -i "$replaceCmd" $runtimeConfigFile
+  fi
+}
+
+configureForRedis(){
+  local changedConfigFile=$rootConfDir/redis.changed.conf
+  local defaultConfigFile=$rootConfDir/redis.default.conf
+  local runtimeConfigFile=/data/redis/redis.conf
+  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
+    $changedConfigFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+}
+
 configure() {
   local changedConfigFile=$rootConfDir/redis.changed.conf
   local defaultConfigFile=$rootConfDir/redis.default.conf
   local runtimeConfigFile=/data/redis/redis.conf
   sudo -u redis touch $runtimeConfigFile $nodesFile && rotate $runtimeConfigFile $nodesFile
   echo $REDIS_NODES | xargs -n1 > $nodesFile
-  if checkFileChanged $nodesFile; then
-    log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd="$(join -j1 -t/ -o1.4,2.4 $nodesFile.1 $nodesFile | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
-    sed -i "$replaceCmd" $runtimeConfigFile
-  fi
-
-  awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+  configureForChangeVxnet
+  configureForRedis
 }
 
 checkFileChanged() {
   ! ([ -f "$1.1" ] && cmp -s $1 $1.1)
+}
+
+runCommand(){
+  local redisInfo;redisInfo=$(getRedisInfo)
+  if [[ $(echo $redisInfo |jq 'map(select(.["role"]=="master" and .["ip"]=="'$MY_IP'"))' |jq 'length') == 0 ]];then log --debug "My role is not master, Unauthorized operation";return 0;fi
+  local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
+  local cmd=$(getRuntimeNameOfCmd $flushCmd)
+  if [[ "$flushCmd" == "BGSAVE" ]];then
+    log "runCommand BGSAVE"
+    backup
+  else
+    runRedisCmd -n $db $cmd
+  fi
 }
