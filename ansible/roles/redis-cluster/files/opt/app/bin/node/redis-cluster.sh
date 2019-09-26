@@ -8,10 +8,7 @@ initCluster() {
   local nodesConf=/data/redis/nodes.conf
   [ -e "$nodesConf" ] || {
     local tmplConf=/opt/app/conf/redis-cluster/nodes.conf
-    sudo -u redis cp $tmplConf $nodesConf
-    if [ -n "$JOINING_REDIS_NODES" ]; then
-      egrep -o ".* ($(echo $JOINING_REDIS_NODES | xargs -n1 | awk -F/ '{print $4}' | paste -s -d'|')):.* connected" $tmplConf > $nodesConf
-    fi
+    [[ -n "$JOINING_REDIS_NODES" ]] || sudo -u redis cp $tmplConf $nodesConf
   }
 }
 
@@ -22,16 +19,68 @@ init() {
 start() {
   isNodeInitialized || execute initNode
   configure && _start
+}
 
-  if [ -n "$JOINING_REDIS_NODES" ]; then
-    retry 10 1 0 execute check
-    local node; for node in $REDIS_NODES; do runRedisCmd cluster meet ${node##*/} $REDIS_PORT; done
-  fi
+execute(){
+  _defineEndPoint
+  local cmd=$1; log --debug "Executing command ..."
+  [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
+  $cmd ${@:2}
+}
+
+checkRedisStateIsOkByInfo(){
+  local oKTag="cluster_state:ok" 
+  local infoResponse=$(runRedisCmd -h ${1?node ip is required} cluster info)
+  echo "$infoResponse" |grep -q "$oKTag"
+}
+
+getRedisCheckResponse(){
+  runRedisCmd -h "${1?node Ip is required}" --cluster check ${END_POINT?endpoint Ip is required}:$REDIS_PORT
+}
+
+checkForAllAgree(){
+  local checkResponse; checkResponse=$(getRedisCheckResponse ${1?node Ip is required}) allAgreetag="OK] All nodes agree about slots configuration."
+  echo "$checkResponse" |grep -q "$allAgreetag"
+}
+
+checkAllNodesIsOk(){
+  local ip; for ip in $runNode;do
+    retry 240 1 0 checkForAllAgree $ip
+  done
+}
+
+_defineEndPoint(){
+  runNode="$(awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$JOINING_REDIS_NODES $LEAVING_REDIS_NODES") <(echo "$REDIS_NODES") |xargs -n1 |awk -F "/" '{print $5}')"
+  if [[ -z $END_POINT ]];then END_POINT="$(echo "$runNode" |sed -n '1p;q')";fi
+}
+
+getMasterIdByslaveIp(){
+  local gid; gid=$(echo "$REDIS_NODES" |xargs -n1 |grep ${1?slaveIp is required} |cut -d "/" -f1)
+  local ipsInGid; ipsInGid=$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'$1'/){print $5}}')
+  runRedisCmd -h "$END_POINT" cluster nodes|awk '$0~/.*('${ipsInGid:0:-1}').*(master){1}.*/{printf $1}'
 }
 
 scaleOut() {
   # TODO: sometimes it fails with "[WARNING] The following slots are open: " or "[ERR] Nodes don't agree about configuration!".
-  runRedisCmd --timeout 86400 --cluster rebalance --cluster-use-empty-masters $MY_IP:$REDIS_PORT
+  checkAllNodesIsOk
+  local node; for node in $JOINING_REDIS_NODES;do
+    if [[ "$(echo "$node"|cut -d "/" -f3)" == "master" ]];then
+      runRedisCmd --timeout 86400 -h "$END_POINT" --cluster add-node ${node##*/}:$REDIS_PORT $END_POINT:$REDIS_PORT
+      runNode=$(echo "$runNode ${node##*/}" |xargs -n1)
+      checkAllNodesIsOk
+    fi
+  done
+  checkAllNodesIsOk
+  runRedisCmd --timeout 86400 -h "$END_POINT" --cluster rebalance $END_POINT:$REDIS_PORT --cluster-use-empty-masters
+  checkAllNodesIsOk
+  local node; for node in $JOINING_REDIS_NODES;do
+    if [[ "$(echo "$node"|cut -d "/" -f3)" == "slave" ]];then
+      local masterId; masterId=$(getMasterIdByslaveIp ${node##*/})
+      runRedisCmd --timeout 86400 -h "$END_POINT" --cluster add-node ${node##*/}:$REDIS_PORT $END_POINT:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
+      runNode=$(echo "$runNode ${node##*/}" |xargs -n1)
+      checkAllNodesIsOk
+    fi
+  done
 }
 
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
@@ -64,8 +113,8 @@ preScaleIn() {
 check(){
   _check
   local loadingTag="loading the dataset in memory"
-  local response;response=$(runRedisCmd cluster info)
-  egrep -q "(cluster_state:ok|$loadingTag)" <(echo $response)
+  local infoResponse;infoResponse=$(runRedisCmd cluster info)
+  egrep -q "(cluster_state:ok|$loadingTag)" <(echo "$infoResponse")
 }
 
 checkBgsaveDone(){
@@ -83,8 +132,9 @@ backup(){
   log "backup successfully"
 }
 
-getRedisInfo(){
-  runRedisCmd cluster nodes |awk 'BEGIN{print "{"}
+getRedisClusterInfo(){
+  log "END_POINT: $END_POINT"
+  runRedisCmd -h "$END_POINT" cluster nodes |awk -v "redisNodes=$REDIS_NODES" 'BEGIN{print "{"}
   {
       split($2,ips,":");
       redisInfo[$1]="{\"ip\":\""ips[1]"\",\"role\":\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\",\"masterId\":\""$4"\"}";
@@ -116,6 +166,12 @@ reload() {
     configure
   fi
   _reload $@
+}
+
+revive(){
+  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
+  runRedisCmd --cluster fix 127.0.0.1:$REDIS_PORT
+  _revive
 }
 
 measure() {
