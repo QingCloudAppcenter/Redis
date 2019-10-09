@@ -51,7 +51,11 @@ getStableNodesIps(){
 
 getFirstNodeIpInStableNodes(){
   local stableNodesIps; stableNodesIps=$(getStableNodesIps)
-  echo "$stableNodesIps" |sed -n '1p;q'
+  local leavingNodeIps=" "
+  local leavingNode;for leavingNode in $LEAVING_REDIS_NODES; do
+    leavingNodeIps="$leavingNodeIps${leavingNode##*/} "
+  done
+  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$leavingNodeIps") <(echo "$stableNodesIps" |xargs) |awk '{printf $1}'
 }
 
 getMasterIdByslaveIp(){
