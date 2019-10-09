@@ -21,13 +21,6 @@ start() {
   configure && _start
 }
 
-execute(){
-  _defineEndPoint
-  local cmd=$1; log --debug "Executing command ..."
-  [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
-  $cmd ${@:2}
-}
-
 checkRedisStateIsOkByInfo(){
   local oKTag="cluster_state:ok" 
   local infoResponse=$(runRedisCmd -h ${1?node ip is required} cluster info)
@@ -35,7 +28,8 @@ checkRedisStateIsOkByInfo(){
 }
 
 getRedisCheckResponse(){
-  runRedisCmd -h "${1?node Ip is required}" --cluster check ${END_POINT?endpoint Ip is required}:$REDIS_PORT
+  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
+  runRedisCmd -h "${1?node Ip is required}" --cluster check $firstNodeIpInStableNode:$REDIS_PORT
 }
 
 checkForAllAgree(){
@@ -43,70 +37,139 @@ checkForAllAgree(){
   echo "$checkResponse" |grep -q "$allAgreetag"
 }
 
-checkAllNodesIsOk(){
-  local ip; for ip in $runNode;do
-    retry 240 1 0 checkForAllAgree $ip
+waitUntilAllNodesIsOk(){
+  local ip; for ip in ${1?stableNodesIps is required};do
+    log --debug "check node $ip"
+    retry 120 1 0 checkRedisStateIsOkByInfo $ip
+    retry 120 1 0 checkForAllAgree $ip
   done
 }
 
-_defineEndPoint(){
-  runNode="$(awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$JOINING_REDIS_NODES $LEAVING_REDIS_NODES") <(echo "$REDIS_NODES") |xargs -n1 |awk -F "/" '{print $5}')"
-  if [[ -z $END_POINT ]];then END_POINT="$(echo "$runNode" |sed -n '1p;q')";fi
+getStableNodesIps(){
+  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$JOINING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs) |xargs -n1 |awk -F "/" '{print $5}'
+}
+
+getFirstNodeIpInStableNodes(){
+  local stableNodesIps; stableNodesIps=$(getStableNodesIps)
+  echo "$stableNodesIps" |sed -n '1p;q'
 }
 
 getMasterIdByslaveIp(){
+  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
   local gid; gid=$(echo "$REDIS_NODES" |xargs -n1 |grep ${1?slaveIp is required} |cut -d "/" -f1)
   local ipsInGid; ipsInGid=$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'$1'/){print $5}}')
-  runRedisCmd -h "$END_POINT" cluster nodes|awk '$0~/.*('${ipsInGid:0:-1}').*(master){1}.*/{printf $1}'
+  runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes|awk '$0~/.*('${ipsInGid:0:-1}').*(master){1}.*/{printf $1}'
+}
+
+getRedisRole(){
+  local result; result=$(runRedisCmd -h ${1?Node ip is required} role)
+  echo "$result" |head -n1
+}
+
+sortOutLeavingNodesIps(){
+  local slaveNodeIps="" masterNodeIps=""
+  local node; for node in $LEAVING_REDIS_NODES;do
+    local nodeRole; nodeRole=$(getRedisRole ${node##*/})
+    if [[ "$nodeRole" == "master" ]]; then
+      masterNodeIps="$masterNodeIps ${node##*/}"
+    else
+      slaveNodeIps="$slaveNodeIps ${node##*/}"
+    fi
+  done
+  echo "$slaveNodeIps $masterNodeIps" |xargs -n1
 }
 
 scaleOut() {
   # TODO: sometimes it fails with "[WARNING] The following slots are open: " or "[ERR] Nodes don't agree about configuration!".
-  checkAllNodesIsOk
+  [[ -n "$JOINING_REDIS_NODES" ]] || (log "no joining nodes detected" and return 200)
+  # add master nodes
+  local stableNodesIps=$(getStableNodesIps)
+  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
   local node; for node in $JOINING_REDIS_NODES;do
     if [[ "$(echo "$node"|cut -d "/" -f3)" == "master" ]];then
-      runRedisCmd --timeout 86400 -h "$END_POINT" --cluster add-node ${node##*/}:$REDIS_PORT $END_POINT:$REDIS_PORT
-      runNode=$(echo "$runNode ${node##*/}" |xargs -n1)
-      checkAllNodesIsOk
+      waitUntilAllNodesIsOk "$stableNodesIps"
+      log "add master node ${node##*/}"
+      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT
+      log "add master node ${node##*/} end"
+      stableNodesIps=$(echo "$stableNodesIps ${node##*/}" |xargs -n1)
     fi
   done
-  checkAllNodesIsOk
-  runRedisCmd --timeout 86400 -h "$END_POINT" --cluster rebalance $END_POINT:$REDIS_PORT --cluster-use-empty-masters
-  checkAllNodesIsOk
+  # rebalance slots
+  log "check stableNodesIps: $stableNodesIps"
+  waitUntilAllNodesIsOk "$stableNodesIps"
+  log "== rebalance start =="
+  # 会出现 --cluster-use-empty-masters 未生效的情况
+  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT
+  log "== rebanlance end =="
+  log "check stableNodesIps: $stableNodesIps"
+  waitUntilAllNodesIsOk "$stableNodesIps"
+  # add slave nodes
   local node; for node in $JOINING_REDIS_NODES;do
     if [[ "$(echo "$node"|cut -d "/" -f3)" == "slave" ]];then
+      log "add master-replica node ${node##*/}"
+      waitUntilAllNodesIsOk "$stableNodesIps"
       local masterId; masterId=$(getMasterIdByslaveIp ${node##*/})
-      runRedisCmd --timeout 86400 -h "$END_POINT" --cluster add-node ${node##*/}:$REDIS_PORT $END_POINT:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
-      runNode=$(echo "$runNode ${node##*/}" |xargs -n1)
-      checkAllNodesIsOk
+      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
+      log "add master-replica node ${node##*/} end"
+      stableNodesIps=$(echo "$stableNodesIps ${node##*/}" |xargs -n1)
     fi
   done
 }
 
+getMyIdByMyIp(){
+  runRedisCmd -h ${1?my ip is required} CLUSTER MYID
+}
+
+resetMynode(){
+  local nodeIp; nodeIp=${1?my ip is required}
+  local resetResult; resetResult=$(runRedisCmd -h $nodeIp CLUSTER RESET)
+  if [[ "$resetResult" == "OK" ]]; then
+    log "Reset node $nodeIp successful"
+  else 
+    log "ERROR to reset node $nodeIp fail" && return 205
+  fi
+}
+
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
-  [ -n "$LEAVING_REDIS_NODES" ] || (log "No leaving nodes detected." && return 200)
+  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
+  local stableNodesIps; stableNodesIps=$(getStableNodesIps)
   local runtimeMasters
-  runtimeMasters="$(runRedisCmd --cluster info $MY_IP $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
+  runtimeMasters="$(runRedisCmd -h "firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
   local runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "($runtimeMasters)$" | xargs)"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     local totalCount=$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')
     local leavingCount=$(echo "$runtimeMastersToLeave" | awk '{printf NF}')
     (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'." && return 201)
-    local leavingIds node; leavingIds="$(for node in $runtimeMastersToLeave; do buildNodeId $node; done)"
-    runRedisCmd --timeout 86400 --cluster rebalance --cluster-weight $(echo $leavingIds | xargs -n1 | sed 's/$/=0/g' | xargs) $MY_IP:$REDIS_PORT || {
+    log "== rebalance start =="
+    local leavingIds node; leavingIds="$(for node in $runtimeMastersToLeave; do getMyIdByMyIp ${node##*/}; done)"
+    runRedisCmd --timeout 86400 -h "$firstNodeIpInStableNode" --cluster rebalance --cluster-weight $(echo $leavingIds | xargs -n1 | sed 's/$/=0/g' | xargs) $firstNodeIpInStableNode:$REDIS_PORT || {
       log "ERROR failed to rebalance the cluster ($?)." && return 203
     }
+    log "== rebalance end =="
+    log "== check start =="
+    waitUntilAllNodesIsOk "$stableNodesIps"
+    log "check end"
   else
     [ -z "$runtimeMastersToLeave" ] || (log "ERROR replica node(s) '$runtimeMastersToLeave' are now runtime master(s)." && return 202)
   fi
 
-  local leavingNode; for leavingNode in $LEAVING_REDIS_NODES; do
+  # cluster forget leavingNode from RedisNode
+  # Make sure that forget slave node before master node is forgotten
+  local leavingNodeIps; leavingNodeIps=$(sortOutLeavingNodesIps)
+  local leavingNodeIp; for leavingNodeIp in $leavingNodeIps; do
+    waitUntilAllNodesIsOk "$stableNodesIps"
+    log "forget $leavingNodeIp"
+    local leavingNodeId; leavingNodeId=$(getMyIdByMyIp $leavingNodeIp)
     local node; for node in $REDIS_NODES; do
-      echo $LEAVING_REDIS_NODES | grep -q $node || {
-        runRedisCmd -h ${node##*/} cluster forget $(buildNodeId $leavingNode) || (log "ERROR failed to delete '$id' ($?)." && return 204)
-      }
+      if echo "$stableNodesIps" | grep ${node##*/} |grep -vq $leavingNodeIp; then
+        log "forget in ${node##*/}"
+        runRedisCmd -h ${node##*/} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)." && return 204)    
+      fi
     done
+    log "forget $leavingNodeIp end"
+    resetMynode $leavingNodeIp
+    stableNodesIps=$(echo "$stableNodesIps" |grep -v "${leavingNodeIp}")
   done
 }
 
@@ -114,6 +177,7 @@ check(){
   _check
   local loadingTag="loading the dataset in memory"
   local infoResponse;infoResponse=$(runRedisCmd cluster info)
+  echo "$infoResponse"
   egrep -q "(cluster_state:ok|$loadingTag)" <(echo "$infoResponse")
 }
 
@@ -133,8 +197,9 @@ backup(){
 }
 
 getRedisClusterInfo(){
-  log "END_POINT: $END_POINT"
-  runRedisCmd -h "$END_POINT" cluster nodes |awk -v "redisNodes=$REDIS_NODES" 'BEGIN{print "{"}
+  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
+  log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
+  runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes |awk -v "redisNodes=$REDIS_NODES" 'BEGIN{print "{"}
   {
       split($2,ips,":");
       redisInfo[$1]="{\"ip\":\""ips[1]"\",\"role\":\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\",\"masterId\":\""$4"\"}";
@@ -157,21 +222,25 @@ getRedisClusterInfo(){
 }
 
 reload() {
-  if [ "$1" == "redis-server" ]; then
-    if echo "$LEAVING_REDIS_NODES " | grep -q "/master/.*/$MY_IP "; then
-      local myRuntimeRole; myRuntimeRole=$(runRedisCmd role | head -1)
-      if [ "$myRuntimeRole" == "slave" ]; then appctl stop; fi
-      return 0
+  # 避免集群刚创建时执行 reload_cmd
+  if isNodeInitialized; then return 0;fi
+
+  if [[ "$1"=="redis-server" ]]; then
+    local nodeEnvFile="/opt/app/bin/envs/node.env"
+    local changedConfigFile="$rootConfDir/redis.changed.conf"
+    if [ checkFileChanged $nodeEnvFile -o checkFileChanged $changedConfigFile ]; then 
+       stopSvc "redis-server"
+       configure
+       startSvc "redis-server"
     fi
-    configure
-  fi
+  fi 
   _reload $@
 }
 
 revive(){
-  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
-  runRedisCmd --cluster fix 127.0.0.1:$REDIS_PORT
   _revive
+  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
+  echo "yes" | runRedisCmd --timeout 40 --cluster fix $MY_IP:$REDIS_PORT
 }
 
 measure() {
@@ -213,10 +282,6 @@ measure() {
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
     for(k in m) print k FS m[k]
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics" && return $rc )
-}
-
-buildNodeId() {
-  echo $1 | awk -F/ '{printf $3}' | sha1sum | cut -c1-40
 }
 
 runRedisCmd() {
@@ -279,7 +344,7 @@ checkFileChanged() {
 }
 
 runCommand(){
-  local redisInfo;redisInfo=$(getRedisInfo)
+  local redisInfo;redisInfo=$(getRedisClusterInfo)
   if [[ $(echo $redisInfo |jq 'map(select(.["role"]=="master" and .["ip"]=="'$MY_IP'"))' |jq 'length') == 0 ]];then log --debug "My role is not master, Unauthorized operation";return 0;fi
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
   local cmd=$(getRuntimeNameOfCmd $flushCmd)

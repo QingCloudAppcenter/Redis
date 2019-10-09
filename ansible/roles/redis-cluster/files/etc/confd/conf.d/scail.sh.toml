@@ -1,8 +1,0 @@
-[template]
-src = "scail.sh.tmpl"
-dest = "/opt/app/bin/tmpl/scail.sh"
-mode = "0700"
-keys = [
-  "/",
-]
-reload_cmd = "/opt/app/bin/tmpl/scail.sh"

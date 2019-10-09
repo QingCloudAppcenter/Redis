@@ -30,7 +30,7 @@ log() {
     shift
   fi
 
-  logger -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
+  logger -S 100000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
 }
 
 retry() {
@@ -155,16 +155,14 @@ _initNode() {
 
 _revive() {
   local svc; for svc in $(getServices); do
-    if [ "$1" == "--check-only" ]; then
-      checkSvc $svc
-    else
-      checkSvc $svc || restartSvc $svc || log "ERROR: failed to restart '$svc' ($?)."
-    fi
+    checkSvc $svc || restartSvc $svc || log "ERROR: failed to restart '$svc' ($?)."
   done
 }
 
 _check() {
-  execute revive --check-only
+  local svc; for svc in $(getServices); do
+    checkSvc $svc
+  done
 }
 
 _start() {
