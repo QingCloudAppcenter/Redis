@@ -1,5 +1,5 @@
 app/*.zip
 app-standalone/redis.zip
-ansible/roles/caddy/files/tmp
+ansible/roles/*/files/tmp
 app-cluster/redis.zip
 custom.env
