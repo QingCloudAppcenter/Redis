@@ -317,11 +317,11 @@ nodesFile=/data/redis/nodes
 rootConfDir=/opt/app/conf/redis-cluster
 
 configureForChangeVxnet(){
-  local runtimeConfigFile=/data/redis/redis.conf
+  local runtimeNodesConfigFile=/data/redis/nodes.conf
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd="$(join -j1 -t/ -o1.4,2.4 $nodesFile.1 $nodesFile | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
-    sed -i "$replaceCmd" $runtimeConfigFile
+    local replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#/#g; s#^#s/#g; s#$#/g#g' | paste -sd';')"
+    rotate $runtimeNodesConfigFile && sed -i "$replaceCmd" $runtimeNodesConfigFile
   fi
 }
 
