@@ -8,7 +8,7 @@
         "container": {
             "type": "kvm",
             "zone": "pek3a",
-            "image": "img-i5db7u25"
+            "image": "img-65lvoz7o"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -43,7 +43,6 @@
             },
             "run_command": {
                 "type": "custom",
-                "nodes_to_execute_on": 1,
                 "cmd": "appctl runCommand",
                 "timeout": 1200,
                 "service_params": {
@@ -111,6 +110,12 @@
         "enable" : true,
         "cmd" : "appctl measure",
         "items" : {
+            "node_role": {
+            "unit": "",
+            "value_type": "str",
+            "statistics_type": "latest",
+            "enums": ["master", "slave"]
+            },
             "key_count" : {
                 "unit" : "Times",
                 "value_type" : "int",
@@ -238,19 +243,19 @@
                 "scale_factor_when_display" : 0.000001
             },
             "memory_usage_min" : {
-                "unit" : "%",
+                "unit" : "Pecent(%)",
                 "value_type" : "int",
                 "statistics_type" : "min",
                 "scale_factor_when_display" : 0.01
             },
             "memory_usage_max" : {
-                "unit" : "%",
+                "unit" : "Pecent(%)",
                 "value_type" : "int",
                 "statistics_type" : "max",
                 "scale_factor_when_display" : 0.01
             },
             "memory_usage_avg" : {
-                "unit" : "%",
+                "unit" : "Pecent(%)",
                 "value_type" : "int",
                 "statistics_type" : "avg",
                 "scale_factor_when_display" : 0.01
@@ -267,12 +272,12 @@
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
-        "display" : [ "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
+        "display" : ["node_role", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
         "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max"]
     },
     "display_tabs" : {
         "roles" : {
-        "cmd" : "python3 /opt/app/bin/redis-cluster.py roles-check"
+        "cmd" : "appctl getRedisRoles"
         }
     }
 }

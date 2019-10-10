@@ -200,31 +200,6 @@ backup(){
   log "backup successfully"
 }
 
-getRedisClusterInfo(){
-  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
-  log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
-  runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes |awk -v "redisNodes=$REDIS_NODES" 'BEGIN{print "{"}
-  {
-      split($2,ips,":");
-      redisInfo[$1]="{\"ip\":\""ips[1]"\",\"role\":\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\",\"masterId\":\""$4"\"}";
-  }
-  END{
-      len = length(redisInfo)
-      i = 1
-
-      for(id in redisInfo){
-          if(i<len){
-          print "\""id"\""":"redisInfo[id]","
-          }
-          else{
-          print "\""id"\""":"redisInfo[id]
-          }
-          i++
-      };
-      print "}"
-  }'
-}
-
 reload() {
   # 避免集群刚创建时执行 reload_cmd
   if isNodeInitialized; then return 0;fi
@@ -348,8 +323,8 @@ checkFileChanged() {
 }
 
 runCommand(){
-  local redisInfo;redisInfo=$(getRedisClusterInfo)
-  if [[ $(echo $redisInfo |jq 'map(select(.["role"]=="master" and .["ip"]=="'$MY_IP'"))' |jq 'length') == 0 ]];then log --debug "My role is not master, Unauthorized operation";return 0;fi
+  local myRole; myRole=$(getRedisRole $MY_IP)
+  if [[ "$myRole" != "master" ]]; then log "My role is not master, Unauthorized operation";return 0;fi 
   local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
   local cmd=$(getRuntimeNameOfCmd $flushCmd)
   if [[ "$flushCmd" == "BGSAVE" ]];then
@@ -358,4 +333,14 @@ runCommand(){
   else
     runRedisCmd -n $db $cmd
   fi
+}
+
+getRedisRoles(){
+  local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
+  log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
+  local rawResult; rawResult=$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)
+  local firstProcessResult; firstProcessResult=$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}')
+  local regexpResult; regexpResult=$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')
+  local secondProcssResult; secondProcssResult=$(sed "$regexpResult" <(echo "$firstProcessResult") |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')
+  echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
 }

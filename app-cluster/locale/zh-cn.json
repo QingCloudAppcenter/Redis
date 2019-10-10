@@ -13,8 +13,6 @@
   "Instance Class": "实例类型",
   "The instance type for the cluster to run, such as high performance, high performance plus": "运行节点的主机类型，例如高性能，超高性能",
   "Replica": "从节点数量",
-  "slave": "从节点",
-  "Slave": "从节点",
   "Volume Size": "磁盘大小",
   "maxmemory-percent": "最大内存比例",
   "Cpus of each node": "每个节点的核数",
@@ -99,5 +97,8 @@
   "master_ip": "对应主节点IP",
   "None": "无",
   "disabled-commands_label": "禁用 FLUSH 命令",
-  "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改"
+  "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
+  "node_role": "节点角色",
+  "master": "主节点",
+  "slave": "从节点"
 }
