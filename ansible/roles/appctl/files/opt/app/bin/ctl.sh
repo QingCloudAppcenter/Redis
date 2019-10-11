@@ -29,9 +29,7 @@ log() {
     [ "$APPCTL_ENV" == "dev" ] || return 0
     shift
   fi
-  local message; message="$@"
-  [[ $(echo "$message" |wc -c) -le 3500 ]] || message="${message:0-3500}"
-  logger -S 4000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $message"
+  logger -S 5000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
 }
  
 retry() {

@@ -269,7 +269,7 @@ runRedisCmd() {
   local result retCode=0
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
-    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=210
+    log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)." && retCode=210
   else
     echo "$result"
   fi
