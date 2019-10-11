@@ -29,10 +29,11 @@ log() {
     [ "$APPCTL_ENV" == "dev" ] || return 0
     shift
   fi
-
-  logger -S 100000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
+  local message; message="$@"
+  [[ $(echo "$message" |wc -c) <= 3500 ]] || message="${message:0-3500}"
+  logger -S 4000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $message"
 }
-
+ 
 retry() {
   local tried=0
   local maxAttempts=$1
