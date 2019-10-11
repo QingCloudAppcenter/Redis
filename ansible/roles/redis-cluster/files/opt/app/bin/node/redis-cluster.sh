@@ -5,9 +5,9 @@ initNode() {
 }
 
 initCluster() {
-  local nodesConf=/data/redis/nodes.conf
+  local nodesConf=/data/redis/nodes-6379.conf
   [ -e "$nodesConf" ] || {
-    local tmplConf=/opt/app/conf/redis-cluster/nodes.conf
+    local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
     [[ -n "$JOINING_REDIS_NODES" ]] || sudo -u redis cp $tmplConf $nodesConf
   }
 }
@@ -292,7 +292,7 @@ nodesFile=/data/redis/nodes
 rootConfDir=/opt/app/conf/redis-cluster
 
 configureForChangeVxnet(){
-  local runtimeNodesConfigFile=/data/redis/nodes.conf
+  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
     local replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#/#g; s#^#s/#g; s#$#/g#g' | paste -sd';')"
@@ -339,7 +339,7 @@ getRedisRoles(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
   log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
   local rawResult; rawResult=$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)
-  local firstProcessResult; firstProcessResult=$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}')
+  local firstProcessResult; firstProcessResult=$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}' |sort -t "," -k3)
   local regexpResult; regexpResult=$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')
   local secondProcssResult; secondProcssResult=$(sed "$regexpResult" <(echo "$firstProcessResult") |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'

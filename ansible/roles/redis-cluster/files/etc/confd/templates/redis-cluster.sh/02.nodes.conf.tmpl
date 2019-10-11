@@ -38,6 +38,6 @@ generateNodesConf() {
   done
 }
 
-flush /opt/app/conf/redis-cluster/nodes.conf << NODES_CONF_EOF
+flush /opt/app/conf/redis-cluster/nodes-6379.conf << NODES_CONF_EOF
 $(generateNodesConf)
 NODES_CONF_EOF

@@ -30,7 +30,7 @@ log() {
     shift
   fi
   local message; message="$@"
-  [[ $(echo "$message" |wc -c) <= 3500 ]] || message="${message:0-3500}"
+  [[ $(echo "$message" |wc -c) -le 3500 ]] || message="${message:0-3500}"
   logger -S 4000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $message"
 }
  
