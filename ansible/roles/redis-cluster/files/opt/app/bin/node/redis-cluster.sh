@@ -202,17 +202,18 @@ backup(){
 
 reload() {
   # 避免集群刚创建时执行 reload_cmd
-  if isNodeInitialized; then return 0;fi
+  if ! isNodeInitialized; then return 0;fi
 
-  if [[ "$1"=="redis-server" ]]; then
+  if [[ "$1" == "redis-server" ]]; then
     local nodeEnvFile="/opt/app/bin/envs/node.env"
     local changedConfigFile="$rootConfDir/redis.changed.conf"
-    if [ checkFileChanged $nodeEnvFile -o checkFileChanged $changedConfigFile ]; then 
+    if checkFileChanged $nodeEnvFile || checkFileChanged $changedConfigFile; then 
        stopSvc "redis-server"
        configure
        startSvc "redis-server"
     fi
-  fi 
+    return 0
+  fi
   _reload $@
 }
 
@@ -265,7 +266,7 @@ measure() {
 
 runRedisCmd() {
   local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2 && shift 2; fi
-  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a '$REDIS_PASSWORD'"
+  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
   local result retCode=0
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
