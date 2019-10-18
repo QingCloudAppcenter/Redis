@@ -62,7 +62,15 @@ getMasterIdByslaveIp(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
   local gid; gid=$(echo "$REDIS_NODES" |xargs -n1 |grep ${1?slaveIp is required} |cut -d "/" -f1)
   local ipsInGid; ipsInGid=$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'$1'/){print $5}}')
-  runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes|awk '$0~/.*('${ipsInGid:0:-1}').*(master){1}.*/{printf $1}'
+  local redisClusterNodes; redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
+  log "redisClusterNodes:  $redisClusterNodes"
+  local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
+  local masterIdCount; masterIdCount=$(echo "$masterId" |wc -l)
+  if [[ $masterIdCount == 1 ]]; then
+    echo "$masterId"
+  else
+    log "node ${1?slaveIp is required} get $masterIdCount masterId:'$masterId'";return 1
+  fi
 }
 
 getRedisRole(){
@@ -102,7 +110,7 @@ scaleOut() {
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
-  # 会出现 --cluster-use-empty-masters 未生效的情况
+  # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
   runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
@@ -112,7 +120,9 @@ scaleOut() {
     if [[ "$(echo "$node"|cut -d "/" -f3)" == "slave" ]];then
       log "add master-replica node ${node##*/}"
       waitUntilAllNodesIsOk "$stableNodesIps"
-      local masterId; masterId=$(getMasterIdByslaveIp ${node##*/})
+      # 新增的从节点在短时间内其在配置文件中的身份为 master，会导致再次增加从节点时获取到的 masterId 为多个，这里需要等到 masterId 为一个为止 
+      local masterId; masterId=$(retry 20 1 0 getMasterIdByslaveIp ${node##*/})
+      log "${node##*/}: masterId is $masterId"
       runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
       log "add master-replica node ${node##*/} end"
       stableNodesIps=$(echo "$stableNodesIps ${node##*/}" |xargs -n1)
