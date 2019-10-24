@@ -111,7 +111,9 @@ scaleOut() {
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
-  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT
+  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT || {
+      log "ERROR failed to rebalance the cluster ($?)." && return 203
+    }
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
@@ -350,6 +352,8 @@ getRedisRoles(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
   log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
   local rawResult; rawResult=$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)
+  local loadingTag="loading the dataset in memory"
+  echo "$rawResult" |grep -q "$loadingTag" && return 0
   local firstProcessResult; firstProcessResult=$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}' |sort -t "," -k3)
   local regexpResult; regexpResult=$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')
   local secondProcssResult; secondProcssResult=$(sed "$regexpResult" <(echo "$firstProcessResult") |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')
