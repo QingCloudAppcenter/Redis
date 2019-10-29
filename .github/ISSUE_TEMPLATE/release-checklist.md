@@ -26,6 +26,8 @@ assignees: ''
 - [ ] 清除 .bash_history（包括 ubuntu 和 root 用户）
 - [ ] 安装 arping 防止同网段虚机和 IP 地址频繁重建引起的问题（apt install iputils-arping）
 - [ ] TCP keepalive timeout（基础网络）
+- [ ] 支持 NeonSAN（硬盘类型 5 和 6）
+- [ ] 支持新实例类型（101，201，301）
 
 # 服务功能测试
 
