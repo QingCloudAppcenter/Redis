@@ -1,4 +1,4 @@
-# Jedis code example
+# Java/Spring code example
 
 ## 1. Configure
 
