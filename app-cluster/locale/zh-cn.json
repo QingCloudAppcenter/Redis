@@ -100,5 +100,11 @@
   "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
   "node_role": "节点角色",
   "master": "主节点",
-  "slave": "从节点"
+  "slave": "从节点",
+  "err_code200": "未找到待删除节点，请通过工单与我们联系",
+  "err_code201": "RedisCluster 集群需要最低保留三个主节点，请检查后再做操作",
+  "err_code202": "待删除的 master-replica 节点中存在 redis 主节点，禁止删除，请选择合适的 master-replica 节点删除",
+  "err_code203": "rebalance 过程出错，请通过工单与我们联系",
+  "err_code204": "CLUSTER FORGET 过程出错，请通过工单与我们联系",
+  "err_code205": "CLUSTER RESET 过程出错，请通过工单与我们联系"
 }

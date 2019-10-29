@@ -1,3 +1,10 @@
+NO_JOINING_NODES_DETECTED_ERR=200
+NUMS_OF_REMAIN_NODES_TOO_LESS_ERR=201
+DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=202
+REBALANCE_ERR=203
+CLUSTER_FORGET_ERR=204
+CLUSTER_RESET_ERR=205
+
 initNode() {
   mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
@@ -93,7 +100,7 @@ sortOutLeavingNodesIps(){
 
 scaleOut() {
   # TODO: sometimes it fails with "[WARNING] The following slots are open: " or "[ERR] Nodes don't agree about configuration!".
-  [[ -n "$JOINING_REDIS_NODES" ]] || (log "no joining nodes detected" and return 200)
+  [[ -n "$JOINING_REDIS_NODES" ]] || (log "no joining nodes detected" and return $NO_JOINING_NODES_DETECTED_ERR)
   # add master nodes
   local stableNodesIps=$(getStableNodesIps)
   local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
@@ -112,7 +119,7 @@ scaleOut() {
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
   runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT || {
-      log "ERROR failed to rebalance the cluster ($?)." && return 203
+      log "ERROR failed to rebalance the cluster ($?)." && return $REBALANCE_ERR
     }
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
@@ -142,7 +149,7 @@ resetMynode(){
   if [[ "$resetResult" == "OK" ]]; then
     log "Reset node $nodeIp successful"
   else 
-    log "ERROR to reset node $nodeIp fail" && return 205
+    log "ERROR to reset node $nodeIp fail" && return $CLUSTER_RESET_ERR
   fi
 }
 
@@ -156,18 +163,18 @@ preScaleIn() {
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     local totalCount=$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')
     local leavingCount=$(echo "$runtimeMastersToLeave" | awk '{printf NF}')
-    (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'." && return 201)
+    (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'." && return $NUMS_OF_REMAIN_NODES_TOO_LESS_ERR)
     log "== rebalance start =="
     local leavingIds node; leavingIds="$(for node in $runtimeMastersToLeave; do getMyIdByMyIp ${node##*/}; done)"
     runRedisCmd --timeout 86400 -h "$firstNodeIpInStableNode" --cluster rebalance --cluster-weight $(echo $leavingIds | xargs -n1 | sed 's/$/=0/g' | xargs) $firstNodeIpInStableNode:$REDIS_PORT || {
-      log "ERROR failed to rebalance the cluster ($?)." && return 203
+      log "ERROR failed to rebalance the cluster ($?)." && return $REBALANCE_ERR
     }
     log "== rebalance end =="
     log "== check start =="
     waitUntilAllNodesIsOk "$stableNodesIps"
     log "check end"
   else
-    [ -z "$runtimeMastersToLeave" ] || (log "ERROR replica node(s) '$runtimeMastersToLeave' are now runtime master(s)." && return 202)
+    [ -z "$runtimeMastersToLeave" ] || (log "ERROR replica node(s) '$runtimeMastersToLeave' are now runtime master(s)." && return $DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR)
   fi
 
   # cluster forget leavingNode from RedisNode
@@ -180,7 +187,7 @@ preScaleIn() {
     local node; for node in $REDIS_NODES; do
       if echo "$stableNodesIps" | grep ${node##*/} |grep -vq $leavingNodeIp; then
         log "forget in ${node##*/}"
-        runRedisCmd -h ${node##*/} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)." && return 204)    
+        runRedisCmd -h ${node##*/} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)." && return $CLUSTER_FORGET_ERR)    
       fi
     done
     log "forget $leavingNodeIp end"
