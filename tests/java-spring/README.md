@@ -2,15 +2,6 @@
 
 ## 1. Configure
 
-### Connect to VIP
-
-Update property `spring.redis.host` in `src/main/resources/application-vip.yml`:
-```
-spring:
-  redis:
-    host: 192.168.2.253
-```
-
 ### Connect through Sentinel
 
 Update property `spring.redis.sentinel` in `src/main/resources/application-sentinel.yml`:
@@ -20,6 +11,15 @@ spring:
     sentinel:
       master: master
       nodes: 192.168.1.11:26379,192.168.1.12:26379,192.168.1.13:26379
+```
+
+### Connect to VIP
+
+Update property `spring.redis.host` in `src/main/resources/application-vip.yml`:
+```
+spring:
+  redis:
+    host: 192.168.2.253
 ```
 
 ### Connect to Redis Cluster
@@ -40,20 +40,6 @@ spring:
 
 ## 3. Run
 
-### Connect to VIP
-
-#### by Jedis
-
-```
-./gradlew -Dspring.profiles.active=jedis,vip bootRun
-```
-
-#### by Lettuce
-
-```
-./gradlew -Dspring.profiles.active=lettuce,vip bootRun
-```
-
 ### Connect to Sentinel
 
 #### by Jedis
@@ -66,6 +52,20 @@ spring:
 
 ```
 ./gradlew -Dspring.profiles.active=lettuce,sentinel bootRun
+```
+
+### Connect to VIP
+
+#### by Jedis
+
+```
+./gradlew -Dspring.profiles.active=jedis,vip bootRun
+```
+
+#### by Lettuce
+
+```
+./gradlew -Dspring.profiles.active=lettuce,vip bootRun
 ```
 
 ### Connect to Redis Cluster
