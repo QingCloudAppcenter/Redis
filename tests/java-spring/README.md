@@ -19,7 +19,17 @@ spring:
   redis:
     sentinel:
       master: master
-      nodes: 192.168.1.11:26379,192.168.1.12:26379,,192.168.1.13:26379
+      nodes: 192.168.1.11:26379,192.168.1.12:26379,192.168.1.13:26379
+```
+
+### Connect to Redis Cluster
+
+Update property `spring.redis.cluster.nodes` in `src/main/resources/application-cluster.yml`:
+```
+spring:
+  redis:
+    cluster:
+      nodes: 192.168.2.55:6379,192.168.2.57:6379,192.168.2.58:6379
 ```
 
 ## 2. Build
@@ -32,12 +42,42 @@ spring:
 
 ### Connect to VIP
 
+#### by Jedis
+
 ```
-./gradlew -Dspring.profiles.active=vip bootRun
+./gradlew -Dspring.profiles.active=jedis,vip bootRun
+```
+
+#### by Lettuce
+
+```
+./gradlew -Dspring.profiles.active=lettuce,vip bootRun
 ```
 
 ### Connect to Sentinel
 
+#### by Jedis
+
 ```
-./gradlew -Dspring.profiles.active=sentinel bootRun
+./gradlew -Dspring.profiles.active=jedis,sentinel bootRun
+```
+
+#### by Lettuce
+
+```
+./gradlew -Dspring.profiles.active=lettuce,sentinel bootRun
+```
+
+### Connect to Redis Cluster
+
+#### by Jedis
+
+```
+./gradlew -Dspring.profiles.active=jedis,cluster bootRun
+```
+
+#### by Lettuce
+
+```
+./gradlew -Dspring.profiles.active=lettuce,cluster bootRun
 ```
