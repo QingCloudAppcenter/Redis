@@ -106,5 +106,18 @@
   "err_code202": "待删除的 master-replica 节点中存在 redis 主节点，禁止删除，请选择合适的 master-replica 节点删除",
   "err_code203": "rebalance 过程出错，请通过工单与我们联系",
   "err_code204": "CLUSTER FORGET 过程出错，请通过工单与我们联系",
-  "err_code205": "CLUSTER RESET 过程出错，请通过工单与我们联系"
+  "err_code205": "CLUSTER RESET 过程出错，请通过工单与我们联系",
+  "err_code210": "Redis 命令执行失败，请通过工单与我们联系",
+  "run_command": "执行命令",
+  "database": "数据库",
+  "command": "命令",
+  "The common for master node": "在主节点执行的命令",
+  "The database for master node": "执行命令的数据库，该项仅对 FLUSHDB 有效，且仅为 0 数据库",
+  "Cluster node timeout is the amount of milliseconds a node must be unreachable for it to be considered in failure state": "集群节点被确认为故障状态的最大毫秒数，即该节点在配置时间内均不可达",
+  "Enable web console": "开启文件查看控制台",
+  "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭，不会重启 redis",
+  "Admin Username": "文件查看用户名",
+  "Admin Password": "文件查看密码",
+  "username of admin web console": "用来访问管理员网页控制台的用户名，可以包含小写字母、数字、半角句点（.）和短横线（-)，不会重启 redis",
+  "password of admin web console": "用来访问管理员网页控制台的密码，可由数字、字母、下划线组成，默认为空表示不需要密码，可以直接访问，不会重启 redis"
 }

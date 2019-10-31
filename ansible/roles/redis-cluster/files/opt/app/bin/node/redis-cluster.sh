@@ -4,9 +4,11 @@ DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=202
 REBALANCE_ERR=203
 CLUSTER_FORGET_ERR=204
 CLUSTER_RESET_ERR=205
+REDIS_COMMAND_EXECUTE_FAIL=210
 
 initNode() {
-  mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
+  mkdir -p /data/redis/logs
+  chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
 }
@@ -20,12 +22,14 @@ initCluster() {
 }
 
 init() {
-  execute initNode && initCluster
+  execute initNode
+  initCluster
 }
 
 start() {
   isNodeInitialized || execute initNode
-  configure && _start
+  configure
+  _start
 }
 
 checkRedisStateIsOkByInfo(){
@@ -119,7 +123,8 @@ scaleOut() {
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
   runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT || {
-      log "ERROR failed to rebalance the cluster ($?)." && return $REBALANCE_ERR
+      log "ERROR failed to rebalance the cluster ($?)."
+      return $REBALANCE_ERR
     }
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
@@ -149,7 +154,8 @@ resetMynode(){
   if [[ "$resetResult" == "OK" ]]; then
     log "Reset node $nodeIp successful"
   else 
-    log "ERROR to reset node $nodeIp fail" && return $CLUSTER_RESET_ERR
+    log "ERROR to reset node $nodeIp fail"
+    return $CLUSTER_RESET_ERR
   fi
 }
 
@@ -163,18 +169,19 @@ preScaleIn() {
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     local totalCount=$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')
     local leavingCount=$(echo "$runtimeMastersToLeave" | awk '{printf NF}')
-    (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'." && return $NUMS_OF_REMAIN_NODES_TOO_LESS_ERR)
+    (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'."; return $NUMS_OF_REMAIN_NODES_TOO_LESS_ERR)
     log "== rebalance start =="
     local leavingIds node; leavingIds="$(for node in $runtimeMastersToLeave; do getMyIdByMyIp ${node##*/}; done)"
     runRedisCmd --timeout 86400 -h "$firstNodeIpInStableNode" --cluster rebalance --cluster-weight $(echo $leavingIds | xargs -n1 | sed 's/$/=0/g' | xargs) $firstNodeIpInStableNode:$REDIS_PORT || {
-      log "ERROR failed to rebalance the cluster ($?)." && return $REBALANCE_ERR
+      log "ERROR failed to rebalance the cluster ($?)."
+      return $REBALANCE_ERR
     }
     log "== rebalance end =="
     log "== check start =="
     waitUntilAllNodesIsOk "$stableNodesIps"
     log "check end"
   else
-    [ -z "$runtimeMastersToLeave" ] || (log "ERROR replica node(s) '$runtimeMastersToLeave' are now runtime master(s)." && return $DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR)
+    [ -z "$runtimeMastersToLeave" ] || (log "ERROR replica node(s) '$runtimeMastersToLeave' are now runtime master(s)."; return $DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR)
   fi
 
   # cluster forget leavingNode from RedisNode
@@ -187,7 +194,7 @@ preScaleIn() {
     local node; for node in $REDIS_NODES; do
       if echo "$stableNodesIps" | grep ${node##*/} |grep -vq $leavingNodeIp; then
         log "forget in ${node##*/}"
-        runRedisCmd -h ${node##*/} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)." && return $CLUSTER_FORGET_ERR)    
+        runRedisCmd -h ${node##*/} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)."; return $CLUSTER_FORGET_ERR)    
       fi
     done
     log "forget $leavingNodeIp end"
@@ -280,16 +287,17 @@ measure() {
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
     for(k in m) print k FS m[k]
-  }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics" && return $rc )
+  }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics"; return $rc )
 }
 
 runRedisCmd() {
-  local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2 && shift 2; fi
+  local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
   local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
   local result retCode=0
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
-    log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)." && retCode=210
+    log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
+    retCode=$REDIS_COMMAND_EXECUTE_FAIL
   else
     echo "$result"
   fi
@@ -316,7 +324,8 @@ configureForChangeVxnet(){
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
     local replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#/#g; s#^#s/#g; s#$#/g#g' | paste -sd';')"
-    rotate $runtimeNodesConfigFile && sed -i "$replaceCmd" $runtimeNodesConfigFile
+    rotate $runtimeNodesConfigFile
+    sed -i "$replaceCmd" $runtimeNodesConfigFile
   fi
 }
 
@@ -332,7 +341,8 @@ configure() {
   local changedConfigFile=$rootConfDir/redis.changed.conf
   local defaultConfigFile=$rootConfDir/redis.default.conf
   local runtimeConfigFile=/data/redis/redis.conf
-  sudo -u redis touch $runtimeConfigFile $nodesFile && rotate $runtimeConfigFile $nodesFile
+  sudo -u redis touch $runtimeConfigFile $nodesFile
+  rotate $runtimeConfigFile $nodesFile
   echo $REDIS_NODES | xargs -n1 > $nodesFile
   configureForChangeVxnet
   configureForRedis

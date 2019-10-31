@@ -43,14 +43,16 @@ retry() {
     $cmd && return 0 || {
       retCode=$?
       if [ "$retCode" = "$stopCode" ]; then
-        log "'$cmd' returned with stop code $stopCode. Stopping ..." && return $retCode
+        log "'$cmd' returned with stop code $stopCode. Stopping ..."
+        return $retCode
       fi
     }
     sleep $interval
     tried=$((tried+1))
   done
 
-  log "'$cmd' still returned errors after $tried attempts. Stopping ..." && return $retCode
+  log "'$cmd' still returned errors after $tried attempts. Stopping ..."
+  return $retCode
 }
 
 rotate() {
@@ -141,7 +143,8 @@ stopSvc() {
 }
 
 restartSvc() {
-  stopSvc $1 && startSvc $1
+  stopSvc $1
+  startSvc $1
 }
 
 ### app management
@@ -178,7 +181,8 @@ _stop() {
 }
 
 _restart() {
-  execute stop && execute start
+  execute stop
+  execute start
 }
 
 _reload() {

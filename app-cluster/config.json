@@ -323,8 +323,8 @@
             "required": "no"
         }, {
             "key": "web.console.enabled",
-            "label": "Admin Console Enabled",
-            "description": "Whether to enable admin web console",
+            "label": "Enable web console",
+            "description": "enable or not for web console",
             "type": "boolean",
             "default": false,
             "required": "no"
