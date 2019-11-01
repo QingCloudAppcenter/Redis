@@ -73,7 +73,7 @@ spring:
 #### by Jedis
 
 ```
-./gradlew -Dspring.profiles.active=jedis,cluster bootRun
+java -Dspring.profiles.active=jedis,cluster -jar build/libs/java-spring-0.2.0.jar
 ```
 
 #### by Lettuce
