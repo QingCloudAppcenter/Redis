@@ -4,6 +4,8 @@ DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=202
 REBALANCE_ERR=203
 CLUSTER_FORGET_ERR=204
 CLUSTER_RESET_ERR=205
+EXISTS_REDIS_MEMORY_USAGE_TOO_BIG=206
+AVERAGE_REDIS_MEMORY_USAGE_TOO_BIG_AFTER_SCALEIN=207
 REDIS_COMMAND_EXECUTE_FAIL=210
 
 initNode() {
@@ -58,6 +60,10 @@ waitUntilAllNodesIsOk(){
 
 getStableNodesIps(){
   awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$JOINING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs) |xargs -n1 |awk -F "/" '{print $5}'
+}
+
+getNodesIpsAfterScaleIn(){
+  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$LEAVING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs) |xargs -n1 |awk -F "/" '{print $5}'
 }
 
 getFirstNodeIpInStableNodes(){
@@ -159,6 +165,27 @@ resetMynode(){
   fi
 }
 
+# 仅在删除主从节点对时调用
+defineRedisMemoryIsOk(){
+  local stableNodesIps; stableNodesIps=$(getStableNodesIps)
+  local allUsedMemory; allUsedMemory=0
+  # 判断节点中是否存在内存使用率达到 0.95 的，存在便禁止删除
+  local stableNodeIp; for stableNodeIp in $stableNodesIps; do
+    local rawMemoryInfo; rawMemoryInfo=$(runRedisCmd -h $stableNodeIp INFO MEMORY)
+    local usedMemory; usedMemory=$(echo "$rawMemoryInfo" |awk -F":" '{if($1=="used_memory"){printf $2}}')
+    local maxMemory; maxMemory=$(echo "$rawMemoryInfo" |awk -F":" '{if($1=="maxmemory"){printf $2}}')
+    local memoryUsage; memoryUsage=$(awk 'BEGIN{printf "%.3f\n",'$usedMemory'/'$maxMemory'}')
+    [[ $memoryUsage > 0.95 ]] && (log "node $stableNodeIp memoryUsage > 0.95, actual value: $memoryUsage, forbid scale in"; return $EXISTS_REDIS_MEMORY_USAGE_TOO_BIG)
+    allUsedMemory=$(awk 'BEGIN{printf '$usedMemory'+'$allUsedMemory'}')
+  done
+  # 判断节点被删除后剩余节点的平均内存使用率是否达到 0.95，满足即禁止删除
+  local nodesIpsAfterScaleIn; nodesIpsAfterScaleIn=$(getNodesIpsAfterScaleIn)
+  local nodesCountAfterScaleIn; nodesCountAfterScaleIn=$(echo "$nodesIpsAfterScaleIn" |xargs -n 1|wc -l)
+  local averageMemoryUsageAfterScaleIn; averageMemoryUsageAfterScaleIn=$(awk 'BEGIN{printf "%.3f\n",'$allUsedMemory'/'$maxMemory'/'$nodesCountAfterScaleIn'}')
+  [[ $averageMemoryUsageAfterScaleIn > 0.95 ]] && (log " averageMemoryUsage > 0.95, calculated result: $averageMemoryUsageAfterScaleIn, forbid scale in"; return $AVERAGE_REDIS_MEMORY_USAGE_TOO_BIG_AFTER_SCALEIN)
+  return 0
+}
+
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
   local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
@@ -167,6 +194,7 @@ preScaleIn() {
   runtimeMasters="$(runRedisCmd -h "firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
   local runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "($runtimeMasters)$" | xargs)"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
+    defineRedisMemoryIsOk
     local totalCount=$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')
     local leavingCount=$(echo "$runtimeMastersToLeave" | awk '{printf NF}')
     (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'."; return $NUMS_OF_REMAIN_NODES_TOO_LESS_ERR)
