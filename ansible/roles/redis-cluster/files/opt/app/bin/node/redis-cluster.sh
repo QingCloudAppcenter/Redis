@@ -167,6 +167,7 @@ resetMynode(){
 
 # 仅在删除主从节点对时调用
 defineRedisMemoryIsOk(){
+  log "defineRedisMemoryIsOk"
   local stableNodesIps; stableNodesIps=$(getStableNodesIps)
   local allUsedMemory; allUsedMemory=0
   # 判断节点中是否存在内存使用率达到 0.95 的，存在便禁止删除
@@ -183,16 +184,25 @@ defineRedisMemoryIsOk(){
   local nodesCountAfterScaleIn; nodesCountAfterScaleIn=$(echo "$nodesIpsAfterScaleIn" |xargs -n 1|wc -l)
   local averageMemoryUsageAfterScaleIn; averageMemoryUsageAfterScaleIn=$(awk 'BEGIN{printf "%.3f\n",'$allUsedMemory'/'$maxMemory'/'$nodesCountAfterScaleIn'}')
   [[ $averageMemoryUsageAfterScaleIn > 0.95 ]] && (log " averageMemoryUsage > 0.95, calculated result: $averageMemoryUsageAfterScaleIn, forbid scale in"; return $AVERAGE_REDIS_MEMORY_USAGE_TOO_BIG_AFTER_SCALEIN)
+  log "RedisMemoryIsOk"
   return 0
 }
 
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
+  log "getFirstNodeIpInStableNode"
   local firstNodeIpInStableNode; firstNodeIpInStableNode=$(getFirstNodeIpInStableNodes)
+  log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
+  log "getStableNodesIps"
   local stableNodesIps; stableNodesIps=$(getStableNodesIps)
+  log "stableNodesIps: $stableNodesIps"
+  log "get runtimeMasters"
   local runtimeMasters
   runtimeMasters="$(runRedisCmd -h "firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
+  log "runtimeMasters: $runtimeMasters"
+  log "get runtimeMastersToLeave"
   local runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "($runtimeMasters)$" | xargs)"
+  log "runtimeMastersToLeave: $runtimeMastersToLeave"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     defineRedisMemoryIsOk
     local totalCount=$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')

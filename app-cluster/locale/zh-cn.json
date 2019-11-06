@@ -15,7 +15,7 @@
   "Replica": "从节点数量",
   "Volume Size": "磁盘大小",
   "maxmemory-percent": "最大内存比例",
-  "Cpus of each node": "每个节点的核数",
+  "Cpus of each node": "每个节点的核数，一般作为缓存，单核就足够了，在数据量较大，数据写入速度很快的情况下，可以视情况使用双核",
   "enable-config": "打开config和save命令",
   "The replica number for each master": "每个主节点的从节点数量",
   "The volume size for each instance": "每个节点的硬盘大小，建议最小设置为内存大小的三倍",
