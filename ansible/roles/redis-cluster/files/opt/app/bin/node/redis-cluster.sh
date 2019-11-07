@@ -166,8 +166,8 @@ resetMynode(){
 }
 
 # 仅在删除主从节点对时调用
-defineRedisMemoryIsOk(){
-  log "defineRedisMemoryIsOk"
+checkMemoryIsEnoughAfterScaled(){
+  log "checkMemoryIsEnoughAfterScaled"
   local stableNodesIps; stableNodesIps=$(getStableNodesIps)
   local allUsedMemory; allUsedMemory=0
   # 判断节点中是否存在内存使用率达到 0.95 的，存在便禁止删除
@@ -204,7 +204,7 @@ preScaleIn() {
   local runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "($runtimeMasters)$" | xargs)"
   log "runtimeMastersToLeave: $runtimeMastersToLeave"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
-    defineRedisMemoryIsOk
+    checkMemoryIsEnoughAfterScaled
     local totalCount=$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')
     local leavingCount=$(echo "$runtimeMastersToLeave" | awk '{printf NF}')
     (( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'."; return $NUMS_OF_REMAIN_NODES_TOO_LESS_ERR)
