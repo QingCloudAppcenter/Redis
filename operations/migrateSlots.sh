@@ -135,7 +135,6 @@ migrateSlot(){
   local destIp; destIp=$(getDestNodeIpBySlot $migratedSlot)
   local sourceNodeId; sourceNodeId=$(getNodeIdByIp $sourceIp)
   local destNodeId; destNodeId=$(getNodeIdByIp $destIp)
-  echo "1"
   [[ "$sourceIp" != "$destIp" ]] || { echo "slot $slot ip 一致";
     return 0
   }
