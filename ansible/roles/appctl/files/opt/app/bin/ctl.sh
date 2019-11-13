@@ -125,7 +125,7 @@ checkSvc() {
     log "Service '$1' is inactive."
     return $EC_CHECK_INACTIVE
   }
-  local endpoints=$(echo $1 | awk -F/ '{print $3}')
+  local endpoints; endpoints="$(echo $1 | awk -F/ '{print $3}')"
   local endpoint; for endpoint in ${endpoints//,/ }; do
     checkEndpoint $endpoint || {
       log "Endpoint '$endpoint' is unreachable."

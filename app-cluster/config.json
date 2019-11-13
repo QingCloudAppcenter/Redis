@@ -35,7 +35,7 @@
                 "label": "CPU",
                 "description": "Cpus of each node",
                 "type": "integer",
-                "default": 2,
+                "default": 1,
                 "range": [1,2],
                 "required": "yes"
             }, {
@@ -60,8 +60,8 @@
                 "label": "Instance Class",
                 "description": "The instance type for the cluster to run, such as high performance, high performance plus",
                 "type": "integer",
-                "default": 201,
-                "range": [101, 201, 301],
+                "default": 202,
+                "range": [101, 202, 301],
                 "required": "yes"
             }, {
                 "key": "replica",
@@ -77,6 +77,14 @@
                 "type": "integer",
                 "default": 10,
                 "min":0,
+                "required": "yes"
+            }, {
+                "key": "volume_class",
+                "label": "Volume Class",
+                "description": "The volume type for each instance，such as high performance，high performance plus",
+                "type": "integer",
+                "default": 200,
+                "range": [100, 200, 5, 6],
                 "required": "yes"
             }]
         }]

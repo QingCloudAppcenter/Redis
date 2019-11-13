@@ -5,11 +5,11 @@ buildRunId() {
 listNodes() {
   echo '
     {{- range ls "/hosts/master" }}
-    {{- getv (printf "/hosts/master/%s/gid" .) }}/master/{{ getv (printf "/hosts/master/%s/instance_id" .) }}/{{ getv (printf "/hosts/master/%s/ip" .) }}{{ " " }}
-    {{- end -}}
+    {{ getv (printf "/hosts/master/%s/gid" .) }}/master/{{ getv (printf "/hosts/master/%s/instance_id" .) }}/{{ getv (printf "/hosts/master/%s/ip" .) }}
+    {{- end }}
     {{- range ls "/hosts/master-replica" }}
-    {{- getv (printf "/hosts/master-replica/%s/gid" .) }}/slave/{{ getv (printf "/hosts/master-replica/%s/instance_id" .) }}/{{ getv (printf "/hosts/master-replica/%s/ip" .) }}{{ " " }}
-    {{- end -}}
+    {{ getv (printf "/hosts/master-replica/%s/gid" .) }}/slave/{{ getv (printf "/hosts/master-replica/%s/instance_id" .) }}/{{ getv (printf "/hosts/master-replica/%s/ip" .) }}
+    {{- end }}
   ' | xargs -n1 | sort -V
 }
 

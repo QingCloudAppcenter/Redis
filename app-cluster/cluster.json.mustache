@@ -14,7 +14,7 @@
         "container": {
             "type": "lxc",
             "zone": "pek3a",
-            "image": "img-wr7c90ri"
+            "image": "img-yqwl1m9h"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -23,7 +23,8 @@
         "volume": {
             "size": {{cluster.master.volume_size}},
             "mount_point": "/data",
-            "filesystem": "xfs"
+            "filesystem": "xfs",
+            "class": {{cluster.master.volume_class}}
         },
         "replica": {{cluster.master.replica}},
         "services": {
