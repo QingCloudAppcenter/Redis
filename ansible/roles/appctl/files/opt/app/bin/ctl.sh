@@ -29,10 +29,9 @@ log() {
     [ "$APPCTL_ENV" == "dev" ] || return 0
     shift
   fi
-
-  logger -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
+  logger -S 5000 -t appctl --id=$$ -- "[cmd=$command args='$args'] $@"
 }
-
+ 
 retry() {
   local tried=0
   local maxAttempts=$1
@@ -44,14 +43,16 @@ retry() {
     $cmd && return 0 || {
       retCode=$?
       if [ "$retCode" = "$stopCode" ]; then
-        log "'$cmd' returned with stop code $stopCode. Stopping ..." && return $retCode
+        log "'$cmd' returned with stop code $stopCode. Stopping ..."
+        return $retCode
       fi
     }
     sleep $interval
     tried=$((tried+1))
   done
 
-  log "'$cmd' still returned errors after $tried attempts. Stopping ..." && return $retCode
+  log "'$cmd' still returned errors after $tried attempts. Stopping ..."
+  return $retCode
 }
 
 rotate() {
@@ -124,7 +125,7 @@ checkSvc() {
     log "Service '$1' is inactive."
     return $EC_CHECK_INACTIVE
   }
-  local endpoints=$(echo $1 | awk -F/ '{print $3}')
+  local endpoints; endpoints="$(echo $1 | awk -F/ '{print $3}')"
   local endpoint; for endpoint in ${endpoints//,/ }; do
     checkEndpoint $endpoint || {
       log "Endpoint '$endpoint' is unreachable."
@@ -142,7 +143,8 @@ stopSvc() {
 }
 
 restartSvc() {
-  stopSvc $1 && startSvc $1
+  stopSvc $1
+  startSvc $1
 }
 
 ### app management
@@ -155,16 +157,14 @@ _initNode() {
 
 _revive() {
   local svc; for svc in $(getServices); do
-    if [ "$1" == "--check-only" ]; then
-      checkSvc $svc
-    else
-      checkSvc $svc || restartSvc $svc || log "ERROR: failed to restart '$svc' ($?)."
-    fi
+    checkSvc $svc || restartSvc $svc || log "ERROR: failed to restart '$svc' ($?)."
   done
 }
 
 _check() {
-  execute revive --check-only
+  local svc; for svc in $(getServices); do
+    checkSvc $svc
+  done
 }
 
 _start() {
@@ -181,7 +181,8 @@ _stop() {
 }
 
 _restart() {
-  execute stop && execute start
+  execute stop
+  execute start
 }
 
 _reload() {

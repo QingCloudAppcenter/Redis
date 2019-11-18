@@ -14,7 +14,8 @@
     srcRootDir="roles/{{ role_name }}/files/etc/confd/templates"
     [ -d "$srcRootDir" ]
     destDir=roles/{{ role_name }}/files/tmp/confd/templates
-    mkdir -p $destDir && rm -rf $destDir/*
+    mkdir -p $destDir
+    rm -rf $destDir/*
     for srcDir in $(ls -d $srcRootDir/*); do
       compileTmpls $destDir/$(basename $srcDir).tmpl $(ls $srcDir/*)
     done

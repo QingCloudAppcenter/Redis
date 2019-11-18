@@ -6,6 +6,8 @@ flush /opt/app/conf/caddy/Caddyfile << CADDYFILE_EOF
   root /data
   gzip
   browse /redis/logs
+  browse /redis/dump.rdb
+  browse /redis/appendonly.aof
   tls off
 }
 CADDYFILE_EOF

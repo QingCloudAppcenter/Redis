@@ -14,11 +14,11 @@ renameCommands() {
     FLUSHDB
     {{- end }}
   "
-
+  readonly CLUSTER_ID="{{ getv "/cluster/cluster_id" }}" NODE_ID="{{ getv "/host/node_id" }}"
   local cmd; for cmd in $disabledCommands; do
     local renamed=$cmd
-    {{- if eq (getv "/env/appctl.unsafe.commands.enabled" "false") "false" }}
-    renamed=$(echo -n ${cmd}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -c1-64)
+    {{- if eq (getv "/env/enable-config" "0") "0" }}
+    renamed="${CLUSTER_ID}${NODE_ID}${cmd}"
     {{- end }}
     echo rename-command $cmd $renamed
   done

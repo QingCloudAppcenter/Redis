@@ -75,7 +75,9 @@ flush /opt/app/conf/caddy/index.html << HTML_EOF
         {{- range $redisNodes }}
         {{- if eq . (getv "/host/ip") }}
         <li><span>⊟</span>{{ . }}</li>
-        <li><span class="sub-1">⊞</span><a href="./redis/logs/">redis</a></li>
+        <li><span class="sub-1">⊞</span><a href="./redis/logs/">logs/</a></li>
+        <li><span class="sub-1">⊡</span><a href="./redis/dump.rdb">dump.rdb</a></li>
+        <li><span class="sub-1">⊡</span><a href="./redis/appendonly.aof">appendonly.aof</a></li>
         {{- else }}
         <li><span>⊞</span><a href="//{{ . }}/">{{ . }}</a></li>
         {{- end }}
