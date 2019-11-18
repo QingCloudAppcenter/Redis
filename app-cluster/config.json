@@ -78,14 +78,6 @@
                 "default": 10,
                 "min":0,
                 "required": "yes"
-            }, {
-                "key": "volume_class",
-                "label": "Volume Class",
-                "description": "The volume type for each instance，such as high performance，high performance plus",
-                "type": "integer",
-                "default": 200,
-                "range": [100, 200, 5, 6],
-                "required": "yes"
             }]
         }]
     },
