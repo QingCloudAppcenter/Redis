@@ -276,6 +276,7 @@ reload() {
   if [[ "$1" == "redis-server" ]]; then
     local nodeEnvFile="/opt/app/bin/envs/node.env"
     local changedConfigFile="$rootConfDir/redis.changed.conf"
+    # 切换私网 || redis.conf 发生改变时可以对 redis 做重启操作，防止添加节点时redis-server 重启
     if checkFileChanged $nodeEnvFile || checkFileChanged $changedConfigFile; then 
        stopSvc "redis-server"
        configure
