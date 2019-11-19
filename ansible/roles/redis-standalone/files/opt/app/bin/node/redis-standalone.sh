@@ -1,3 +1,10 @@
+FIND_MASTER_IP_ERR=210
+LEAVING_REDIS_NODES_IS_NONE_ERR=211
+LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR=212
+MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR=213
+REDIS_COMMAND_EXECUTE_FAIL_ERR=220
+
+
 initNode() {
   mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
@@ -71,12 +78,12 @@ measure() {
 }
 
 checkMasterNotLeaving() {
-  local master; master="$(findMasterIp)" || return 211
-  if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return 212; fi
+  local master; master="$(findMasterIp)" || return $FIND_MASTER_IP_ERR
+  if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return $LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR; fi
 }
 
 preScaleIn() {
-  [ -n "$LEAVING_REDIS_NODES" ] || return 210
+  [ -n "$LEAVING_REDIS_NODES" ] || return $LEAVING_REDIS_NODES_IS_NONE_ERR
   checkMasterNotLeaving
 }
 
@@ -84,7 +91,7 @@ destroy() {
   if [[ -n "$LEAVING_REDIS_NODES" ]]; then
     checkMasterNotLeaving
     execute stop
-    checkVip || ( execute start && return 213 )
+    checkVip || ( execute start && return $MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR )
   fi
 }
 
@@ -188,7 +195,7 @@ runRedisCmd() {
   if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
-    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=220
+    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"
   fi
@@ -317,7 +324,7 @@ configure() {
 }
 
 runCommand(){
-  local db="$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)"
+  local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)"
   local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
