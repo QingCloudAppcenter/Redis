@@ -95,7 +95,7 @@ scaleIn() {
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
   local runtimeConfigFile=/data/redis/redis.conf
-  local oldValue; oldValue=$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)
+  local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)"
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
@@ -108,7 +108,7 @@ restore() {
   if [[ "$oldValue" == "yes" ]]; then
     runRedisCmd $(getRuntimeNameOfCmd BGREWRITEAOF)
     retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
-    local cmd; cmd=$(getRuntimeNameOfCmd CONFIG)
+    local cmd; cmd="$(getRuntimeNameOfCmd CONFIG)"
     [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
   fi     
 }
@@ -140,7 +140,7 @@ getInitMasterIp() {
 getMasterIpForRevive() {
   local rc=0
   if isSvcEnabled redis-sentinel;then
-    local otherFirstNodeIp=$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')
+    local otherFirstNodeIp="$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
     runRedisCmd --ip ${otherFirstNodeIp} -p 26379 sentinel get-master-addr-by-name master |xargs \
       |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
         log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
@@ -165,15 +165,15 @@ findMasterIp() {
 }
 
 checkBgsaveDone(){
-  local lastsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd "LASTSAVE")
+  local lastsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd "LASTSAVE")"
   [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
 }
 
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
-  local lastsaveCmd bgsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd $lastsave) bgsaveCmd=$(getRuntimeNameOfCmd $bgsave)
-  local lastTime; lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+  local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
+  local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
   retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
@@ -317,8 +317,8 @@ configure() {
 }
 
 runCommand(){
-  local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
-  local cmd=$(getRuntimeNameOfCmd $flushCmd)
+  local db="$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)"
+  local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
