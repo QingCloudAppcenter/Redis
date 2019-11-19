@@ -135,5 +135,6 @@
   "sentinel.down-after-milliseconds_label": "sentinel.down-after-milliseconds",
   "sentinel.down-after-milliseconds_description":"master 被 sentinel 标记为主观下线 (sdown) 的超时时间，单位毫秒",
   "sentinel.failover-timeout_label":"sentinel.failover-timeout",
-  "sentinel.failover-timeout_description": "两次 failover 间的间隔时间，单位毫秒"
+  "sentinel.failover-timeout_description": "两次 failover 间的间隔时间，单位毫秒",
+  "databases_description": "redis-server 数据库的数量，默认是 16 个"
 }

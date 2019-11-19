@@ -167,6 +167,16 @@
           "type": "integer"
         },
         {
+          "description": "databases_description",
+          "required": "no",
+          "label": "databases",
+          "default": 16,
+          "key": "databases",
+          "min": 1,
+          "max": 2000,
+          "type": "integer"
+        },
+        {
           "description": "sentinel.down-after-milliseconds_description",
           "required": "no",
           "label": "sentinel.down-after-milliseconds_label",

@@ -26,6 +26,7 @@ renameCommands() {
 }
 
 flush /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EOF
+databases {{ getv "/env/databases" "16" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
