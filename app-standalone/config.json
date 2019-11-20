@@ -43,10 +43,8 @@
               "type": "integer",
               "default": 1,
               "range": [
-                0,
-                1,
                 101,
-                201,
+                202,
                 301
               ],
               "required": "yes"
