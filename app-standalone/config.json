@@ -41,7 +41,7 @@
               "label": "instance_class_label",
               "description": "instance_class_description",
               "type": "integer",
-              "default": 1,
+              "default": 202,
               "range": [
                 101,
                 202,
