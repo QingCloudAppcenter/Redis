@@ -43,10 +43,8 @@
               "type": "integer",
               "default": 1,
               "range": [
-                0,
-                1,
                 101,
-                201,
+                202,
                 301
               ],
               "required": "yes"
@@ -164,6 +162,16 @@
           "key": "maxmemory_portion",
           "min": 10,
           "max": 95,
+          "type": "integer"
+        },
+        {
+          "description": "databases_description",
+          "required": "no",
+          "label": "databases",
+          "default": 16,
+          "key": "databases",
+          "min": 1,
+          "max": 2000,
           "type": "integer"
         },
         {

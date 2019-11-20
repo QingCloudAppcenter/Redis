@@ -1,7 +1,7 @@
 ---
 - name: set vars
   set_fact:
-    redis_version: 5.0.5
+    redis_version: 5.0.6
 
 - name: add the service group
   group:

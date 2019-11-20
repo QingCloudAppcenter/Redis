@@ -9,7 +9,7 @@
   "node_label": "节点",
   "node_description": "Redis节点",
   "cpu_label": "CPU",
-  "cpu_description": "每个节点CPU个数",
+  "cpu_description": "每个节点的核数，一般作为缓存，单核就足够了，在数据量较大，数据写入速度很快的情况下，可以视情况使用双核",
   "memory_label": "内存",
   "memory_description": "每个节点的内存大小(单位 MB)",
   "volume_size_label": "磁盘大小",
@@ -118,8 +118,11 @@
   "Times": "次",
   "username of admin web console": "用来访问管理员网页控制台的用户名，可以包含小写字母、数字、半角句点（.）和短横线（-)，不会重启 redis",
   "password of admin web console": "用来访问管理员网页控制台的密码，可由数字、字母、下划线组成，默认为空表示不需要密码，可以直接访问，不会重启 redis",
+  "err_code210": "查找主节点 IP 失败，请通过工单与我们沟通",
+  "err_code211": "待删除节点为空，禁止删除操作，请通过工单与我们沟通",
   "err_code212": "为了避免数据丢失，请选择从节点进行删除，主从关系可以通过监控项获取",
   "err_code213": "刚才可能发生了主从切换，导致要删除的节点中包含主节点；为了避免数据丢失，请稍后选择从节点进行删除",
+  "err_code220": "redis 命令执行失败，请通过工单与我们沟通",
   "err_code1": "内部错误",
   "disabled-commands_label": "禁用 FLUSH 命令",
   "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
@@ -135,5 +138,6 @@
   "sentinel.down-after-milliseconds_label": "sentinel.down-after-milliseconds",
   "sentinel.down-after-milliseconds_description":"master 被 sentinel 标记为主观下线 (sdown) 的超时时间，单位毫秒",
   "sentinel.failover-timeout_label":"sentinel.failover-timeout",
-  "sentinel.failover-timeout_description": "两次 failover 间的间隔时间，单位毫秒"
+  "sentinel.failover-timeout_description": "两次 failover 间的间隔时间，单位毫秒",
+  "databases_description": "redis-server 数据库的数量，默认是 16 个"
 }

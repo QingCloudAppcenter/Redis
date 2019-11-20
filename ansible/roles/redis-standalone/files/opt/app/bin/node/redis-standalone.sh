@@ -1,3 +1,10 @@
+FIND_MASTER_IP_ERR=210
+LEAVING_REDIS_NODES_IS_NONE_ERR=211
+LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR=212
+MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR=213
+REDIS_COMMAND_EXECUTE_FAIL_ERR=220
+
+
 initNode() {
   mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
@@ -71,12 +78,12 @@ measure() {
 }
 
 checkMasterNotLeaving() {
-  local master; master="$(findMasterIp)" || return 211
-  if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return 212; fi
+  local master; master="$(findMasterIp)" || return $FIND_MASTER_IP_ERR
+  if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return $LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR; fi
 }
 
 preScaleIn() {
-  [ -n "$LEAVING_REDIS_NODES" ] || return 210
+  [ -n "$LEAVING_REDIS_NODES" ] || return $LEAVING_REDIS_NODES_IS_NONE_ERR
   checkMasterNotLeaving
 }
 
@@ -84,7 +91,7 @@ destroy() {
   if [[ -n "$LEAVING_REDIS_NODES" ]]; then
     checkMasterNotLeaving
     execute stop
-    checkVip || ( execute start && return 213 )
+    checkVip || ( execute start && return $MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR )
   fi
 }
 
@@ -95,7 +102,7 @@ scaleIn() {
 # edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
   local runtimeConfigFile=/data/redis/redis.conf
-  local oldValue; oldValue=$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)
+  local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)"
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
@@ -108,7 +115,7 @@ restore() {
   if [[ "$oldValue" == "yes" ]]; then
     runRedisCmd $(getRuntimeNameOfCmd BGREWRITEAOF)
     retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
-    local cmd; cmd=$(getRuntimeNameOfCmd CONFIG)
+    local cmd; cmd="$(getRuntimeNameOfCmd CONFIG)"
     [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
   fi     
 }
@@ -140,7 +147,7 @@ getInitMasterIp() {
 getMasterIpForRevive() {
   local rc=0
   if isSvcEnabled redis-sentinel;then
-    local otherFirstNodeIp=$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')
+    local otherFirstNodeIp="$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
     runRedisCmd --ip ${otherFirstNodeIp} -p 26379 sentinel get-master-addr-by-name master |xargs \
       |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
         log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
@@ -165,15 +172,15 @@ findMasterIp() {
 }
 
 checkBgsaveDone(){
-  local lastsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd "LASTSAVE")
+  local lastsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd "LASTSAVE")"
   [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
 }
 
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
-  local lastsaveCmd bgsaveCmd; lastsaveCmd=$(getRuntimeNameOfCmd $lastsave) bgsaveCmd=$(getRuntimeNameOfCmd $bgsave)
-  local lastTime; lastTime=$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)
+  local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
+  local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
   retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
@@ -188,7 +195,7 @@ runRedisCmd() {
   if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
-    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=220
+    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"
   fi
@@ -317,8 +324,8 @@ configure() {
 }
 
 runCommand(){
-  local db=$(echo $1 |jq .db) flushCmd=$(echo $1 |jq -r .cmd)
-  local cmd=$(getRuntimeNameOfCmd $flushCmd)
+  local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)"
+  local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
