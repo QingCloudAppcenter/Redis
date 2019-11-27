@@ -123,5 +123,6 @@
   "username of admin web console": "用来访问管理员网页控制台的用户名，可以包含小写字母、数字、半角句点（.）和短横线（-)，不会重启 redis",
   "password of admin web console": "用来访问管理员网页控制台的密码，可由数字、字母、下划线组成，默认为空表示不需要密码，可以直接访问，不会重启 redis",
   "Volume Class": "磁盘类型",
-  "The volume type for each instance，such as high performance，high performance plus": "磁盘类型，比如性能型、超高性能型"
+  "The volume type for each instance，such as high performance，high performance plus": "磁盘类型，比如性能型、超高性能型",
+  "is_location": "在组内"
 }
