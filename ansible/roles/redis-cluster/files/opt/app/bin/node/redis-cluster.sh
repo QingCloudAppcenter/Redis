@@ -81,7 +81,7 @@ getFirstNodeIpInStableNodesExceptLeavingNodes(){
 getMasterIdByslaveIp(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
   local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep ${1?slaveIp is required} |cut -d "/" -f1)"
-  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'$1'/){print $5}}')"
+  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'${1//\./\\.}'/){print $5}}' |sed 's/\./\\./g')"
   local redisClusterNodes; redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
   log "redisClusterNodes:  $redisClusterNodes"
   local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
@@ -203,10 +203,10 @@ preScaleIn() {
   log "stableNodesIps: $stableNodesIps"
   log "get runtimeMasters"
   local runtimeMasters
-  runtimeMasters="$(runRedisCmd -h "firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
+  runtimeMasters="$(runRedisCmd -h "$firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
   log "runtimeMasters: $runtimeMasters"
   log "get runtimeMastersToLeave"
-  local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "($runtimeMasters)$" | xargs)"
+  local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "(${runtimeMasters//\./\\.})$" | xargs)"
   log "runtimeMastersToLeave: $runtimeMastersToLeave"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     checkMemoryIsEnoughAfterScaled
