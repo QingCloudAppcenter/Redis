@@ -7,6 +7,7 @@ CLUSTER_RESET_ERR=205
 EXISTS_REDIS_MEMORY_USAGE_TOO_BIG=206
 AVERAGE_REDIS_MEMORY_USAGE_TOO_BIG_AFTER_SCALEIN=207
 REDIS_COMMAND_EXECUTE_FAIL=210
+CHANGE_VXNET_ERR=220
 
 initNode() {
   mkdir -p /data/redis/logs
@@ -252,7 +253,7 @@ check(){
   local infoResponse;infoResponse="$(runRedisCmd cluster info)"
   egrep -q "(cluster_state:ok|$loadingTag)" <(echo "$infoResponse")
   # 是否发生错位
-  [[ "$(getIsLocation)" == "yes" ]]
+  [[ "$(checkGroupMatched)" == "yes" ]]
 }
 
 checkBgsaveDone(){
@@ -291,12 +292,12 @@ reload() {
 revive(){
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   # 出现错位不对 redis-server 做 revive 操作
-  [[ "$(getIsLocation)" == "yes" ]] || SERVICES="$(echo "SERVICES" |xargs -n1 |grep -v "redis-server" |xargs)"
+  [[ "$(checkGroupMatched)" == "yes" ]] || SERVICES="$(echo "SERVICES" |xargs -n1 |grep -v "redis-server" |xargs)"
   _revive
 }
 
 measure() {
-  local isLocation; isLocation="$(getIsLocation)"
+  local groupMatched; groupMatched="$(checkGroupMatched)"
   runRedisCmd info all | awk -F: 'BEGIN {
     g["hash_based_count"] = "^h"
     g["list_based_count"] = "^(bl|br|l|rp)"
@@ -333,7 +334,7 @@ measure() {
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
-    m["is_location"] = "'$isLocation'"
+    m["group_matched"] = "'$groupMatched'"
     for(k in m) {
       print k FS m[k]
     }
@@ -375,11 +376,11 @@ configureForChangeVxnet(){
   # in case checkFileChanged err when metadata is disconnected
   egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
     log "Data format in $nodeFile is err,skip change for Vxnet, content: [$(paste -s $nodesFile)]"
-    return 0
+    return $CHANGE_VXNET_ERR
   }
   egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
     log "Data format in $nodeFile.1 is err,skip change for Vxnet, content: [$(paste -s $nodesFile.1)]"
-    return 0
+    return $CHANGE_VXNET_ERR
   }
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
@@ -440,36 +441,24 @@ getRedisRoles(){
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
 }
 
-getIsLocationOnRedisStopped(){
-  local isLocation="yes"
-  local nodeConfFile="/data/redis/nodes-6379.conf"
-  local myRoleInfo; myRoleInfo="$(awk 'BEGIN{OFS=" "}{if($0~/'${MY_IP//\./\\.}':'$REDIS_PORT'/){print $3,$4}}' $nodeConfFile)"
+checkGroupMatched(){
+  local clusterNodes groupMatched="yes" nodeConfFile="/data/redis/nodes-6379.conf"
+
+  if checkActive "redis-server"; then
+    log "redis-server is active, get cluster nodes from command [CLUSTER NODES]"
+    clusterNodes="$(runRedisCmd CLUSTER NODES)"
+  else
+    log "redis-server is not active, get cluster nodes from file $nodeConfFile"
+    clusterNodes="$(cat $nodeConfFile)"
+  fi
+
+  local myRoleInfo; myRoleInfo="$(awk 'BEGIN{OFS=" "}{if($0~/'${MY_IP//\./\\.}':'$REDIS_PORT'/){print $3,$4}}' <(echo "$clusterNodes"))"
   local myRole; myRole="$(echo "$myRoleInfo"|awk '{split($1,role,",");print role[2]}')"
   if [[ "$myRole" == "slave" ]]; then
       local myMasterId; myMasterId="$(echo "$myRoleInfo" |awk '{print $2}')"
-      local myMasterIp; myMasterIp="$(awk '{if ($1~/'$myMasterId'/){split($2,ips,":");print ips[1]}}' $nodeConfFile)"
+      local myMasterIp; myMasterIp="$(awk '{if ($1~/'$myMasterId'/){split($2,ips,":");print ips[1]}}' <(echo "$clusterNodes"))"
       local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "(${myMasterIp//\./\\.}|${MY_IP//\./\\.})" |cut -d "/" -f1 |uniq)"
-      [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || isLocation="no"
+      [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || groupMatched="no"
   fi 
-  echo "$isLocation"
-}
-
-getIsLocationOnRedisRunning(){
-  local isLocation="yes"
-  local myRoleInfo; myRoleInfo="$(runRedisCmd ROLE |xargs)"
-  local myRole; myRole="$(echo "$myRoleInfo" |cut -d " " -f1)"
-  if [[ "$myRole" == "slave" ]];then
-    local myMasterIp; myMasterIp="$(echo "$myRoleInfo" |cut -d " " -f2)"
-    local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "(${myMasterIp//\./\\.}|${MY_IP//\./\\.})" |cut -d "/" -f1 |uniq)"
-    [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || isLocation="no"
-  fi
-  echo "$isLocation"
-}
-
-getIsLocation(){
-  if checkActive "redis-server"; then
-    getIsLocationOnRedisRunning
-  else
-    getIsLocationOnRedisStopped
-  fi
+  echo $groupMatched
 }
