@@ -490,10 +490,15 @@ checkGroupMatchedForAllNodes(){
   done 
 }
 
+preScaleOut(){
+  log "preScaleOut"
+  return 0
+}
+
 filterCommand(){
   local undeterminedCommand undeterminedCommands
   undeterminedCommand="${1?command is required}"
-  undeterminedCommands="stop scaleOut preScaleIn"
+  undeterminedCommands="stop preScaleOut preScaleIn"
   if echo "$undeterminedCommands" |grep -q "$undeterminedCommand"; then
     log "undeterminedCommand: $undeterminedCommand"
     checkGroupMatchedForAllNodes
