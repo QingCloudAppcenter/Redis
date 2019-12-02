@@ -67,9 +67,6 @@ rotate() {
 
 execute() {
   local cmd=$1; log --debug "Executing command ..."
-  # 在 filterCommand(){} 存在的情况下，先对各 command 做判断，仅对 redis cluster 有效
-  filterCommandFunction="filterCommand"
-  [[ "$(type -t $filterCommandFunction)" == "function" ]] && $filterCommandFunction $cmd
   [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
   $cmd ${@:2}
 }

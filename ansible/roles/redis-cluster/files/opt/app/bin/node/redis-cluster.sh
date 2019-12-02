@@ -10,6 +10,15 @@ REDIS_COMMAND_EXECUTE_FAIL=210
 CHANGE_VXNET_ERR=220
 GROUP_MATCHED_ERR=221
 
+execute() {
+  local cmd=$1; log --debug "Executing command ..."
+  # 在 checkGroupMatchedCommand(){} 存在的情况下，先对各 command 做判断，仅对 redis cluster 有效
+  checkGroupMatchedCommandFunction="checkGroupMatchedCommand"
+  [[ "$(type -t $checkGroupMatchedCommandFunction)" == "function" ]] && $checkGroupMatchedCommandFunction $cmd
+  [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
+  $cmd ${@:2}
+}
+
 initNode() {
   mkdir -p /data/redis/logs
   chown -R redis.svc /data/redis
@@ -111,6 +120,11 @@ sortOutLeavingNodesIps(){
     fi
   done
   echo "$slaveNodeIps $masterNodeIps" |xargs -n1
+}
+
+preScaleOut(){
+  log "preScaleOut"
+  return 0
 }
 
 scaleOut() {
@@ -451,7 +465,7 @@ getRedisRoles(){
 getGroupMatched(){
   local clusterNodes groupMatched="true" nodeConfFile="/data/redis/nodes-6379.conf" targetIp="${1:-"null"}"
 
-  if [[ "$targetIp" == "null" ]]; then
+  if [[ "$targetIp" == "null" ]] || [[ "$targetIp" == "$MY_IP" ]]; then
     targetIp="$MY_IP"
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
@@ -490,17 +504,12 @@ checkGroupMatchedForAllNodes(){
   done 
 }
 
-preScaleOut(){
-  log "preScaleOut"
-  return 0
-}
-
-filterCommand(){
-  local undeterminedCommand undeterminedCommands
-  undeterminedCommand="${1?command is required}"
-  undeterminedCommands="stop preScaleOut preScaleIn"
-  if echo "$undeterminedCommands" |grep -q "$undeterminedCommand"; then
-    log "undeterminedCommand: $undeterminedCommand"
+checkGroupMatchedCommand(){
+  local needToCheckGroupMatchedCommand needToCheckGroupMatchedCommands
+  needToCheckGroupMatchedCommand="${1?command is required}"
+  needToCheckGroupMatchedCommands="stop preScaleOut preScaleIn"
+  if echo "$needToCheckGroupMatchedCommands" |grep -q "$needToCheckGroupMatchedCommand"; then
+    log "needToCheckGroupMatchedCommand: $needToCheckGroupMatchedCommand"
     checkGroupMatchedForAllNodes
   fi
 }
