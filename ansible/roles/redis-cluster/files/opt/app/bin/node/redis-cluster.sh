@@ -481,7 +481,7 @@ getGroupMatched(){
   if [[ "$targetRole" == "slave" ]]; then
       local targetMasterId; targetMasterId="$(echo "$targetRoleInfo" |awk '{print $2}')"
       local targetMasterIp; targetMasterIp="$(awk '{if ($1~/'$targetMasterId'/){split($2,ips,":");print ips[1]}}' <(echo "$clusterNodes"))"
-      local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "(${targetMasterIp//\./\\.}|${targetIp//\./\\.})" |cut -d "/" -f1 |uniq)"
+      local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/(${targetMasterIp//\./\\.}|${targetIp//\./\\.})$" |cut -d "/" -f1 |uniq)"
       [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || groupMatched="false"
   fi 
   echo $groupMatched
