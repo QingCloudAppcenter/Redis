@@ -407,7 +407,7 @@ configureForChangeVxnet(){
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
     local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
     rotate $runtimeNodesConfigFile
-    [[ -f "$runtimeNodesConfigFile" ]] && sed -i "$replaceCmd" $runtimeNodesConfigFile
+    [[ -f "$runtimeNodesConfigFile" ]] && sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
   fi
   log "configureForChangeVxnet End"
 }
