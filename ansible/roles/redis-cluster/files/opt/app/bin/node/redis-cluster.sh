@@ -91,8 +91,8 @@ getFirstNodeIpInStableNodesExceptLeavingNodes(){
 
 findMasterIdByJoiningSlaveIp(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
-  local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep ${1?slaveIp is required} |cut -d "/" -f1)"
-  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'${1//\./\\.}'/){print $5}}' |sed 's/\./\\./g')"
+  local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/${1//\./\\.}$" |cut -d "/" -f1)"
+  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/^'${1//\./\\.}'$/){print $5}}' |sed 's/\./\\./g')"
   local redisClusterNodes; redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
   log "redisClusterNodes:  $redisClusterNodes"
   local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
@@ -405,7 +405,7 @@ configureForChangeVxnet(){
   fi
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#/#g; s#^#s/#g; s#$#/g#g' | paste -sd';')"
+    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
     rotate $runtimeNodesConfigFile
     [[ -f "$runtimeNodesConfigFile" ]] && sed -i "$replaceCmd" $runtimeNodesConfigFile
   fi
