@@ -90,9 +90,9 @@ assignees: ''
 - [ ] Redis Cluster
   - [ ] 将某从节点对应的主节点做切换
     - [ ] 「在组内」监控项变为 false
-    - [ ] 两分钟后该节点变为异常，手动执行 appctl check 或者 appctl revive，返回值 201
+    - [ ] 两分钟后该节点变为异常，手动执行 appctl check 或者 appctl revive，返回值 221
     - [ ] 在该情况下，切换私网、增加节点、删除节点均失败，报错：存在节点发生错位，请通过工单与我们联系
-    - [ ] 关闭发生错位的从节点的 redis-server ，执行 appctl check  或者 appctl revive ，返回值为 201，且 redis-server 不会被拉起
+    - [ ] 关闭发生错位的从节点的 redis-server ，执行 appctl check  或者 appctl revive ，返回值为 221，且 redis-server 不会被拉起
 
 
 # 性能/基准测试
