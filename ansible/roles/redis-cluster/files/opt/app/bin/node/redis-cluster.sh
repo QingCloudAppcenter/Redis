@@ -393,19 +393,19 @@ configureForChangeVxnet(){
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
   # in case checkFileChanged err when metadata is disconnected
   egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
-    log "Data format in $nodeFile is err,skip change for Vxnet, content: [$(paste -s $nodesFile)]"
+    log "Data format in $nodeFile is err, content: [$(paste -s $nodesFile)]"
     return $CHANGE_VXNET_ERR
   }
   # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
   if [[ -f "$nodesFile.2" ]]; then
     egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
-      log "Data format in $nodeFile.1 is err,skip change for Vxnet, content: [$(paste -s $nodesFile.1)]"
+      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
       return $CHANGE_VXNET_ERR
     }
   fi
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed "s#/#:$REDIS_PORT/ #g; s#^#s/ #g; s#$#:$REDIS_PORT/g#g" | paste -sd';')"
+    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
     rotate $runtimeNodesConfigFile
     [[ -f "$runtimeNodesConfigFile" ]] && sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
   fi
@@ -513,3 +513,12 @@ checkGroupMatchedCommand(){
     checkGroupMatchedForAllNodes
   fi
 }
+
+
+
+1/1/master/i-c5n8wy7p/192.168.0.55
+1/2/slave/i-lpgm0i32/192.168.0.63
+2/3/master/i-g6svyxl9/192.168.0.53
+2/4/slave/i-g99ahrrn/192.168.0.51
+3/5/master/i-5xxiabsv/192.168.0.59
+3/6/slave/i-1kiazn9o/192.168.0.52
