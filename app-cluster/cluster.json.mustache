@@ -15,7 +15,7 @@
         "container": {
             "type": "lxc",
             "zone": "pek3a",
-            "image": "img-lagcyroz"
+            "image": "img-9e3j5vvr"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -294,18 +294,4 @@
         "cmd" : "appctl getRedisRoles"
         }
     }
-}
-
-  upload /upload {
-      to caddy
- }
-
-  filemanager /uploadmanager {
-      show           caddy
-      allow_new      true
-      allow_edit     true
-      allow_commands true
-      allow_command  git
-      block_command  command
-      block          dotfiles
 }

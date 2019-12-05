@@ -223,9 +223,7 @@ preScaleIn() {
   log "runtimeMasters: $runtimeMasters"
   log "get runtimeMastersToLeave"
   # 防止 egrep 未匹配到信息而报错，比如在删除所有 master-replica 节点时，该位置匹配不到导致删除失败
-  set +e
-  local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "(${runtimeMasters//\./\\.})$" | xargs)"
-  set -e
+  local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "(${runtimeMasters//\./\\.})$" | xargs)" || true
   log "runtimeMastersToLeave: $runtimeMastersToLeave"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     checkMemoryIsEnoughAfterScaled
@@ -271,7 +269,7 @@ check(){
   local infoResponse;infoResponse="$(runRedisCmd cluster info)"
   egrep -q "(cluster_state:ok|$loadingTag)" <(echo "$infoResponse")
   # 是否发生错位
-  checkGroupMatchedForOneNode
+  checkGroupMatched
 }
 
 checkBgsaveDone(){
@@ -310,7 +308,7 @@ reload() {
 revive(){
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   # 是否发生错位
-  checkGroupMatchedForOneNode
+  checkGroupMatched
   _revive
 }
 
@@ -463,10 +461,9 @@ getRedisRoles(){
 }
 
 getGroupMatched(){
-  local clusterNodes groupMatched="true" nodeConfFile="/data/redis/nodes-6379.conf" targetIp="${1:-"null"}"
+  local clusterNodes groupMatched="true" nodeConfFile="/data/redis/nodes-6379.conf" targetIp="${1:-$MY_IP}"
 
-  if [[ "$targetIp" == "null" ]] || [[ "$targetIp" == "$MY_IP" ]]; then
-    targetIp="$MY_IP"
+  if [[ "$targetIp" == "$MY_IP" ]]; then
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
     else
@@ -487,21 +484,14 @@ getGroupMatched(){
   echo $groupMatched
 }
 
-# 判定是否发生错位
-checkGroupMatchedForOneNode(){
-  local targetIp="${1:-"null"}"
-  if [[ "$targetIp" == "null" ]]; then targetIp="$MY_IP"; fi
-  [[ "$(getGroupMatched "$targetIp")" == "true" ]] || {
-    log "node $targetIp group matched is false"
-    return $GROUP_MATCHED_ERR
-  }
-}
-
-checkGroupMatchedForAllNodes(){
-  local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
-  local stableNodeIp; for stableNodeIp in $stableNodesIps; do
-    checkGroupMatchedForOneNode $stableNodeIp
-  done 
+checkGroupMatched() {
+  local targetIps="${1:-$MY_IP}"
+  local targetIp; for targetIp in $targetIps; do
+    [[ "$(getGroupMatched "$targetIp")" == "true" ]] || {
+      log "Found mismatched group for node '$targetIp'."
+      return $GROUP_MATCHED_ERR
+    }
+  done
 }
 
 checkGroupMatchedCommand(){
@@ -510,15 +500,7 @@ checkGroupMatchedCommand(){
   needToCheckGroupMatchedCommands="stop preScaleOut preScaleIn"
   if echo "$needToCheckGroupMatchedCommands" |grep -q "$needToCheckGroupMatchedCommand"; then
     log "needToCheckGroupMatchedCommand: $needToCheckGroupMatchedCommand"
-    checkGroupMatchedForAllNodes
+    local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
+    checkGroupMatched $stableNodesIps
   fi
 }
-
-
-
-1/1/master/i-c5n8wy7p/192.168.0.55
-1/2/slave/i-lpgm0i32/192.168.0.63
-2/3/master/i-g6svyxl9/192.168.0.53
-2/4/slave/i-g99ahrrn/192.168.0.51
-3/5/master/i-5xxiabsv/192.168.0.59
-3/6/slave/i-1kiazn9o/192.168.0.52
