@@ -501,6 +501,6 @@ checkGroupMatchedCommand(){
   if echo "$needToCheckGroupMatchedCommands" |grep -q "$needToCheckGroupMatchedCommand"; then
     log "needToCheckGroupMatchedCommand: $needToCheckGroupMatchedCommand"
     local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
-    checkGroupMatched $stableNodesIps
+    checkGroupMatched "$stableNodesIps"
   fi
 }
