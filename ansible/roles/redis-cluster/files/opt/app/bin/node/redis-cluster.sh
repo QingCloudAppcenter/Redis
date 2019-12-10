@@ -7,6 +7,17 @@ CLUSTER_RESET_ERR=205
 EXISTS_REDIS_MEMORY_USAGE_TOO_BIG=206
 AVERAGE_REDIS_MEMORY_USAGE_TOO_BIG_AFTER_SCALEIN=207
 REDIS_COMMAND_EXECUTE_FAIL=210
+CHANGE_VXNET_ERR=220
+GROUP_MATCHED_ERR=221
+
+execute() {
+  local cmd=$1; log --debug "Executing command ..."
+  # 在 checkGroupMatchedCommand(){} 存在的情况下，先对各 command 做判断，仅对 redis cluster 有效
+  checkGroupMatchedCommandFunction="checkGroupMatchedCommand"
+  [[ "$(type -t $checkGroupMatchedCommandFunction)" == "function" ]] && $checkGroupMatchedCommandFunction $cmd
+  [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
+  $cmd ${@:2}
+}
 
 initNode() {
   mkdir -p /data/redis/logs
@@ -78,10 +89,10 @@ getFirstNodeIpInStableNodesExceptLeavingNodes(){
   awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$leavingNodeIps") <(echo "$stableNodesIps" |xargs) |awk '{printf $1}'
 }
 
-getMasterIdByslaveIp(){
+findMasterIdByJoiningSlaveIp(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
-  local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep ${1?slaveIp is required} |cut -d "/" -f1)"
-  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/'$1'/){print $5}}')"
+  local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/${1//\./\\.}$" |cut -d "/" -f1)"
+  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/^'${1//\./\\.}'$/){print $5}}' |sed 's/\./\\./g')"
   local redisClusterNodes; redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
   log "redisClusterNodes:  $redisClusterNodes"
   local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
@@ -109,6 +120,11 @@ sortOutLeavingNodesIps(){
     fi
   done
   echo "$slaveNodeIps $masterNodeIps" |xargs -n1
+}
+
+preScaleOut(){
+  log "preScaleOut"
+  return 0
 }
 
 scaleOut() {
@@ -146,7 +162,7 @@ scaleOut() {
       log "add master-replica node ${node##*/}"
       waitUntilAllNodesIsOk "$stableNodesIps"
       # 新增的从节点在短时间内其在配置文件中的身份为 master，会导致再次增加从节点时获取到的 masterId 为多个，这里需要等到 masterId 为一个为止 
-      local masterId; masterId="$(retry 20 1 0 getMasterIdByslaveIp ${node##*/})"
+      local masterId; masterId="$(retry 20 1 0 findMasterIdByJoiningSlaveIp ${node##*/})"
       log "${node##*/}: masterId is $masterId"
       runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
       log "add master-replica node ${node##*/} end"
@@ -203,10 +219,11 @@ preScaleIn() {
   log "stableNodesIps: $stableNodesIps"
   log "get runtimeMasters"
   local runtimeMasters
-  runtimeMasters="$(runRedisCmd -h "firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
+  runtimeMasters="$(runRedisCmd -h "$firstNodeIpInStableNode" --cluster info $firstNodeIpInStableNode $REDIS_PORT | awk '$3=="->" {print gensub(/:.*$/, "", "g", $1)}' | paste -s -d'|')"
   log "runtimeMasters: $runtimeMasters"
   log "get runtimeMastersToLeave"
-  local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "($runtimeMasters)$" | xargs)"
+  # 防止 egrep 未匹配到信息而报错，比如在删除所有 master-replica 节点时，该位置匹配不到导致删除失败
+  local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "(${runtimeMasters//\./\\.})$" | xargs)" || true
   log "runtimeMastersToLeave: $runtimeMastersToLeave"
   if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
     checkMemoryIsEnoughAfterScaled
@@ -250,8 +267,9 @@ check(){
   _check
   local loadingTag="loading the dataset in memory"
   local infoResponse;infoResponse="$(runRedisCmd cluster info)"
-  echo "$infoResponse"
   egrep -q "(cluster_state:ok|$loadingTag)" <(echo "$infoResponse")
+  # 是否发生错位
+  checkGroupMatched
 }
 
 checkBgsaveDone(){
@@ -288,12 +306,14 @@ reload() {
 }
 
 revive(){
-  _revive
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
-  echo "yes" | runRedisCmd --timeout 40 --cluster fix $MY_IP:$REDIS_PORT
+  # 是否发生错位
+  checkGroupMatched
+  _revive
 }
 
 measure() {
+  local groupMatched; groupMatched="$(getGroupMatched)"
   runRedisCmd info all | awk -F: 'BEGIN {
     g["hash_based_count"] = "^h"
     g["list_based_count"] = "^(bl|br|l|rp)"
@@ -330,7 +350,10 @@ measure() {
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
-    for(k in m) print k FS m[k]
+    m["group_matched"] = "'$groupMatched'"
+    for(k in m) {
+      print k FS m[k]
+    }
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics"; return $rc )
 }
 
@@ -366,11 +389,23 @@ rootConfDir=/opt/app/conf/redis-cluster
 configureForChangeVxnet(){
   log "configureForChangeVxnet Start"
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
+  # in case checkFileChanged err when metadata is disconnected
+  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
+    log "Data format in $nodeFile is err, content: [$(paste -s $nodesFile)]"
+    return $CHANGE_VXNET_ERR
+  }
+  # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
+  if [[ -f "$nodesFile.2" ]]; then
+    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
+      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
+      return $CHANGE_VXNET_ERR
+    }
+  fi
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#/#g; s#^#s/#g; s#$#/g#g' | paste -sd';')"
+    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
     rotate $runtimeNodesConfigFile
-    [[ -f "$runtimeNodesConfigFile" ]] && sed -i "$replaceCmd" $runtimeNodesConfigFile
+    [[ -f "$runtimeNodesConfigFile" ]] && sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
   fi
   log "configureForChangeVxnet End"
 }
@@ -423,4 +458,49 @@ getRedisRoles(){
   local regexpResult; regexpResult="$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')"
   local secondProcssResult; secondProcssResult="$(sed "$regexpResult" <(echo "$firstProcessResult") |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')"
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
+}
+
+getGroupMatched(){
+  local clusterNodes groupMatched="true" nodeConfFile="/data/redis/nodes-6379.conf" targetIp="${1:-$MY_IP}"
+
+  if [[ "$targetIp" == "$MY_IP" ]]; then
+    if checkActive "redis-server"; then
+      clusterNodes="$(runRedisCmd CLUSTER NODES)"
+    else
+      clusterNodes="$(cat $nodeConfFile)"
+    fi
+  else
+    clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
+  fi
+
+  local targetRoleInfo; targetRoleInfo="$(awk 'BEGIN{OFS=" "}{if($0~/'${targetIp//\./\\.}':'$REDIS_PORT'/){print $3,$4}}' <(echo "$clusterNodes"))"
+  local targetRole; targetRole="$(echo "$targetRoleInfo"|awk '{split($1,role,",");print role[2]}')"
+  if [[ "$targetRole" == "slave" ]]; then
+      local targetMasterId; targetMasterId="$(echo "$targetRoleInfo" |awk '{print $2}')"
+      local targetMasterIp; targetMasterIp="$(awk '{if ($1~/'$targetMasterId'/){split($2,ips,":");print ips[1]}}' <(echo "$clusterNodes"))"
+      local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/(${targetMasterIp//\./\\.}|${targetIp//\./\\.})$" |cut -d "/" -f1 |uniq)"
+      [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || groupMatched="false"
+  fi 
+  echo $groupMatched
+}
+
+checkGroupMatched() {
+  local targetIps="${1:-$MY_IP}"
+  local targetIp; for targetIp in $targetIps; do
+    [[ "$(getGroupMatched "$targetIp")" == "true" ]] || {
+      log "Found mismatched group for node '$targetIp'."
+      return $GROUP_MATCHED_ERR
+    }
+  done
+}
+
+checkGroupMatchedCommand(){
+  local needToCheckGroupMatchedCommand needToCheckGroupMatchedCommands
+  needToCheckGroupMatchedCommand="${1?command is required}"
+  needToCheckGroupMatchedCommands="stop preScaleOut preScaleIn"
+  if echo "$needToCheckGroupMatchedCommands" |grep -q "$needToCheckGroupMatchedCommand"; then
+    log "needToCheckGroupMatchedCommand: $needToCheckGroupMatchedCommand"
+    local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
+    checkGroupMatched "$stableNodesIps"
+  fi
 }

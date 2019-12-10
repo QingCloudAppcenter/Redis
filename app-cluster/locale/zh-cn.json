@@ -110,6 +110,8 @@
   "err_code206": "集群中存在节点内存使用率超过 95% 的节点，删除节点容易引发 OOM，造成删除节点失败，禁止做删除节点操作",
   "err_code207": "计算得删除节点后节点的平均内存使用率超过 95%，删除节点操作容易引发 OOM，造成删除节点失败，禁止做删除节点操作",
   "err_code210": "Redis 命令执行失败，请通过工单与我们联系",
+  "err_code220": "切换私有网络处发生异常，请通过工单与我们联系",
+  "err_code221": "存在节点发生错位，请通过工单与我们联系",
   "run_command": "执行命令",
   "database": "数据库",
   "command": "命令",
@@ -123,5 +125,6 @@
   "username of admin web console": "用来访问管理员网页控制台的用户名，可以包含小写字母、数字、半角句点（.）和短横线（-)，不会重启 redis",
   "password of admin web console": "用来访问管理员网页控制台的密码，可由数字、字母、下划线组成，默认为空表示不需要密码，可以直接访问，不会重启 redis",
   "Volume Class": "磁盘类型",
-  "The volume type for each instance，such as high performance，high performance plus": "磁盘类型，比如性能型、超高性能型"
+  "The volume type for each instance，such as high performance，high performance plus": "磁盘类型，比如性能型、超高性能型",
+  "group_matched": "在组内"
 }

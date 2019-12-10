@@ -4,6 +4,7 @@
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
     "upgrade_policy": [
+     "appv-tqzrokkb",
      "appv-9yvinzz0",
      "appv-okxhok17",
      "appv-0l56bsk6",
@@ -14,7 +15,7 @@
         "container": {
             "type": "lxc",
             "zone": "pek3a",
-            "image": "img-06pi9p57"
+            "image": "img-2imk90a5"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -44,6 +45,7 @@
             },
             "scale_out": {
                 "nodes_to_execute_on": 1,
+                "pre_check": "appctl preScaleOut",
                 "cmd": "appctl scaleOut",
                 "timeout": 86400
             },
@@ -117,10 +119,16 @@
         "cmd" : "appctl measure",
         "items" : {
             "node_role": {
-            "unit": "",
-            "value_type": "str",
-            "statistics_type": "latest",
-            "enums": ["master", "slave"]
+                "unit": "",
+                "value_type": "str",
+                "statistics_type": "latest",
+                "enums": ["master", "slave"]
+            },
+            "group_matched": {
+                "unit": "",
+                "value_type": "str",
+                "statistics_type": "latest",
+                "enums": ["true", "false"]
             },
             "key_count" : {
                 "unit" : "Times",
@@ -278,8 +286,8 @@
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
-        "display" : ["node_role", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
-        "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max"]
+        "display" : ["node_role", "group_matched", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
+        "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched"]
     },
     "display_tabs" : {
         "roles" : {
