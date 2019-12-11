@@ -3,10 +3,18 @@ LEAVING_REDIS_NODES_IS_NONE_ERR=211
 LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR=212
 MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR=213
 REDIS_COMMAND_EXECUTE_FAIL_ERR=220
+RDB_FILE_EXIST_ERR=221
+RDB_FILE_CHECK_ERR=222
+CLUSTER_STATUS_ERR=223
+SERVER_STOP_ERR=224
 
 
 initNode() {
-  mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
+  local redisPath="/data/redis"
+  local caddyPath="/data/caddy"
+  mkdir -p $redisPath/logs $caddyPath/upload
+  chown -R redis.svc $redisPath
+  chown -R caddy.svc $caddyPath
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
 }
@@ -99,7 +107,6 @@ scaleIn() {
   stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
 }
 
-# edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
   local runtimeConfigFile=/data/redis/redis.conf
   local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)"
@@ -107,6 +114,7 @@ restore() {
   log "Start restore"
   # 仅保留 dump.rdb 文件
   find /data/redis -mindepth 1 ! -name dump.rdb -delete
+  initNode
 
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
@@ -231,6 +239,10 @@ checkSentinelStopped() {
   ! nc -z -w3 $1 26379
 }
 
+checkRedisStopped() {
+  ! nc -z -w3 $1 $REDIS_PORT
+}
+
 encodeCmd() {
   echo -n ${1?command is required}${CLUSTER_ID} | sha256sum | cut -d' ' -f1
 }
@@ -307,8 +319,9 @@ configureForSentinel() {
   fi
 }
 
-configForRestore(){
-  if [[ $command == "restore" ]];then
+configureForRestore(){
+  if [[ "$command" =~ ^(restore|restoreDataFromuploadedRDBFile)$ ]];then
+    echo "修改了"
     local runtimeConfigFile=/data/redis/redis.conf
     sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
   fi
@@ -319,7 +332,7 @@ configure() {
   configureForSentinel
   configureForRedis  
   local masterIp; masterIp="$(findMasterIp)"
-  configForRestore
+  configureForRestore
   setUpVip $masterIp
 }
 
@@ -332,4 +345,83 @@ runCommand(){
   else
     runRedisCmd --ip $REDIS_VIP -n $db $cmd
   fi
+}
+
+getMyRole(){
+  runRedisCmd --ip $MY_IP ROLE | sed -n '1{p;q}'
+}
+
+checkKeyValueIsDesired(){
+  local postedKey postedValue ;postedKey="$1" postedValue="$2"
+  [[ "$(runRedisCmd --ip $REDIS_VIP GET "$postedKey")" == "$postedValue" ]]
+}
+
+checkClusterStatusIsOk(){
+  local rc; rc=0
+  runRedisCmd --ip $REDIS_VIP INFO REPLICATION |awk 'BEGIN{
+    FS=":"
+  }
+  {
+    if ($1=="role"){
+      if ($2!="master") {'rc'='$CLUSTER_STATUS_ERR'}
+    }
+    if ($1~/^slave[0-9]+$/){
+      if ($2!~/state=online/){'rc'='$CLUSTER_STATUS_ERR'}
+    }
+  }'
+  return $rc
+}
+
+restoreDataFromuploadedRDBFile(){
+  local uploadedRDBFile redisCheckRdbPath destRDBfile
+  uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
+  local postedKey postedValue ;postedKey="${CLUSTER_ID}RDBDATACHECK" postedValue="OK"
+  local myStatus="${CLUSTER_ID}${MY_NODE_ID}myStatus" myPrepareStatus="prepare"  myCheckEndStatus="checkEnd"
+
+  # 防止恢复中断再次恢复时由于之前保留的信息导致误判
+  operateIgnore "rm -rf"
+  [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$postedKey")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "$postedKey"
+  [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "${myStatus}2")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "${myStatus}2"
+  runRedisCmd --ip $REDIS_VIP SET "$myStatus" "$myPrepareStatus"
+  local node; for node in $REDIS_NODES; do
+    retry 10 0.5 0 checkKeyValueIsDesired "${CLUSTER_ID}$(echo "$node" |cut -d "/" -f2)myStatus" "$myPrepareStatus"
+  done
+
+  checkClusterStatusIsOk
+    runRedisCmd --ip $REDIS_VIP SET "${myStatus}2" "$myCheckEndStatus"
+  local node; for node in $REDIS_NODES; do
+    retry 10 0.5 0 checkKeyValueIsDesired "${CLUSTER_ID}$(echo "$node" |cut -d "/" -f2)myStatus2" "$myCheckEndStatus"
+  done
+
+  # 检查 RDB 文件是否 OK
+  local myRole; myRole="$(getMyRole)"
+  if [[ "$myRole" == "master" ]]; then
+    [[ -e $uploadedRDBFile ]] || return $RDB_FILE_EXIST_ERR
+    $redisCheckRdbPath $uploadedRDBFile || return $RDB_FILE_CHECK_ERR
+    runRedisCmd --ip $MY_IP SET "$postedKey" "$postedValue"
+  elif [[ "$myRole" == "slave" ]]; then 
+    retry 150 1 0 checkKeyValueIsDesired "$postedKey" "$postedValue"
+  else
+    # 防止节点在 check 阶段出现异常
+    return $CLUSTER_STATUS_ERR
+  fi
+
+  operateIgnore touch
+  execute stop
+
+  [[ "$myRole" == "master" ]] && cp -f $uploadedRDBFile $destRDBfile
+  restore
+  operateIgnore "rm -rf"
+}
+
+check(){
+  local ignore="/root/.ignore"
+  [[ -e $ignore ]] && return 0
+  _check
+}
+
+operateIgnore(){
+  # 防止在迁移数据期间产生误报
+  local ignore="/root/.ignore" command="$@"
+  $command $ignore
 }

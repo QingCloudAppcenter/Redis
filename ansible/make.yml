@@ -7,11 +7,11 @@
   - include_role:
       name: "{{ name }}"
     loop:
-    - arping
+    - arping-1.0.0
     - appctl
-    - caddy
-    - jq
-    - redis-server
+    - caddy-1.0.6
+    - jq-1.0.2
+    - redis-server-1.0.1
     loop_control:
       loop_var: name
 
