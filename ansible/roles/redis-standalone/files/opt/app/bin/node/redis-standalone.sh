@@ -6,7 +6,6 @@ REDIS_COMMAND_EXECUTE_FAIL_ERR=220
 RDB_FILE_EXIST_ERR=221
 RDB_FILE_CHECK_ERR=222
 CLUSTER_STATUS_ERR=223
-SERVER_STOP_ERR=224
 
 
 initNode() {
@@ -321,7 +320,6 @@ configureForSentinel() {
 
 configureForRestore(){
   if [[ "$command" =~ ^(restore|restoreDataFromuploadedRDBFile)$ ]];then
-    echo "修改了"
     local runtimeConfigFile=/data/redis/redis.conf
     sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
   fi
@@ -369,6 +367,7 @@ checkClusterStatusIsOk(){
       if ($2!~/state=online/){'rc'='$CLUSTER_STATUS_ERR'}
     }
   }'
+  log "checkClusterStatusIsOk ret code: $rc"
   return $rc
 }
 
@@ -396,8 +395,14 @@ restoreDataFromuploadedRDBFile(){
   # 检查 RDB 文件是否 OK
   local myRole; myRole="$(getMyRole)"
   if [[ "$myRole" == "master" ]]; then
-    [[ -e $uploadedRDBFile ]] || return $RDB_FILE_EXIST_ERR
-    $redisCheckRdbPath $uploadedRDBFile || return $RDB_FILE_CHECK_ERR
+    [[ -e $uploadedRDBFile ]] || {
+      log "RDB file is not exist"
+      return $RDB_FILE_EXIST_ERR
+    }
+    $redisCheckRdbPath $uploadedRDBFile || {
+      log "RDB file format err"
+      return $RDB_FILE_CHECK_ERR
+    }
     runRedisCmd --ip $MY_IP SET "$postedKey" "$postedValue"
   elif [[ "$myRole" == "slave" ]]; then 
     retry 150 1 0 checkKeyValueIsDesired "$postedKey" "$postedValue"
@@ -424,4 +429,13 @@ operateIgnore(){
   # 防止在迁移数据期间产生误报
   local ignore="/root/.ignore" command="$@"
   $command $ignore
+}
+
+getRedisRoles(){
+  local result='['
+  local node nodeIp myRole; for node in $REDIS_NODES; do
+    nodeIp="$(echo "$node" |cut -d"/" -f3)" role |head -n1)"
+    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
+    result=''${result}'["'${nodeIp}'","'$myRole'"],'
+  done
 }
