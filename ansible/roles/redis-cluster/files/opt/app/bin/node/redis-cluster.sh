@@ -402,10 +402,37 @@ configureForChangeVxnet(){
     }
   fi
   if checkFileChanged $nodesFile; then
-    log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
+    log "IP addresses changed from [$(cat $nodesFile.1)] to [$(cat $nodesFile)]. Updating config files accordingly ..."
+    local replaceCmd; replaceCmd="$(awk 'BEGIN{
+      FS="/"
+    }
+    {if (NR==FNR){
+        old[$4]=$5
+      }
+      else{
+        new[$4]=$5
+      } 
+    }
+    END{
+      for (instance_id in new){
+        print old[instance_id]"/"new[instance_id]
+      }
+    }
+    ' $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
+
+    log "replaceCmd: $replaceCmd"
+    log "start rotate $runtimeNodesConfigFile"
     rotate $runtimeNodesConfigFile
-    [[ -f "$runtimeNodesConfigFile" ]] && sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
+    log "end rotate $runtimeNodesConfigFile"
+    # [[ "$replaceCmd" =~ [0-9]+ ]] 防止 replaceCmd 为空
+    if [[ -f "$runtimeNodesConfigFile" ]] && [[ "$replaceCmd" =~ [0-9]+ ]]; then
+      log "prereplace：content in $runtimeNodesConfigFile: "$(cat $runtimeNodesConfigFile)""
+      log "start replace ips in $runtimeNodesConfigFile"
+      sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
+      log "end replace ips in $runtimeNodesConfigFile"
+      log "postreplace：content in $runtimeNodesConfigFile: "$(cat $runtimeNodesConfigFile)""
+    fi
+    
   fi
   log "configureForChangeVxnet End"
 }
@@ -497,7 +524,7 @@ checkGroupMatched() {
 checkGroupMatchedCommand(){
   local needToCheckGroupMatchedCommand needToCheckGroupMatchedCommands
   needToCheckGroupMatchedCommand="${1?command is required}"
-  needToCheckGroupMatchedCommands="stop preScaleOut preScaleIn"
+  needToCheckGroupMatchedCommands="preScaleOut preScaleIn"
   if echo "$needToCheckGroupMatchedCommands" |grep -q "$needToCheckGroupMatchedCommand"; then
     log "needToCheckGroupMatchedCommand: $needToCheckGroupMatchedCommand"
     local stableNodesIps; stableNodesIps="$(getStableNodesIps)"

@@ -12,6 +12,7 @@
     - caddy
     - jq
     - redis-server
+    - rsyslog
     loop_control:
       loop_var: name
 

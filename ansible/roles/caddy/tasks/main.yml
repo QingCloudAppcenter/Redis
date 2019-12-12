@@ -3,6 +3,9 @@
   set_fact:
     caddy_version: 1.0.0
 
+- name: prepare tmp path
+  include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
+
 - name: prepare service group
   group:
     name: svc

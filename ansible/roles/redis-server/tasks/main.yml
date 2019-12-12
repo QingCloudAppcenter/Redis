@@ -3,6 +3,9 @@
   set_fact:
     redis_version: 5.0.7
 
+- name: prepare tmp path
+  include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
+
 - name: add the service group
   group:
     name: svc
