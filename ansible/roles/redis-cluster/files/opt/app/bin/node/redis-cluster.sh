@@ -26,6 +26,11 @@ initNode() {
   _initNode
 }
 
+stop(){
+  echo $REDIS_NODES | xargs -n1 > $nodesFile
+  _stop
+}
+
 initCluster() {
   # 防止新增节点执行
   if [ -n "$JOINING_REDIS_NODES" ]; then return 0; fi
@@ -292,10 +297,9 @@ reload() {
   if ! isNodeInitialized; then return 0;fi
 
   if [[ "$1" == "redis-server" ]]; then
-    local nodeEnvFile="/opt/app/bin/envs/node.env"
     local changedConfigFile="$rootConfDir/redis.changed.conf"
-    # 切换私网 || redis.conf 发生改变时可以对 redis 做重启操作，防止添加节点时redis-server 重启
-    if checkFileChanged $nodeEnvFile || checkFileChanged $changedConfigFile; then 
+    # redis.conf 发生改变时可以对 redis 做重启操作，防止添加节点时redis-server 重启
+    if checkFileChanged $changedConfigFile; then 
        stopSvc "redis-server"
        configure
        startSvc "redis-server"
@@ -391,13 +395,13 @@ configureForChangeVxnet(){
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
   # in case checkFileChanged err when metadata is disconnected
   egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
-    log "Data format in $nodeFile is err, content: [$(paste -s $nodesFile)]"
+    log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
     return $CHANGE_VXNET_ERR
   }
   # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
   if [[ -f "$nodesFile.2" ]]; then
     egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
-      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
+      log "Data format in $nodesFile.1 is err, content: [$(paste -s $nodesFile.1)]"
       return $CHANGE_VXNET_ERR
     }
   fi
