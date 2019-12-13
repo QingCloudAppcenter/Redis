@@ -376,11 +376,13 @@ restoreDataFromuploadedRDBFile(){
   uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
   local postedKey postedValue ;postedKey="${CLUSTER_ID}RDBDATACHECK" postedValue="OK"
   local myStatus="${CLUSTER_ID}${MY_NODE_ID}myStatus" myPrepareStatus="prepare"  myCheckEndStatus="checkEnd"
+  local rdbFileStatus="rdbFilestatus" 
 
   # 防止恢复中断再次恢复时由于之前保留的信息导致误判
   operateIgnore "rm -rf"
   [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$postedKey")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "$postedKey"
   [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "${myStatus}2")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "${myStatus}2"
+  [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$rdbFileStatus")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "$rdbFileStatus"
   runRedisCmd --ip $REDIS_VIP SET "$myStatus" "$myPrepareStatus"
   local node; for node in $REDIS_NODES; do
     retry 10 0.5 0 checkKeyValueIsDesired "${CLUSTER_ID}$(echo "$node" |cut -d "/" -f2)myStatus" "$myPrepareStatus"
@@ -397,14 +399,23 @@ restoreDataFromuploadedRDBFile(){
   if [[ "$myRole" == "master" ]]; then
     [[ -e $uploadedRDBFile ]] || {
       log "RDB file is not exist"
+      runRedisCmd --ip $REDIS_VIP SET $rdbFileStatus $RDB_FILE_EXIST_ERR
       return $RDB_FILE_EXIST_ERR
     }
     $redisCheckRdbPath $uploadedRDBFile || {
       log "RDB file format err"
+      runRedisCmd --ip $REDIS_VIP SET $rdbFileStatus $RDB_FILE_CHECK_ERR
       return $RDB_FILE_CHECK_ERR
     }
     runRedisCmd --ip $MY_IP SET "$postedKey" "$postedValue"
-  elif [[ "$myRole" == "slave" ]]; then 
+  elif [[ "$myRole" == "slave" ]]; then
+    local count; for count in $(seq 1 8); do 
+      [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$rdbFileStatus")" == "none" ]] || {
+        local retCode; retCode=$(runRedisCmd --ip $REDIS_VIP GET "$rdbFileStatus")
+        return $retCode
+      }
+      sleep 1
+    done
     retry 150 1 0 checkKeyValueIsDesired "$postedKey" "$postedValue"
   else
     # 防止节点在 check 阶段出现异常
@@ -417,6 +428,7 @@ restoreDataFromuploadedRDBFile(){
   [[ "$myRole" == "master" ]] && cp -f $uploadedRDBFile $destRDBfile
   restore
   operateIgnore "rm -rf"
+  rm -rf $uploadedRDBFile
 }
 
 check(){
@@ -434,8 +446,9 @@ operateIgnore(){
 getRedisRoles(){
   local result='['
   local node nodeIp myRole; for node in $REDIS_NODES; do
-    nodeIp="$(echo "$node" |cut -d"/" -f3)" role |head -n1)"
+    nodeIp="$(echo "$node" |cut -d"/" -f3)"
     myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
     result=''${result}'["'${nodeIp}'","'$myRole'"],'
   done
+  echo "${result%,*}]" |jq -c '{"labels":["ip","role"],"data":.}'
 }

@@ -145,5 +145,8 @@
   "databases_description": "redis-server 数据库的数量，默认是 16 个",
   "restore_data_from_rdb": "从 RDB 文件恢复数据",
   "file": "文件名",
-  "The file for restore": "用于恢复的文件"
+  "The file for restore": "用于恢复的文件",
+  "roles": "节点实时角色",
+  "ip": "节点 IP",
+  "role": "节点角色"
 }

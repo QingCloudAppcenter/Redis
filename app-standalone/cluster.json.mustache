@@ -16,7 +16,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-8ynpfi8s"
+      "image": "img-larz6n8x"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -300,6 +300,11 @@
       "vip": {
         "value": ""
       }
+    }
+  },
+  "display_tabs" : {
+    "roles" : {
+    "cmd" : "appctl getRedisRoles"
     }
   }
 }
