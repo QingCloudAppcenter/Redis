@@ -108,13 +108,17 @@ scaleIn() {
 }
 
 restore() {
-  local runtimeConfigFile=/data/redis/redis.conf
+  local scopeForRedis logsDirForRedis runtimeConfigFile
+  scopeForRedis=/data/redis
+  logsDirForRedis=$scopeForRedis/logs
+  runtimeConfigFile=$scopeForRedis/redis.conf
   local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)"
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
   find /data/redis -mindepth 1 ! -name dump.rdb -delete
-  initNode
+  mkdir -p $logsDirForRedis
+  chown -R redis.svc $logsDirForRedis
 
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no (该操作位于 configForRestore) -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
