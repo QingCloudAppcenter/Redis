@@ -135,17 +135,6 @@
           "min": 0,
           "max": 15,
           "required": "yes"
-        },
-        {
-          "key": "file",
-          "label": "file",
-          "description": "The file for restore",
-          "type": "string",
-          "default": "dump.rdb",
-          "range": [
-            "dump.rdb"
-          ],
-          "required": "yes"
         }
       ]
     },

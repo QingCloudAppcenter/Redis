@@ -6,6 +6,7 @@ REDIS_COMMAND_EXECUTE_FAIL_ERR=220
 RDB_FILE_EXIST_ERR=221
 RDB_FILE_CHECK_ERR=222
 CLUSTER_STATUS_ERR=223
+NODES_NUMS_ERR=224
 
 
 initNode() {
@@ -349,83 +350,34 @@ getMyRole(){
   runRedisCmd --ip $MY_IP ROLE | sed -n '1{p;q}'
 }
 
-checkKeyValueIsDesired(){
-  local postedKey postedValue ;postedKey="$1" postedValue="$2"
-  [[ "$(runRedisCmd --ip $REDIS_VIP GET "$postedKey")" == "$postedValue" ]]
-}
-
-checkClusterStatusIsOk(){
-  local rc; rc=0
-  runRedisCmd --ip $REDIS_VIP INFO REPLICATION |awk 'BEGIN{
-    FS=":"
-  }
-  {
-    if ($1=="role"){
-      if ($2!="master") {'rc'='$CLUSTER_STATUS_ERR'}
-    }
-    if ($1~/^slave[0-9]+$/){
-      if ($2!~/state=online/){'rc'='$CLUSTER_STATUS_ERR'}
-    }
-  }'
-  log "checkClusterStatusIsOk ret code: $rc"
-  return $rc
-}
 
 restoreDataFromuploadedRDBFile(){
   local uploadedRDBFile redisCheckRdbPath destRDBfile
   uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
-  local postedKey postedValue ;postedKey="${CLUSTER_ID}RDBDATACHECK" postedValue="OK"
-  local myStatus="${CLUSTER_ID}${MY_NODE_ID}myStatus" myPrepareStatus="prepare"  myCheckEndStatus="checkEnd"
-  local rdbFileStatus="rdbFilestatus" 
 
   # 防止恢复中断再次恢复时由于之前保留的信息导致误判
   operateIgnore "rm -rf"
-  [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$postedKey")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "$postedKey"
-  [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "${myStatus}2")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "${myStatus}2"
-  [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$rdbFileStatus")" == "none" ]] || runRedisCmd --ip $REDIS_VIP DEL "$rdbFileStatus"
-  runRedisCmd --ip $REDIS_VIP SET "$myStatus" "$myPrepareStatus"
-  local node; for node in $REDIS_NODES; do
-    retry 10 0.5 0 checkKeyValueIsDesired "${CLUSTER_ID}$(echo "$node" |cut -d "/" -f2)myStatus" "$myPrepareStatus"
-  done
 
-  checkClusterStatusIsOk
-    runRedisCmd --ip $REDIS_VIP SET "${myStatus}2" "$myCheckEndStatus"
-  local node; for node in $REDIS_NODES; do
-    retry 10 0.5 0 checkKeyValueIsDesired "${CLUSTER_ID}$(echo "$node" |cut -d "/" -f2)myStatus2" "$myCheckEndStatus"
-  done
-
+  [[ $(echo "$REDIS_NODES" |xargs -n1 |wc -l) == 1 ]] || return $NODES_NUMS_ERR
   # 检查 RDB 文件是否 OK
   local myRole; myRole="$(getMyRole)"
-  if [[ "$myRole" == "master" ]]; then
-    [[ -e $uploadedRDBFile ]] || {
-      log "RDB file is not exist"
-      runRedisCmd --ip $REDIS_VIP SET $rdbFileStatus $RDB_FILE_EXIST_ERR
-      return $RDB_FILE_EXIST_ERR
-    }
-    $redisCheckRdbPath $uploadedRDBFile || {
-      log "RDB file format err"
-      runRedisCmd --ip $REDIS_VIP SET $rdbFileStatus $RDB_FILE_CHECK_ERR
-      return $RDB_FILE_CHECK_ERR
-    }
-    runRedisCmd --ip $MY_IP SET "$postedKey" "$postedValue"
-  elif [[ "$myRole" == "slave" ]]; then
-    local count; for count in $(seq 1 8); do 
-      [[ "$(runRedisCmd --ip $REDIS_VIP TYPE "$rdbFileStatus")" == "none" ]] || {
-        local retCode; retCode=$(runRedisCmd --ip $REDIS_VIP GET "$rdbFileStatus")
-        return $retCode
-      }
-      sleep 1
-    done
-    retry 150 1 0 checkKeyValueIsDesired "$postedKey" "$postedValue"
-  else
-    # 防止节点在 check 阶段出现异常
+  [[ "$myRole" == "master" ]] || {
+    log "[ERRO] cluster status is $myRole"
     return $CLUSTER_STATUS_ERR
-  fi
+  }
+  [[ -e $uploadedRDBFile ]] || {
+    log "[ERRO] RDB file is not exist"
+    return $RDB_FILE_EXIST_ERR
+  }
+  $redisCheckRdbPath $uploadedRDBFile || {
+    log "[ERRO] RDB file format err"
+    return $RDB_FILE_CHECK_ERR
+  }
 
   operateIgnore touch
   execute stop
 
-  [[ "$myRole" == "master" ]] && cp -f $uploadedRDBFile $destRDBfile
+  cp -f $uploadedRDBFile $destRDBfile
   restore
   operateIgnore "rm -rf"
   rm -rf $uploadedRDBFile
