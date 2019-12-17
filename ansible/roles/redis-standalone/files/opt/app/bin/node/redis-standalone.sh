@@ -38,7 +38,6 @@ stop() {
 }
 
 revive() {
-  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
@@ -359,9 +358,7 @@ restoreDataFromuploadedRDBFile(){
   local uploadedRDBFile redisCheckRdbPath destRDBfile
   uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
 
-  # 防止恢复中断再次恢复时由于之前保留的信息导致误判
-  operateIgnore "rm -rf"
-
+  # 仅允许单个节点做恢复数据操作
   [[ $(echo "$REDIS_NODES" |xargs -n1 |wc -l) == 1 ]] || return $NODES_NUMS_ERR
   # 检查 RDB 文件是否 OK
   local myRole; myRole="$(getMyRole)"
@@ -378,25 +375,21 @@ restoreDataFromuploadedRDBFile(){
     return $RDB_FILE_CHECK_ERR
   }
 
-  operateIgnore touch
   execute stop
 
   cp -f $uploadedRDBFile $destRDBfile
   restore
-  operateIgnore "rm -rf"
   rm -rf $uploadedRDBFile
 }
 
 check(){
-  local ignore="/root/.ignore"
-  [[ -e $ignore ]] && return 0
+  local ignoreCommand="(restoreDataFromuploadedRDBFile)"
+  ps -ef |grep -E "$ignoreCommand" |grep -vq grep && {
+    log "[Warning]Detected process $ignoreCommand，skip check"
+    return 0
+  }
+  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   _check
-}
-
-operateIgnore(){
-  # 防止在迁移数据期间产生误报
-  local ignore="/root/.ignore" command="$@"
-  $command $ignore
 }
 
 getRedisRoles(){
