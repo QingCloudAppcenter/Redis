@@ -400,11 +400,12 @@ operateIgnore(){
 }
 
 getRedisRoles(){
-  local result='['
-  local node nodeIp myRole; for node in $REDIS_NODES; do
-    nodeIp="$(echo "$node" |cut -d"/" -f3)"
-    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
-    result=''${result}'["'${nodeIp}'","'$myRole'"],'
-  done
-  echo "${result%,*}]" |jq -c '{"labels":["ip","role"],"data":.}'
+  cat << EOF |  
+$(local node nodeIp myRole; for node in $REDIS_NODES; do
+  nodeIp="$(echo "$node" |cut -d"/" -f3)"
+  myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
+  echo "$nodeIp $myRole"
+done)
+EOF
+  jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role"],"data":.}'
 }

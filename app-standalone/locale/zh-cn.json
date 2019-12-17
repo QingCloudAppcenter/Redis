@@ -126,7 +126,7 @@
   "err_code221": "RDB 文件不存在，请您先上传 RDB 文件",
   "err_code222": "RDB 文件格式有误，请您上传正确的 RDB 文件",
   "err_code223": "集群状态不正常，请保证您的集群状态是正常的再上传",
-  "err_code224": "数据迁移操作仅支持单节点的操作，请将集群数量调整至单节点",
+  "err_code224": "数据迁移仅支持单节点的操作，请将集群数量调整至单节点再迁移",
   "err_code1": "内部错误",
   "disabled-commands_label": "禁用 FLUSH 命令",
   "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
