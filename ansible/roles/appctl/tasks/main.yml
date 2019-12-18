@@ -36,13 +36,21 @@
     dest: /usr/bin/appctl
     state: link
 
-- name: install confd files
-  include_tasks: ../../utils/tasks/process-confd-files.yml
+- name: set up dev env
+  lineinfile:
+    path: "{{ playbook_dir }}/roles/appctl/files/etc/confd/templates/appctl.sh/01.appctl.env.tmpl"
+    regexp: '^APPCTL_ENV='
+    line: APPCTL_ENV="dev"
+  delegate_to: localhost 
+  when: target_env == 'dev'
 
 - name: set up dev env
-  copy:
-    dest: /opt/app/bin/envs/appdev.env
-    content: |
-      APPCTL_ENV=dev
+  lineinfile:
+    path: "{{ playbook_dir }}/roles/appctl/files/etc/confd/templates/appctl.sh/01.appctl.env.tmpl"
+    regexp: '^APPCTL_ENV='
+    line: APPCTL_ENV="PRO"
+  delegate_to: localhost 
+  when: target_env != 'dev'
 
-  when: target_env == 'dev'
+- name: install confd files
+  include_tasks: ../../utils/tasks/process-confd-files.yml

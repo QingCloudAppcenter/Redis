@@ -1,7 +1,7 @@
-NO_JOINING_NODES_DETECTED_ERR=200
-NUMS_OF_REMAIN_NODES_TOO_LESS_ERR=201
-DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=202
-REBALANCE_ERR=203
+NO_JOINING_NODES_DETECTED_ERR=240
+NUMS_OF_REMAIN_NODES_TOO_LESS_ERR=241
+DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=242
+REBALANCE_ERR=243
 CLUSTER_FORGET_ERR=204
 CLUSTER_RESET_ERR=205
 EXISTS_REDIS_MEMORY_USAGE_TOO_BIG=206
@@ -278,7 +278,8 @@ check(){
   _check
   local loadingTag="loading the dataset in memory"
   local infoResponse;infoResponse="$(runRedisCmd cluster info)"
-  egrep -q "(cluster_state:ok|$loadingTag)" <(echo "$infoResponse")
+  grep -q "$loadingTag" <(echo "$infoResponse") && return 0
+  grep -q "cluster_state:ok" <(echo "$infoResponse")
   # 是否发生错位
   checkGroupMatched
   checkClusterMatched
@@ -518,7 +519,12 @@ getGroupMatched(){
       local targetMasterId; targetMasterId="$(echo "$targetRoleInfo" |awk '{print $2}')"
       local targetMasterIp; targetMasterIp="$(awk '{if ($1~/'$targetMasterId'/){split($2,ips,":");print ips[1]}}' <(echo "$clusterNodes"))"
       local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/(${targetMasterIp//\./\\.}|${targetIp//\./\\.})$" |cut -d "/" -f1 |uniq)"
-      [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || groupMatched="false"
+      [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || {
+        log --debug "clusterNodes for $targetIp dismatched group: 
+        $clusterNodes
+        "
+        groupMatched="false"
+      }
   fi
   echo $groupMatched
 }
@@ -542,6 +548,10 @@ getClusterMatched(){
   done
   myClusterIps="${myClusterIps%|*})"
   if [[ "$(echo "$clusterNodes" |grep -Ev "$myClusterIps")" =~ [a-z0-9]+ ]];then
+    log --debug "
+      clusterNodes for node $targetIp dismatched cluster：
+      $clusterNodes
+    "
     clusterMatched="false"
   fi
   echo "$clusterMatched"
@@ -552,6 +562,7 @@ checkGroupMatched() {
   local targetIp; for targetIp in $targetIps; do
     [[ "$(getGroupMatched "$targetIp")" == "true" ]] || {
       log "Found mismatched group for node '$targetIp'."
+
       return $GROUP_MATCHED_ERR
     }
   done
@@ -561,7 +572,7 @@ checkClusterMatched() {
   local targetIps="${1:-$MY_IP}"
   local targetIp; for targetIp in $targetIps; do
     [[ "$(getClusterMatched "$targetIp")" == "true" ]] || {
-      log "Found mismatched group for node '$targetIp'."
+      log "Found mismatched cluster for node '$targetIp'."
       return $CLUSTER_MATCHED_ERR
     }
   done
