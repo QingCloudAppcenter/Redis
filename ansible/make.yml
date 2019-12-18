@@ -12,7 +12,6 @@
     - caddy-1.0.6
     - jq-1.0.3
     - redis-server-1.0.1
-    - rsyslog
     loop_control:
       loop_var: name
 

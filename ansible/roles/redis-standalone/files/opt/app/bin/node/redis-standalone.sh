@@ -323,7 +323,7 @@ configureForSentinel() {
 }
 
 configureForRestore(){
-  if [[ "$command" =~ ^(restore|restoreDataFromuploadedRDBFile)$ ]];then
+  if [[ "$command" =~ ^(restore|restoreByCustomRdb)$ ]]; then
     local runtimeConfigFile=/data/redis/redis.conf
     sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
   fi
@@ -354,7 +354,7 @@ getMyRole(){
 }
 
 
-restoreDataFromuploadedRDBFile(){
+restoreByCustomRdb(){
   local uploadedRDBFile redisCheckRdbPath destRDBfile
   uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
 
@@ -383,7 +383,7 @@ restoreDataFromuploadedRDBFile(){
 }
 
 check(){
-  local ignoreCommand="(restoreDataFromuploadedRDBFile)"
+  local ignoreCommand="(restoreByCustomRdb)"
   ps -ef |grep -E "$ignoreCommand" |grep -vq grep && {
     log "[Warning]Detected process $ignoreCommand，skip check"
     return 0
@@ -392,13 +392,10 @@ check(){
   _check
 }
 
-getRedisRoles(){
-  cat << EOF |  
-$(local node nodeIp myRole; for node in $REDIS_NODES; do
-  nodeIp="$(echo "$node" |cut -d"/" -f3)"
-  myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
-  echo "$nodeIp $myRole"
-done)
-EOF
-  jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role"],"data":.}'
+getRedisRoles(){ 
+  local node nodeIp myRole; for node in $REDIS_NODES; do
+    nodeIp="$(echo "$node" |cut -d"/" -f3)"
+    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
+    echo "$nodeIp $myRole"
+  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role"],"data":.}'
 }
