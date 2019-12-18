@@ -133,6 +133,17 @@
           "min": 0,
           "max": 15,
           "required": "yes"
+        },
+        {
+          "key": "rdb.file",
+          "label": "rdb.file",
+          "description": "rdb file",
+          "type": "string",
+          "default": "dump.rdb",
+          "required": "yes",
+          "range": [
+            "dump.rdb"
+          ]
         }
       ]
     },

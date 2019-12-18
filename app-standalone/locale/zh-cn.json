@@ -147,5 +147,7 @@
   "restore_data_from_rdb": "从 RDB 文件恢复数据",
   "roles": "节点实时角色",
   "ip": "节点 IP",
-  "role": "节点角色"
+  "role": "节点角色",
+  "rdb.file": "RDB 文件",
+  "rdb file": "该操作仅支持单节点集群，且会清掉现有集群的所有数据，请自行备份"
 }
