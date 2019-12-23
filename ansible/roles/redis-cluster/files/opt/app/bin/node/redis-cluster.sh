@@ -262,15 +262,16 @@ preScaleIn() {
     waitUntilAllNodesIsOk "$stableNodesIps"
     log "forget $leavingNodeIp"
     local leavingNodeId; leavingNodeId="$(getMyIdByMyIp $leavingNodeIp)"
-    local node; for node in $REDIS_NODES; do
-      if echo "$stableNodesIps" | grep ${node##*/} |grep -vq $leavingNodeIp; then
-        log "forget in ${node##*/}"
-        runRedisCmd -h ${node##*/} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)."; return $CLUSTER_FORGET_ERR)    
+    local node nodeIp; for node in $REDIS_NODES; do
+      nodeIp=${node##*/}
+      if echo "$stableNodesIps" | grep -E "^${nodeIp//\./\\.}$" |grep -Evq "^${leavingNodeIp//\./\\.}$"; then
+        log "forget in ${nodeIp}"
+        runRedisCmd -h ${nodeIp} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)."; return $CLUSTER_FORGET_ERR)    
       fi
     done
     log "forget $leavingNodeIp end"
     resetMynode $leavingNodeIp
-    stableNodesIps="$(echo "$stableNodesIps" |grep -v "${leavingNodeIp}")"
+    stableNodesIps="$(echo "$stableNodesIps" |grep -Ev "^${leavingNodeIp//\./\\.}$")"
   done
 }
 
@@ -402,6 +403,7 @@ rootConfDir=/opt/app/conf/redis-cluster
 configureForChangeVxnet(){
   log "configureForChangeVxnet Start"
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
+
   # in case checkFileChanged err when metadata is disconnected
   egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
     log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
@@ -414,38 +416,36 @@ configureForChangeVxnet(){
       return $CHANGE_VXNET_ERR
     }
   fi
-  if checkFileChanged $nodesFile; then
-    log "IP addresses changed from [$(cat $nodesFile.1)] to [$(cat $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(awk 'BEGIN{
-      FS="/"
-    }
-    {if (NR==FNR){
-        old[$4]=$5
-      }
-      else{
-        new[$4]=$5
-      } 
-    }
-    END{
-      for (instance_id in new){
-        print old[instance_id]"/"new[instance_id]
-      }
-    }
-    ' $nodesFile.1 $nodesFile |  sed 's#/#:'$REDIS_PORT'/ #g; s#^#s/ #g; s#$#:'$REDIS_PORT'/g#g' | paste -sd';')"
 
-    log "replaceCmd: $replaceCmd"
+  # ip 发生变化，nodes.1 文件不为空，且 nodes-6379.conf 文件存在的情况下
+  if checkFileChanged $nodesFile && grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 && [[ -f "$runtimeNodesConfigFile" ]]; then
+    log "IP addresses changed from [$(cat $nodesFile.1)] to [$(cat $nodesFile)]. Updating config files accordingly ..."
     log "start rotate $runtimeNodesConfigFile"
     rotate $runtimeNodesConfigFile
     log "end rotate $runtimeNodesConfigFile"
-    # [[ "$replaceCmd" =~ [0-9]+ ]] 防止 replaceCmd 为空
-    if [[ -f "$runtimeNodesConfigFile" ]] && [[ "$replaceCmd" =~ [0-9]+ ]]; then
-      log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-      log "start replace ips in $runtimeNodesConfigFile"
-      sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
-      log "end replace ips in $runtimeNodesConfigFile"
-      log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-    fi
-    
+    log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
+    # newFile oldFile nodes-6379.conf 顺序不能弄错
+    awk -F/ '{
+    value=$5":6379"
+    if (ARGIND==1){
+        new[$4]=value
+    }
+    else if(ARGIND==2){
+        gsub("\\.","\\.",value)
+        old[$4]=value
+    } else if (ARGIND==3){
+        for(x in old){
+          if ($0~old[x]){
+              gsub(old[x],new[x],$0)
+              print $0
+              break
+          }
+        }
+      }
+    }' $nodesFile $nodesFile.1 $runtimeNodesConfigFile > $runtimeNodesConfigFile.middle
+    # 直接输出到源文本，原文本变为空
+    cp -f $runtimeNodesConfigFile.middle $runtimeNodesConfigFile
+    log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"    
   fi
   log "configureForChangeVxnet End"
 }
