@@ -1,4 +1,8 @@
 ---
+
+- name: prepare tmp path
+  include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
+  
 - name: copy logging config files
   copy:
     src: files/{{ path }}/
@@ -40,5 +44,4 @@
     dest: /opt/app/bin/envs/appdev.env
     content: |
       APPCTL_ENV=dev
-
   when: target_env == 'dev'

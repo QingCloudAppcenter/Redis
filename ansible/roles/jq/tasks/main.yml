@@ -3,6 +3,9 @@
   set_fact:
     jq_version: "1.6"
 
+- name: prepare tmp path
+  include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
+
 - name: download jq
   get_url:
     url: https://github.com/stedolan/jq/releases/download/jq-{{ jq_version }}/jq-linux64

@@ -1,0 +1,6 @@
+---
+- name: set tmp dir for roles
+  file:
+    path: "{{ playbook_dir }}/roles/{{role_name}}/files/tmp"
+    state: directory
+  delegate_to: localhost

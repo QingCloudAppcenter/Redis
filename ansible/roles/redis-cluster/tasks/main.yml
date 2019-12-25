@@ -1,4 +1,8 @@
 ---
+
+- name: prepare tmp path
+  include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
+
 - name: copy conf files
   copy:
     src: files/opt/app/
