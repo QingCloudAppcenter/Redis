@@ -135,14 +135,15 @@
           "required": "yes"
         },
         {
-          "key": "rdb.file",
-          "label": "rdb.file",
-          "description": "rdb file",
+          "key": "tipAccept",
+          "label": "tipAccept",
+          "description": "tipAccept.description",
           "type": "string",
-          "default": "dump.rdb",
+          "default": "no",
           "required": "yes",
           "range": [
-            "dump.rdb"
+            "yes",
+            "no"
           ]
         }
       ]
