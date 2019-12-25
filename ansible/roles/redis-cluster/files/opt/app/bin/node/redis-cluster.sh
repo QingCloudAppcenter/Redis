@@ -279,8 +279,8 @@ check(){
   _check
   local loadingTag="loading the dataset in memory"
   local infoResponse;infoResponse="$(runRedisCmd cluster info)"
-  grep -q "$loadingTag" <(echo "$infoResponse") && return 0
-  grep -q "cluster_state:ok" <(echo "$infoResponse")
+  echo "$infoResponse" | grep -q "$loadingTag" && return 0
+  echo "$infoResponse" | grep -q "cluster_state:ok" 
   # 是否发生错位
   checkGroupMatched
   checkClusterMatched
@@ -496,7 +496,7 @@ getRedisRoles(){
   echo "$rawResult" |grep -q "$loadingTag" && return 0
   local firstProcessResult; firstProcessResult="$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}' |sort -t "," -k3)"
   local regexpResult; regexpResult="$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')"
-  local secondProcssResult; secondProcssResult="$(sed "$regexpResult" <(echo "$firstProcessResult") |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')"
+  local secondProcssResult; secondProcssResult="$(echo "$firstProcessResult" |sed "$regexpResult" |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')"
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
 }
 
@@ -513,11 +513,11 @@ getGroupMatched(){
     clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
   fi
 
-  local targetRoleInfo; targetRoleInfo="$(awk 'BEGIN{OFS=" "}{if($0~/'${targetIp//\./\\.}':'$REDIS_PORT'/){print $3,$4}}' <(echo "$clusterNodes"))"
+  local targetRoleInfo; targetRoleInfo="$(echo "$clusterNodes" |awk 'BEGIN{OFS=" "}{if($0~/'${targetIp//\./\\.}':'$REDIS_PORT'/){print $3,$4}}')"
   local targetRole; targetRole="$(echo "$targetRoleInfo"|awk '{split($1,role,",");print role[2]}')"
   if [[ "$targetRole" == "slave" ]]; then
       local targetMasterId; targetMasterId="$(echo "$targetRoleInfo" |awk '{print $2}')"
-      local targetMasterIp; targetMasterIp="$(awk '{if ($1~/'$targetMasterId'/){split($2,ips,":");print ips[1]}}' <(echo "$clusterNodes"))"
+      local targetMasterIp; targetMasterIp="$(echo "$clusterNodes" |awk '{if ($1~/'$targetMasterId'/){split($2,ips,":");print ips[1]}}')"
       local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/(${targetMasterIp//\./\\.}|${targetIp//\./\\.})$" |cut -d "/" -f1 |uniq)"
       [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || {
         log --debug "clusterNodes for $targetIp dismatched group: 
