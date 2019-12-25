@@ -412,43 +412,33 @@ configureForChangeVxnet(){
   # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
   if [[ -f "$nodesFile.2" ]]; then
     egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
-      log "Data format in $nodesFile.1 is err, content: [$(paste -s $nodesFile.1)]"
+      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
       return $CHANGE_VXNET_ERR
     }
   fi
 
-  # ip 发生变化，nodes.1 文件不为空，且 nodes-6379.conf 文件存在的情况下
-  if checkFileChanged $nodesFile && grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 && [[ -f "$runtimeNodesConfigFile" ]]; then
-    log "IP addresses changed from [$(cat $nodesFile.1)] to [$(cat $nodesFile)]. Updating config files accordingly ..."
+  if checkFileChanged $nodesFile && grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1; then
+    log "IP addresses changed from [
+      $(cat $nodesFile.1)
+      ] to [
+      $(cat $nodesFile)
+      ]. Updating config files accordingly ..."
+    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 <(sed "s/\./\\\./g" $nodesFile.1) $nodesFile |  sed 's#/#:'$REDIS_PORT'\\b/_ #g; s#^#s/\\b #g; s#$#:'$REDIS_PORT'_/g#g' | sed '$as/_//g' |paste -sd';')"
+    log "replaceCmd: $replaceCmd"
     log "start rotate $runtimeNodesConfigFile"
     rotate $runtimeNodesConfigFile
     log "end rotate $runtimeNodesConfigFile"
     log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-    # newFile oldFile nodes-6379.conf 顺序不能弄错
-    awk -F/ '{
-    value=$5":6379"
-    if (ARGIND==1){
-        new[$4]=value
+    [[ -f "$runtimeNodesConfigFile" ]] && {
+      log "start execute replaceCmd"
+      sed -i "${replaceCmd}" $runtimeNodesConfigFile
+      log "end execute replace"
     }
-    else if(ARGIND==2){
-        gsub("\\.","\\.",value)
-        old[$4]=value
-    } else if (ARGIND==3){
-        for(x in old){
-          if ($0~old[x]){
-              gsub(old[x],new[x],$0)
-              print $0
-              break
-          }
-        }
-      }
-    }' $nodesFile $nodesFile.1 $runtimeNodesConfigFile > $runtimeNodesConfigFile.middle
-    # 直接输出到源文本，原文本变为空
-    cp -f $runtimeNodesConfigFile.middle $runtimeNodesConfigFile
-    log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"    
+    log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
   fi
   log "configureForChangeVxnet End"
 }
+
 
 configureForRedis(){
   log "configureForRedis Start"
