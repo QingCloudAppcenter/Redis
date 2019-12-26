@@ -45,13 +45,13 @@ spring:
 #### by Jedis
 
 ```
-./gradlew -Dspring.profiles.active=jedis,sentinel bootRun
+java -Dspring.profiles.active=jedis,sentinel -jar build/libs/java-spring-0.2.0.jar
 ```
 
 #### by Lettuce
 
 ```
-./gradlew -Dspring.profiles.active=lettuce,sentinel bootRun
+java -Dspring.profiles.active=lettuce,sentinel -jar build/libs/java-spring-0.2.0.jar
 ```
 
 ### Connect to VIP
@@ -59,13 +59,13 @@ spring:
 #### by Jedis
 
 ```
-./gradlew -Dspring.profiles.active=jedis,vip bootRun
+java -Dspring.profiles.active=jedis,vip -jar build/libs/java-spring-0.2.0.jar
 ```
 
 #### by Lettuce
 
 ```
-./gradlew -Dspring.profiles.active=lettuce,vip bootRun
+java -Dspring.profiles.active=lettuce,vip -jar build/libs/java-spring-0.2.0.jar
 ```
 
 ### Connect to Redis Cluster
@@ -73,11 +73,11 @@ spring:
 #### by Jedis
 
 ```
-./gradlew -Dspring.profiles.active=jedis,cluster bootRun
+java -Dspring.profiles.active=jedis,cluster -jar build/libs/java-spring-0.2.0.jar
 ```
 
 #### by Lettuce
 
 ```
-./gradlew -Dspring.profiles.active=lettuce,cluster bootRun
+java -Dspring.profiles.active=lettuce,cluster -jar build/libs/java-spring-0.2.0.jar
 ```
