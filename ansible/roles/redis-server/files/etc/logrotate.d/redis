@@ -1,8 +1,0 @@
-/data/redis/logs/*.log {
-  daily
-  maxsize 1M
-  rotate 20
-  missingok
-  create 0644 redis svc
-  notifempty
-}
