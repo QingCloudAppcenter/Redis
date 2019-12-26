@@ -135,9 +135,9 @@
           "required": "yes"
         },
         {
-          "key": "tipAccept",
-          "label": "tipAccept",
-          "description": "tipAccept.description",
+          "key": "confirm",
+          "label": "confirm",
+          "description": "All existing data will be erased, and please ensure there is only one redis node; choose 'yes' to continue",
           "type": "string",
           "default": "no",
           "required": "yes",

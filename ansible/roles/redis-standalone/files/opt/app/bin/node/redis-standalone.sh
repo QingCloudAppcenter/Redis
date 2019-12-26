@@ -7,7 +7,7 @@ RDB_FILE_EXIST_ERR=221
 RDB_FILE_CHECK_ERR=222
 CLUSTER_STATUS_ERR=223
 NODES_NUMS_ERR=224
-ACCEPT_ERR=225
+CONFIRM_ERR=225
 
 
 initNode() {
@@ -356,10 +356,10 @@ getMyRole(){
 
 
 restoreByCustomRdb(){
-  local accept; accept="$(echo $1 |jq .tipAccept)"
-  [[ "$accept" == "\"yes\"" ]] || {
+  local isConfirm; isConfirm="$(echo $1 |jq .confirm)"
+  [[ "$isConfirm" == "\"yes\"" ]] || {
     log "user dont accept tips"
-    return $ACCEPT_ERR
+    return $CONFIRM_ERR
   }
   local uploadedRDBFile redisCheckRdbPath destRDBfile
   uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"

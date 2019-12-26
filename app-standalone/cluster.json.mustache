@@ -17,7 +17,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-dldq3lx1"
+      "image": "img-6tf6i30e"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -66,7 +66,7 @@
         "cmd": "appctl restoreByCustomRdb",
         "timeout": 1200,
         "service_params": {
-          "tipAccept": {{service_params.tipAccept}}
+          "confirm": {{service_params.confirm}}
         }
       }
     }
