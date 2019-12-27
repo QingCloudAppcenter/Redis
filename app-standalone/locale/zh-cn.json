@@ -123,6 +123,11 @@
   "err_code212": "为了避免数据丢失，请选择从节点进行删除，主从关系可以通过监控项获取",
   "err_code213": "刚才可能发生了主从切换，导致要删除的节点中包含主节点；为了避免数据丢失，请稍后选择从节点进行删除",
   "err_code220": "redis 命令执行失败，请通过工单与我们沟通",
+  "err_code221": "RDB 文件不存在，请您先上传 RDB 文件",
+  "err_code222": "RDB 文件格式有误，请您上传正确的 RDB 文件",
+  "err_code223": "集群状态不正常，请保证您的集群状态是正常的再上传",
+  "err_code224": "数据迁移仅支持单节点的操作，请将集群数量调整至单节点再迁移",
+  "err_code225": "需要先确认操作",
   "err_code1": "内部错误",
   "disabled-commands_label": "禁用 FLUSH 命令",
   "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
@@ -139,5 +144,11 @@
   "sentinel.down-after-milliseconds_description":"master 被 sentinel 标记为主观下线 (sdown) 的超时时间，单位毫秒",
   "sentinel.failover-timeout_label":"sentinel.failover-timeout",
   "sentinel.failover-timeout_description": "两次 failover 间的间隔时间，单位毫秒",
-  "databases_description": "redis-server 数据库的数量，默认是 16 个"
+  "databases_description": "redis-server 数据库的数量，默认是 16 个",
+  "restore_data_from_rdb": "从 RDB 文件恢复数据",
+  "roles": "节点实时角色",
+  "ip": "节点 IP",
+  "role": "节点角色",
+  "confirm": "确认操作？",
+  "All existing data will be erased, and please ensure there is only one redis node; choose 'yes' to continue": "该操作仅支持单节点集群，且会清空现有集群的所有数据，数据需要自行备份，yes 表示确认并继续执行，no 表示不执行"
 }

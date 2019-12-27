@@ -3,10 +3,19 @@ LEAVING_REDIS_NODES_IS_NONE_ERR=211
 LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR=212
 MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR=213
 REDIS_COMMAND_EXECUTE_FAIL_ERR=220
+RDB_FILE_EXIST_ERR=221
+RDB_FILE_CHECK_ERR=222
+CLUSTER_STATUS_ERR=223
+NODES_NUMS_ERR=224
+CONFIRM_ERR=225
 
 
 initNode() {
-  mkdir -p /data/redis/logs && chown -R redis.svc /data/redis
+  local redisPath="/data/redis"
+  local caddyPath="/data/caddy"
+  mkdir -p $redisPath/logs $caddyPath/upload
+  chown -R redis.svc $redisPath
+  chown -R caddy.svc $caddyPath
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
 }
@@ -30,7 +39,6 @@ stop() {
 }
 
 revive() {
-  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
@@ -99,17 +107,21 @@ scaleIn() {
   stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
 }
 
-# edge case: 4.0.9 flushall -> 5.0.5 -> backup -> restore rename flushall
 restore() {
-  local runtimeConfigFile=/data/redis/redis.conf
+  local scopeForRedis logsDirForRedis runtimeConfigFile
+  scopeForRedis=/data/redis
+  logsDirForRedis=$scopeForRedis/logs
+  runtimeConfigFile=$scopeForRedis/redis.conf
   local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)"
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
   find /data/redis -mindepth 1 ! -name dump.rdb -delete
+  mkdir -p $logsDirForRedis
+  chown -R redis.svc $logsDirForRedis
 
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
-  # 修改 appendonly 为no -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
+  # 修改 appendonly 为no (该操作位于 configForRestore) -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
   execute start
   retry 240 1 $EC_RESTORE_LOAD_ERR checkLoadDataDone
   if [[ "$oldValue" == "yes" ]]; then
@@ -231,6 +243,10 @@ checkSentinelStopped() {
   ! nc -z -w3 $1 26379
 }
 
+checkRedisStopped() {
+  ! nc -z -w3 $1 $REDIS_PORT
+}
+
 encodeCmd() {
   echo -n ${1?command is required}${CLUSTER_ID} | sha256sum | cut -d' ' -f1
 }
@@ -307,8 +323,8 @@ configureForSentinel() {
   fi
 }
 
-configForRestore(){
-  if [[ $command == "restore" ]];then
+configureForRestore(){
+  if [[ "$command" =~ ^(restore|restoreByCustomRdb)$ ]]; then
     local runtimeConfigFile=/data/redis/redis.conf
     sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
   fi
@@ -319,7 +335,7 @@ configure() {
   configureForSentinel
   configureForRedis  
   local masterIp; masterIp="$(findMasterIp)"
-  configForRestore
+  configureForRestore
   setUpVip $masterIp
 }
 
@@ -332,4 +348,60 @@ runCommand(){
   else
     runRedisCmd --ip $REDIS_VIP -n $db $cmd
   fi
+}
+
+getMyRole(){
+  runRedisCmd --ip $MY_IP ROLE | sed -n '1{p;q}'
+}
+
+
+restoreByCustomRdb(){
+  local isConfirm; isConfirm="$(echo $1 |jq .confirm)"
+  [[ "$isConfirm" == "\"yes\"" ]] || {
+    log "user dont accept tips"
+    return $CONFIRM_ERR
+  }
+  local uploadedRDBFile redisCheckRdbPath destRDBfile
+  uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
+
+  # 仅允许单个节点做恢复数据操作
+  [[ $(echo "$REDIS_NODES" |xargs -n1 |wc -l) == 1 ]] || return $NODES_NUMS_ERR
+  # 检查 RDB 文件是否 OK
+  local myRole; myRole="$(getMyRole)"
+  [[ "$myRole" == "master" ]] || {
+    log "[ERRO] cluster status is $myRole"
+    return $CLUSTER_STATUS_ERR
+  }
+  [[ -e $uploadedRDBFile ]] || {
+    log "[ERRO] RDB file is not exist"
+    return $RDB_FILE_EXIST_ERR
+  }
+  $redisCheckRdbPath $uploadedRDBFile || {
+    log "[ERRO] RDB file format err"
+    return $RDB_FILE_CHECK_ERR
+  }
+
+  execute stop
+
+  cp -f $uploadedRDBFile $destRDBfile
+  restore
+  rm -rf $uploadedRDBFile
+}
+
+check(){
+  local ignoreCommand="(restoreByCustomRdb)"
+  ps -ef |grep -E "$ignoreCommand" |grep -vq grep && {
+    log "[Warning]Detected process $ignoreCommand，skip check"
+    return 0
+  }
+  [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
+  _check
+}
+
+getRedisRoles(){ 
+  local node nodeIp myRole; for node in $REDIS_NODES; do
+    nodeIp="$(echo "$node" |cut -d"/" -f3)"
+    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
+    echo "$nodeIp $myRole"
+  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role"],"data":.}'
 }
