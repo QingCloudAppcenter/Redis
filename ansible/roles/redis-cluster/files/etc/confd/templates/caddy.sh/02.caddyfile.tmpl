@@ -9,9 +9,5 @@ flush /opt/app/conf/caddy/caddyfile << CADDYFILE_EOF
   browse /redis/dump.rdb
   browse /redis/appendonly.aof
   tls off
-  upload /upload {
-    to /data/redis/restore
-    yes_without_tls
-  }
 }
 CADDYFILE_EOF
