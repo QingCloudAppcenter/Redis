@@ -277,6 +277,7 @@
 
         },
         "groups" : {
+            "is_group_matched": ["group_matched"],
             "Operations" : [ "get_count", "set_count", "key_based_count", "string_based_count"],
             "Operations2" : [ "set_based_count", "sorted_set_based_count", "list_based_count", "hash_based_count"],
             "Connections" : ["total_connections_received"],
@@ -286,7 +287,7 @@
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
-        "display" : ["node_role", "group_matched", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
+        "display" : ["node_role", "is_group_matched", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
         "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched"]
     },
     "display_tabs" : {
