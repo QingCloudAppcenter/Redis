@@ -221,24 +221,20 @@ checkVip() {
 
 setUpVip() {
   local masterIp; masterIp="${1:-$(findMasterIp)}"
-  local myIps action
-  myIps="$(hostname -I)"
-  action="static"
+  local myIps; myIps="$(hostname -I)"
   log "setting up vip: [master=$masterIp me=$myIps Vip=$REDIS_VIP] ..."
   if [ "$MY_IP" == "$masterIp" ]; then
     [[ " $myIps " == *" $REDIS_VIP "* ]] || {
-      action="prepare bindVip"
+      log "This is the master node, though VIP is unbound. Binding VIP ..."
       bindVip
-      action="bindVip"
     }
   else
     [[ " $myIps " != *" $REDIS_VIP "* ]] || {
-      action="prepare unbindVip"
+      log "This is not the master node, though VIP is still bound. Unbinding VIP ..."
       unbindVip
-      action="unbindVip"
     }
   fi
-  log "$action: $REDIS_VIP successful"
+  log "setUpVip successful"
 }
 
 bindVip() {
