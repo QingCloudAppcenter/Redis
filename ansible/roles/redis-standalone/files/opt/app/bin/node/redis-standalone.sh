@@ -221,13 +221,24 @@ checkVip() {
 
 setUpVip() {
   local masterIp; masterIp="${1:-$(findMasterIp)}"
-  local myIps; myIps="$(hostname -I)"
-  log --debug "setting up vip: [master=$masterIp me=$myIps] ..."
+  local myIps action
+  myIps="$(hostname -I)"
+  action="static"
+  log "setting up vip: [master=$masterIp me=$myIps Vip=$REDIS_VIP] ..."
   if [ "$MY_IP" == "$masterIp" ]; then
-    [[ " $myIps " == *" $REDIS_VIP "* ]] || bindVip
+    [[ " $myIps " == *" $REDIS_VIP "* ]] || {
+      action="prepare bindVip"
+      bindVip
+      action="bindVip"
+    }
   else
-    [[ " $myIps " != *" $REDIS_VIP "* ]] || unbindVip
+    [[ " $myIps " != *" $REDIS_VIP "* ]] || {
+      action="prepare unbindVip"
+      unbindVip
+      action="unbindVip"
+    }
   fi
+  log "$action: $REDIS_VIP successful"
 }
 
 bindVip() {
@@ -396,6 +407,7 @@ check(){
   }
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   _check
+  checkVip
 }
 
 getRedisRoles(){ 
