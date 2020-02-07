@@ -204,6 +204,7 @@ findMasterNodeId() {
 
 runRedisCmd() {
   local redisIp=$MY_IP timeout=5 result retCode=0
+  [[ "$1" == "--timeout" ]] && timeout=$2 && shift 2
   if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
@@ -347,13 +348,15 @@ configure() {
 }
 
 runCommand(){
-  local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)"
+  local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)" \
+        params="$(echo $1 |jq -r .params)" timeout=$(echo $1 |jq -r .timeout)
   local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
   else
-    runRedisCmd --ip $REDIS_VIP -n $db $cmd
+    [[ "$params" == "ASYNC" ]] && cmd="$cmd $params"
+    runRedisCmd --timeout $timeout --ip $REDIS_VIP -n $db $cmd
   fi
 }
 
