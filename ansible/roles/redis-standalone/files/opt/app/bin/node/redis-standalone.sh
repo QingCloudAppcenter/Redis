@@ -2,6 +2,7 @@ FIND_MASTER_IP_ERR=210
 LEAVING_REDIS_NODES_IS_NONE_ERR=211
 LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR=212
 MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR=213
+LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE=214
 REDIS_COMMAND_EXECUTE_FAIL_ERR=220
 RDB_FILE_EXIST_ERR=221
 RDB_FILE_CHECK_ERR=222
@@ -93,6 +94,16 @@ checkMasterNotLeaving() {
 preScaleIn() {
   [ -n "$LEAVING_REDIS_NODES" ] || return $LEAVING_REDIS_NODES_IS_NONE_ERR
   checkMasterNotLeaving
+
+  # 防止最终计划剩余3个节点的时候，删除了 sentinel 节点
+  local leavingNodesCount; leavingNodesCount=$(echo "$LEAVING_REDIS_NODES" |wc -w)
+  local allNodesCount; allNodesCount=$(echo "$REDIS_NODES" |wc -w)
+  if [[ $(($allNodesCount-$leavingNodesCount)) -ge 3 ]];then
+    local firstToThirdNode="$(eval echo "$allNodesCount" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3)"
+    local node;for node in $firstToThirdNode;do
+      echo "$LEAVING_REDIS_NODES" |grep -vq "$node" || return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
+    done
+  fi
 }
 
 destroy() {
@@ -410,9 +421,10 @@ check(){
 }
 
 getRedisRoles(){ 
-  local node nodeIp myRole; for node in $REDIS_NODES; do
+  local node nodeIp myRole counter=0; for node in $(echo "$REDIS_NODES" |sort -n -t"/" -k1); do
+    counter=$(($counter+1))
     nodeIp="$(echo "$node" |cut -d"/" -f3)"
-    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1)"
-    echo "$nodeIp $myRole"
-  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role"],"data":.}'
+    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
+    echo "$nodeIp $myRole $(if [[ $counter -le 3 ]];then echo "true"; else echo "false";fi)"
+  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","disabled_delete"],"data":.}'
 }
