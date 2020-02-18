@@ -8,6 +8,7 @@ RDB_FILE_CHECK_ERR=222
 CLUSTER_STATUS_ERR=223
 NODES_NUMS_ERR=224
 CONFIRM_ERR=225
+BEYOND_DATABASES_ERR=226
 
 
 initNode() {
@@ -355,6 +356,7 @@ runCommand(){
     log "runCommand BGSAVE"
     backup
   else
+    [[ $db -ge $REDIS_DATABASES ]] && return $BEYOND_DATABASES_ERR
     [[ "$params" == "ASYNC" ]] && cmd="$cmd $params"
     runRedisCmd --timeout $timeout --ip $REDIS_VIP -n $db $cmd
   fi
