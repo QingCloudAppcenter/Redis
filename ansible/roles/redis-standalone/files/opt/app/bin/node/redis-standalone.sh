@@ -204,10 +204,10 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP timeout=5 result retCode=0
-  [[ "$1" == "--timeout" ]] && timeout=$2 && shift 2
+  local redisIp=$MY_IP maxTime=5 result retCode=0
+  if [[ "$1" == "--timeout" ]]; then maxTime=$2 && shift 2;fi
   if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
+  result="$(timeout --preserve-status ${maxTime}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
@@ -356,8 +356,8 @@ runCommand(){
     log "runCommand BGSAVE"
     backup
   else
-    [[ $db -ge $REDIS_DATABASES ]] && return $BEYOND_DATABASES_ERR
-    [[ "$params" == "ASYNC" ]] && cmd="$cmd $params"
+    if [[ $db -ge $REDIS_DATABASES ]]; then return $BEYOND_DATABASES_ERR; fi
+    if [[ "$params" == "ASYNC" ]]; then cmd="$cmd $params"; fi
     runRedisCmd --timeout $timeout --ip $REDIS_VIP -n $db $cmd
   fi
 }
