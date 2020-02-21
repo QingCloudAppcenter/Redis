@@ -350,7 +350,7 @@ configure() {
 
 runCommand(){
   local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)" \
-        params="$(echo $1 |jq -r .params)" timeout=$(echo $1 |jq -r .timeout)
+        params="$(echo $1 |jq -r .params)" maxTime=$(echo $1 |jq -r .timeout)
   local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
@@ -358,7 +358,7 @@ runCommand(){
   else
     if [[ $db -ge $REDIS_DATABASES ]]; then return $BEYOND_DATABASES_ERR; fi
     if [[ "$params" == "ASYNC" ]]; then cmd="$cmd $params"; fi
-    runRedisCmd --timeout $timeout --ip $REDIS_VIP -n $db $cmd
+    runRedisCmd --timeout $maxTime --ip $REDIS_VIP -n $db $cmd
   fi
 }
 
