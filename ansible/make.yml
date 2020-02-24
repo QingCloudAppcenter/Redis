@@ -3,6 +3,7 @@
   hosts: all
   vars:
     target_env: "{{ lookup('env', 'target') }}"
+    caddy_plugins: upload
   tasks:
   - include_role:
       name: "{{ name }}"

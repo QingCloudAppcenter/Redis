@@ -8,6 +8,7 @@ RDB_FILE_CHECK_ERR=222
 CLUSTER_STATUS_ERR=223
 NODES_NUMS_ERR=224
 CONFIRM_ERR=225
+BEYOND_DATABASES_ERR=226
 
 
 initNode() {
@@ -203,9 +204,10 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP timeout=5 result retCode=0
+  local redisIp=$MY_IP maxTime=5 result retCode=0
+  if [[ "$1" == "--timeout" ]]; then maxTime=$2 && shift 2;fi
   if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
+  result="$(timeout --preserve-status ${maxTime}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
@@ -347,13 +349,16 @@ configure() {
 }
 
 runCommand(){
-  local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)"
+  local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)" \
+        params="$(echo $1 |jq -r .params)" maxTime=$(echo $1 |jq -r .timeout)
   local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
   else
-    runRedisCmd --ip $REDIS_VIP -n $db $cmd
+    if [[ $db -ge $REDIS_DATABASES ]]; then return $BEYOND_DATABASES_ERR; fi
+    if [[ "$params" == "ASYNC" ]]; then cmd="$cmd $params"; fi
+    runRedisCmd --timeout $maxTime --ip $REDIS_VIP -n $db $cmd
   fi
 }
 

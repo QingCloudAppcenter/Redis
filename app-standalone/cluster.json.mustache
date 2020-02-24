@@ -7,6 +7,7 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
+     "appv-dw8hsl7o",
      "appv-7nnl5m03",
      "appv-yjt6jcur",
      "appv-htdfkqlo",
@@ -17,7 +18,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3a",
-      "image": "img-v6qv1l0c"
+      "image": "img-obs5r19u"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -58,7 +59,9 @@
         "timeout": 1200,
         "service_params": {
           "cmd": {{service_params.cmd}},
-          "db": {{service_params.db}}
+          "db": {{service_params.db}},
+          "params": {{service_params.params}},
+          "timeout": {{service_params.timeout}}
         }
       },
       "restore_data_from_rdb": {

@@ -125,13 +125,33 @@
           "required": "yes"
         },
         {
+          "key": "params",
+          "label": "params",
+          "description": "The params for flush commands",
+          "type": "string",
+          "default": "ASYNC", 
+          "range": [
+            "NULL",
+            "ASYNC"
+          ],
+          "required": "yes"
+        },
+        {
           "key": "db",
           "label": "database",
           "description": "The database for master node",
           "type": "integer",
           "default": 0,
           "min": 0,
-          "max": 15,
+          "required": "yes"
+        },
+        {
+          "key": "timeout",
+          "label": "timeout",
+          "description": "The timeout for flush commands",
+          "type": "integer",
+          "default": 5, 
+          "min":5,
           "required": "yes"
         },
         {
