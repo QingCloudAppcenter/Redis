@@ -275,6 +275,10 @@ preScaleIn() {
   done
 }
 
+scaleIn(){
+  true
+}
+
 check(){
   _check
   local loadingTag="loading the dataset in memory"
@@ -326,8 +330,28 @@ revive(){
   _revive
 }
 
+findMasterIpByNodeIp(){
+  local myRoleResult myRole nodeIp=${1:-$MY_IP}
+  myRoleResult="$(runRedisCmd -h $nodeIp role)"
+  myRole="$(echo "$myRoleResult" |head -n1)"
+  if [[ "$myRole" == "master" ]]; then
+    echo "$nodeIp"
+  else
+    echo "$myRoleResult" | sed -n '2p'
+  fi
+}
+
 measure() {
   local groupMatched; groupMatched="$(getGroupMatched)"
+  local masterIp replicaDelay; masterIp="$(findMasterIpByNodeIp)"
+  if [[ "$masterIp" != "$MY_IP" ]]; then
+    local masterReplication="$(runRedisCmd -h $masterIp info replication)"
+    local masterOffset=$(echo "$masterReplication"|grep "master_repl_offset" |cut -d: -f2 |tr -d '\n\r')
+    local myOffset=$(echo "$masterReplication" |grep -E "ip=${MY_IP//\./\\.}\,"| cut -d, -f4 |cut -d= -f2|tr -d '\n\r')
+    replicaDelay=$(($masterOffset-$myOffset))
+  else
+    replicaDelay=0
+  fi
   runRedisCmd info all | awk -F: 'BEGIN {
     g["hash_based_count"] = "^h"
     g["list_based_count"] = "^(bl|br|l|rp)"
@@ -365,6 +389,7 @@ measure() {
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
     m["group_matched"] = "'$groupMatched'"
+    m["replica_delay"] = "'$replicaDelay'"
     for(k in m) {
       print k FS m[k]
     }

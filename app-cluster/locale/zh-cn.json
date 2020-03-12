@@ -127,5 +127,8 @@
   "Volume Class": "磁盘类型",
   "The volume type for each instance，such as high performance，high performance plus": "磁盘类型，比如性能型、超高性能型",
   "is_group_matched": "副本节点状态",
-  "group_matched": "是否指向预期主节点（主节点永远为 true）"
+  "group_matched": "是否指向预期主节点（主节点永远为 true）",
+  "replicaDelay": "主从复制落后字节数",
+  "Bytes": "字节",
+  "replica_delay": "副本偏差量（与主节点的复制延迟）"
 }
