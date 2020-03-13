@@ -1,6 +1,7 @@
 ---
 - name: redis tasks
   hosts: all
+  become: yes
   vars:
     target_env: "{{ lookup('env', 'target') }}"
     caddy_plugins: upload
