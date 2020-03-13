@@ -16,7 +16,7 @@
         "container": {
             "type": "lxc",
             "zone": "pek3",
-            "image": "img-0yky36ph"
+            "image": "img-jz3nisx5"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -56,7 +56,9 @@
                 "timeout": 1200,
                 "service_params": {
                     "cmd": {{service_params.cmd}},
-                    "db": {{service_params.db}}
+                    "db": {{service_params.db}},
+                    "params": {{service_params.params}},
+                    "timeout": {{service_params.timeout}}
                 }
             }
         }

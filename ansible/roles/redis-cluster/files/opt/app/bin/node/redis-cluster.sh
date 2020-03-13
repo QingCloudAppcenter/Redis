@@ -493,13 +493,15 @@ checkFileChanged() {
 runCommand(){
   local myRole; myRole="$(getRedisRole $MY_IP)"
   if [[ "$myRole" != "master" ]]; then log "My role is not master, Unauthorized operation";return 0;fi 
-  local db flushCmd; db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)"
+  local db flushCmd params maxTime; db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)" \
+        params="$(echo $1 |jq -r .params)" maxTime=$(echo $1 |jq -r .timeout)
   local cmd; cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
   else
-    runRedisCmd -n $db $cmd
+    if [[ "$params" == "ASYNC" ]]; then cmd="$cmd $params"; fi
+    runRedisCmd --timeout $maxTime $cmd
   fi
 }
 
