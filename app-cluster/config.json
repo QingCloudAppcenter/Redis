@@ -112,14 +112,6 @@
                 "required": "yes"
               },
               {
-                "key": "db",
-                "label": "database",
-                "description": "The database for master node",
-                "type": "integer",
-                "range": [0],
-                "required": "yes"
-              },
-              {
                 "key": "timeout",
                 "label": "timeout",
                 "description": "The timeout for flush commands",
