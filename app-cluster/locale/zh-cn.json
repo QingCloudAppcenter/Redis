@@ -131,6 +131,6 @@
   "replica_delay": "副本偏差量（与主节点的复制延迟）",
   "params": "参数",
   "timeout": "超时时间",
-  "The params for flush commands": "FLUSH 命令的参数，仅对 FLUSHALL 和 FLUSHDB 有效，配置为 NULL 即为没有参数（在 key 较多的情况下选择 NULL 容易导致主从切换）",
-  "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效"
+  "The params for flush commands": "FLUSH 命令的参数，仅对 FLUSHALL 和 FLUSHDB 有效，配置为「空」即为没有参数（在 key 较多的情况下选择「空」容易导致主从切换）",
+  "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效，在 key 较多的情况下，推荐适当延长该参数"
 }

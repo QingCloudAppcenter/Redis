@@ -106,10 +106,10 @@
                 "type": "string",
                 "default": "ASYNC", 
                 "range": [
-                  "NULL",
+                  "",
                   "ASYNC"
                 ],
-                "required": "yes"
+                "required": "no"
               },
               {
                 "key": "timeout",

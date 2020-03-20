@@ -500,8 +500,7 @@ runCommand(){
     log "runCommand BGSAVE"
     backup
   else
-    if [[ "$params" == "ASYNC" ]]; then cmd="$cmd $params"; fi
-    runRedisCmd --timeout $maxTime $cmd
+    runRedisCmd --timeout $maxTime $cmd $params
   fi
 }
 
