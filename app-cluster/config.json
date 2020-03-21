@@ -86,27 +86,40 @@
         "description": "Custom service configuration properties",
         "type": "array",
         "properties": [
-          {
-            "key": "cmd",
-            "label": "command",
-            "description": "The common for master node",
-            "type": "string",
-            "default": "FLUSHDB",
-            "range": [
-              "FLUSHDB",
-              "FLUSHALL",
-              "BGSAVE"
-            ],
-            "required": "yes"
-          },
-          {
-            "key": "db",
-            "label": "database",
-            "description": "The database for master node",
-            "type": "integer",
-            "range":[0],
-            "required": "yes"
-          }
+            {
+                "key": "cmd",
+                "label": "command",
+                "description": "The common for master node",
+                "type": "string",
+                "default": "FLUSHDB",
+                "range": [
+                  "FLUSHDB",
+                  "FLUSHALL",
+                  "BGSAVE"
+                ],
+                "required": "yes"
+              },
+              {
+                "key": "params",
+                "label": "params",
+                "description": "The params for flush commands",
+                "type": "string",
+                "default": "ASYNC", 
+                "range": [
+                  "",
+                  "ASYNC"
+                ],
+                "required": "no"
+              },
+              {
+                "key": "timeout",
+                "label": "timeout",
+                "description": "The timeout for flush commands",
+                "type": "integer",
+                "default": 5, 
+                "min":5,
+                "required": "yes"
+              }
         ]
       }, 
     {
