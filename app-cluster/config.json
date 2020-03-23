@@ -106,18 +106,10 @@
                 "type": "string",
                 "default": "ASYNC", 
                 "range": [
-                  "NULL",
+                  "",
                   "ASYNC"
                 ],
-                "required": "yes"
-              },
-              {
-                "key": "db",
-                "label": "database",
-                "description": "The database for master node",
-                "type": "integer",
-                "range": [0],
-                "required": "yes"
+                "required": "no"
               },
               {
                 "key": "timeout",
