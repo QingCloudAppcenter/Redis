@@ -154,6 +154,9 @@
   "All existing data will be erased, and please ensure there is only one redis node; choose 'yes' to continue": "该操作仅支持单节点集群，且会清空现有集群的所有数据，数据需要自行备份，yes 表示确认并继续执行，no 表示不执行",
   "params": "参数",
   "timeout": "超时时间",
-  "The params for flush commands": "FLUSH 命令的参数，仅对 FLUSHALL 和 FLUSHDB 有效，配置为 NULL 即为没有参数（在 key 较多的情况下选择 NULL 容易导致主从切换）",
-  "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效"
+  "The params for flush commands": "FLUSH 命令的参数，仅对 FLUSHALL 和 FLUSHDB 有效，配置为「空」即为没有参数（在 key 较多的情况下选择「空」容易导致主从切换）",
+  "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效",
+  "replicaDelay": "主从复制落后字节数",
+  "Bytes": "字节",
+  "replica_delay": "副本偏差量（与主节点的复制延迟）"
 }
