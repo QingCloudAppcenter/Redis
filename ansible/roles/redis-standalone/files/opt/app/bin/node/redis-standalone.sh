@@ -378,8 +378,7 @@ runCommand(){
     backup
   else
     if [[ $db -ge $REDIS_DATABASES ]]; then return $BEYOND_DATABASES_ERR; fi
-    if [[ "$params" == "ASYNC" ]]; then cmd="$cmd $params"; fi
-    runRedisCmd --timeout $maxTime --ip $REDIS_VIP -n $db $cmd
+    runRedisCmd --timeout $maxTime --ip $REDIS_VIP -n $db $cmd $params
   fi
 }
 
