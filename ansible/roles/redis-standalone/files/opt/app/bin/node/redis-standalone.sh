@@ -9,6 +9,7 @@ RDB_FILE_CHECK_ERR=222
 CLUSTER_STATUS_ERR=223
 NODES_NUMS_ERR=224
 CONFIRM_ERR=225
+BEYOND_DATABASES_ERR=226
 
 
 initNode() {
@@ -45,7 +46,27 @@ revive() {
   checkVip || setUpVip
 }
 
+findMasterIpByNodeIp(){
+  local myRoleResult myRole nodeIp=${1:-$MY_IP}
+  myRoleResult="$(runRedisCmd -h $nodeIp role)"
+  myRole="$(echo "$myRoleResult" |head -n1)"
+  if [[ "$myRole" == "master" ]]; then
+    echo "$nodeIp"
+  else
+    echo "$myRoleResult" | sed -n '2p'
+  fi
+}
+
 measure() {
+  local masterIp replicaDelay; masterIp="$(findMasterIpByNodeIp)"
+  if [[ "$masterIp" != "$MY_IP" ]]; then
+    local masterReplication="$(runRedisCmd -h $masterIp info replication)"
+    local masterOffset=$(echo "$masterReplication"|grep "master_repl_offset" |cut -d: -f2 |tr -d '\n\r')
+    local myOffset=$(echo "$masterReplication" |grep -E "ip=${MY_IP//\./\\.}\,"| cut -d, -f4 |cut -d= -f2|tr -d '\n\r')
+    replicaDelay=$(($masterOffset-$myOffset))
+  else
+    replicaDelay=0
+  fi
   runRedisCmd info all | awk -F: 'BEGIN {
     g["hash_based_count"] = "^h"
     g["list_based_count"] = "^(bl|br|l|rp)"
@@ -82,6 +103,7 @@ measure() {
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
+    m["replica_delay"] = "'$replicaDelay'"
     for(k in m) print k FS m[k]
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics" && return $rc )
 }
@@ -214,10 +236,10 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP timeout=5 result retCode=0
-  [[ "$1" == "--timeout" ]] && timeout=$2 && shift 2
+  local redisIp=$MY_IP maxTime=5 result retCode=0
+  if [[ "$1" == "--timeout" ]]; then maxTime=$2 && shift 2;fi
   if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
+  result="$(timeout --preserve-status ${maxTime}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
@@ -360,14 +382,14 @@ configure() {
 
 runCommand(){
   local db="$(echo $1 |jq .db)" flushCmd="$(echo $1 |jq -r .cmd)" \
-        params="$(echo $1 |jq -r .params)" timeout=$(echo $1 |jq -r .timeout)
+        params="$(echo $1 |jq -r .params)" maxTime=$(echo $1 |jq -r .timeout)
   local cmd="$(getRuntimeNameOfCmd $flushCmd)"
   if [[ "$flushCmd" == "BGSAVE" ]];then
     log "runCommand BGSAVE"
     backup
   else
-    [[ "$params" == "ASYNC" ]] && cmd="$cmd $params"
-    runRedisCmd --timeout $timeout --ip $REDIS_VIP -n $db $cmd
+    if [[ $db -ge $REDIS_DATABASES ]]; then return $BEYOND_DATABASES_ERR; fi
+    runRedisCmd --timeout $maxTime --ip $REDIS_VIP -n $db $cmd $params
   fi
 }
 

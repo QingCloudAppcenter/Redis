@@ -113,10 +113,8 @@
   "err_code220": "切换私有网络处发生异常，请通过工单与我们联系",
   "err_code221": "存在节点发生错位，请通过工单与我们联系",
   "run_command": "执行命令",
-  "database": "数据库",
   "command": "命令",
   "The common for master node": "在主节点执行的命令",
-  "The database for master node": "执行命令的数据库，该项仅对 FLUSHDB 有效，且仅为 0 数据库",
   "Cluster node timeout is the amount of milliseconds a node must be unreachable for it to be considered in failure state": "集群节点被确认为故障状态的最大毫秒数，即该节点在配置时间内均不可达",
   "Enable web console": "开启文件查看控制台",
   "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭，不会重启 redis",
@@ -127,5 +125,12 @@
   "Volume Class": "磁盘类型",
   "The volume type for each instance，such as high performance，high performance plus": "磁盘类型，比如性能型、超高性能型",
   "is_group_matched": "副本节点状态",
-  "group_matched": "是否指向预期主节点（主节点永远为 true）"
+  "group_matched": "是否指向预期主节点（主节点永远为 true）",
+  "replicaDelay": "主从复制落后字节数",
+  "Bytes": "字节",
+  "replica_delay": "副本偏差量（与主节点的复制延迟）",
+  "params": "参数",
+  "timeout": "超时时间",
+  "The params for flush commands": "FLUSH 命令的参数，仅对 FLUSHALL 和 FLUSHDB 有效，配置为「空」即为没有参数（在 key 较多的情况下选择「空」容易导致主从切换）",
+  "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效，在 key 较多的情况下，推荐适当延长该参数"
 }

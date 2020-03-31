@@ -3,6 +3,7 @@
   hosts: all
   vars:
     target_env: "{{ lookup('env', 'target') }}"
+    caddy_plugins: upload
   tasks:
   - include_role:
       name: "{{ name }}"
@@ -11,7 +12,7 @@
     - appctl
     - caddy-1.0.6
     - jq-1.0.3
-    - redis-server-1.0.1
+    - redis-server-1.0.2
     loop_control:
       loop_var: name
 
