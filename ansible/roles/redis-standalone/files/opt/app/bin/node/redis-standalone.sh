@@ -10,6 +10,9 @@ CLUSTER_STATUS_ERR=223
 NODES_NUMS_ERR=224
 CONFIRM_ERR=225
 BEYOND_DATABASES_ERR=226
+CLUSTER_STATS_ERR=227
+SENTINEL_RESET_ERR=228
+SENTINEL_FLUSH_CONFIG_ERR=229
 
 
 initNode() {
@@ -113,19 +116,31 @@ checkMasterNotLeaving() {
   if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return $LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR; fi
 }
 
+findRemainingNodesCount(){
+  local leavingNodesCount; leavingNodesCount=$(echo "$LEAVING_REDIS_NODES" |wc -w)
+  local allNodesCount; allNodesCount=$(echo "$REDIS_NODES" |wc -w)
+  echo $(($allNodesCount-$leavingNodesCount))
+}
+
 preScaleIn() {
   [ -n "$LEAVING_REDIS_NODES" ] || return $LEAVING_REDIS_NODES_IS_NONE_ERR
   checkMasterNotLeaving
 
   # 防止最终计划剩余3个节点的时候，删除了 sentinel 节点
-  local leavingNodesCount; leavingNodesCount=$(echo "$LEAVING_REDIS_NODES" |wc -w)
-  local allNodesCount; allNodesCount=$(echo "$REDIS_NODES" |wc -w)
-  if [[ $(($allNodesCount-$leavingNodesCount)) -ge 3 ]];then
-    local firstToThirdNode="$(eval echo "$allNodesCount" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3)"
+  if [[ $(findRemainingNodesCount) -ge 3 ]];then
+    local firstToThirdNode="$(getSentinelNodes)"
     local node;for node in $firstToThirdNode;do
       echo "$LEAVING_REDIS_NODES" |grep -vq "$node" || return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
     done
   fi
+}
+
+getSentinelNodes(){
+  eval echo "$REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
+}
+
+getRemainingNodesIps(){
+  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$LEAVING_REDIS_NODES" |xargs |tr -d '\n\r') <(echo "$REDIS_NODES" |xargs |tr -d '\n\r') |xargs -n1 |awk -F "/" '{print $3}'
 }
 
 destroy() {
@@ -133,11 +148,60 @@ destroy() {
     checkMasterNotLeaving
     execute stop
     checkVip || ( execute start && return $MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR )
+    local remainingNodesCount=$(findRemainingNodesCount)
+    log "remainingNodesCount: $remainingNodesCount"
+    [[ $remainingNodesCount -ne 1 ]] || {
+      log "skip reset sentinel"
+      return 0
+      }
+    # determine redis-server is down for leaving nodes
+    log --debug "检查节点 down"
+    log --debug "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES
+    MY_IP：$MY_IP
+    返回值: $([[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]];echo $?)
+    "
+    if [[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]]; then
+      log --debug "进来检查节点 down"
+      local leavingNode; for leavingNode in $LEAVING_REDIS_NODES; do
+        log --debug "${leavingNode##*/} is down?"
+        retry 150 0.1 0 checkRedisStopped ${leavingNode##*/} || {log "WARN: redis-server '$leavingNode' is still up."}
+        log --debug "${leavingNode##*/} is down"
+      done
+      # 检查剩余的节点服务状态是 ok 的
+      log --debug "检查节点服务 ok"
+      log --debug "REDIS_NODES: $REDIS_NODES"
+      log --debug "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
+      local remainingNodesIps masterIp; remainingNodesIps="$(getRemainingNodesIps)"
+      log --debug "remainingNodesIps: $remainingNodesIps"
+      masterIp=$(findMasterIpByNodeIp $(echo "$remainingNodesIps" |head -n1))
+      log --debug "masterIp: $masterIp"
+      local replicaResultOnline="$(runRedisCmd -h $masterIp info replication |grep "state=online")"
+      log --debug "replicaResultOnline: $replicaResultOnline"
+      local remainingNodeIp; for remainingNodeIp in $remainingNodesIps; do
+        log --debug "$remainingNodeIp is ok?"
+        [[ "$remainingNodeIp" == "$masterIp" ]] || echo "$replicaResultOnline" |grep -q "ip=${remainingNodeIp//\./\\.}," || return $CLUSTER_STATS_ERR
+        log --debug "$remainingNodeIp is ok"
+      done
+      # 对所有的 sentinel 节点执行 sentinel reset
+      log --debug "sentinel reset"
+      local sentinelNodes; sentinelNodes="$(getSentinelNodes)"
+      log --debug "sentinelNodes: $sentinelNodes"
+      local sentinelNode; for sentinelNode in $sentinelNodes; do
+        log --debug "${sentinelNode##*/} reset?"
+        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
+        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
+        log --debug "${sentinelNode##*/} reset"
+      done
+
+    fi
+
   fi
 }
 
 scaleIn() {
-  stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
+  if [[ $(findRemainingNodesCount) -eq 1 ]]; then
+    stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
+  fi 
 }
 
 restore() {
@@ -183,6 +247,20 @@ getRuntimeNameOfCmd() {
 
 runtimeSentinelFile=/data/redis/sentinel.conf
 
+getmasterIpFromSentinelNodes(){
+  log --debug "从 sentinel 获取"
+  local sentinelNodes firstSentinelNode; sentinelNodes="$(getSentinelNodes)"
+  log --debug "sentinelNodes: $sentinelNodes"
+  firstSentinelNode="$(echo "$sentinelNodes" |cut -d" " -f1)"
+  log --debug "firstSentinelNode: $firstSentinelNode"
+  log --debug "result: $(runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME)"
+  local rc=0
+  runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
+        |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
+        log "get master ip from ${firstSentinelNode##*/} fail! rc=$rc"
+  return $rc
+}
+
 getInitMasterIp() {
   local firstRedisNode=${REDIS_NODES%% *}
   echo -n ${firstRedisNode##*/}
@@ -190,22 +268,42 @@ getInitMasterIp() {
 
 # 防止 revive 时从本地文件获取，导致双主以及vip 解绑
 getMasterIpForRevive() {
-  local rc=0
-  if isSvcEnabled redis-sentinel;then
-    local otherFirstNodeIp="$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
-    runRedisCmd --ip ${otherFirstNodeIp} -p 26379 sentinel get-master-addr-by-name master |xargs \
-      |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
-        log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
-    return $rc
+  local sentinelNodes="$(getSentinelNodes)"
+  log --debug "sentinelNodes: $sentinelNodes"
+  log --debug "MY_IP: $MY_IP"
+  log --debug "返回值：$([[ "$sentinelNodes " == *"/$MY_IP "* ]];echo $?)"
+  if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
+    local rc=0
+    if isSvcEnabled redis-sentinel;then
+      local otherFirstNodeIp="$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
+      runRedisCmd --ip ${otherFirstNodeIp} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
+        |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
+          log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
+      return $rc
+    else
+      log --debug "get masterIp from init"
+      getInitMasterIp
+    fi
   else
-    getInitMasterIp
+    log --debug "只能从 sentinel 获取了"
+    getmasterIpFromSentinelNodes
   fi
 }
 
 getMasterIpByConf() {
-  isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-    && awk 'BEGIN {rc=1} $0~/^sentinel monitor master / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+  local sentinelNodes="$(getSentinelNodes)"
+  log --debug "sentinelNodes: $sentinelNodes"
+  log --debug "MY_IP: $MY_IP"
+  log --debug "返回值：$([[ "$sentinelNodes " == *"/$MY_IP "* ]];echo $?)"
+  if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
+    log --debug "正常进入获取"
+    isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
+      && awk 'BEGIN {rc=1} $0~/^sentinel monitor '$SENTINEL_MONITOR_CLUSTER_NAME' / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
       || getInitMasterIp
+  else
+    log --debug "只能从 sentinel 获取了"
+    getmasterIpFromSentinelNodes
+  fi || getInitMasterIp
 }
 
 findMasterIp() {
@@ -246,7 +344,7 @@ runRedisCmd() {
     echo "$result"
   fi
   return $retCode
-}
+} 
 
 checkVip() {
   local vipResponse; vipResponse="$(runRedisCmd --ip $REDIS_VIP ROLE | sed -n '1{p;q}')"
@@ -281,7 +379,7 @@ unbindVip() {
 }
 
 checkSentinelStopped() {
-  ! nc -z -w3 $1 26379
+  ! nc -z -w3 $1 $SENTINEL_PORT
 }
 
 checkRedisStopped() {
@@ -302,7 +400,10 @@ reload() {
   if [ "$1" == "redis-server" ]; then
     if [ -n "${JOINING_REDIS_NODES}" ]; then
       log --debug "scaling out ..."
-      configure && startSvc redis-sentinel
+      # 仅在从单个节点增加的时候才启动 sentinel
+      if [[ $(($(echo "$REDIS_NODES" |wc -w)-$(echo "$JOINING_REDIS_NODES" |wc -w))) -eq 1 ]]; then
+        configure && startSvc redis-sentinel
+      fi
     elif [ -n "${LEAVING_REDIS_NODES}" ]; then
       log --debug "scaling in ..."
     elif checkFileChanged $changedConfigFile; then
@@ -353,7 +454,7 @@ configureForSentinel() {
   local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
-  echo "sentinel monitor master $masterIp $REDIS_PORT 2" > $monitorFile
+  echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT 2" > $monitorFile
 
   if isSvcEnabled redis-sentinel; then
     # 防止莫名的单个$0 出现
@@ -443,10 +544,16 @@ check(){
 }
 
 getRedisRoles(){ 
-  local node nodeIp myRole counter=0; for node in $(echo "$REDIS_NODES" |sort -n -t"/" -k1); do
+  local remainingNodesCount=$(findRemainingNodesCount)
+  local node nodeIp myRole disabled_delete counter=0; for node in $(echo "$REDIS_NODES" |sort -n -t"/" -k1); do
     counter=$(($counter+1))
     nodeIp="$(echo "$node" |cut -d"/" -f3)"
     myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
-    echo "$nodeIp $myRole $(if [[ $counter -le 3 ]];then echo "true"; else echo "false";fi)"
+    if [[ $remainingNodesCount -gt 3 ]]; then
+      if [[ $counter -le 3 ]];then disabled_delete="true";else disabled_delete="false";fi
+    else
+      if [[ "$myRole" == "master" ]]; then disabled_delete="true";else disabled_delete="false";fi
+    fi
+    echo "$nodeIp $myRole $disabled_delete"
   done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","disabled_delete"],"data":.}'
 }
