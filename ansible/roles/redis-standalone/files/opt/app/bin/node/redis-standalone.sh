@@ -13,6 +13,8 @@ BEYOND_DATABASES_ERR=226
 CLUSTER_STATS_ERR=227
 SENTINEL_RESET_ERR=228
 SENTINEL_FLUSH_CONFIG_ERR=229
+SENTINEL_START_ERR=230
+REDIS_START_ERR=231
 
 
 initNode() {
@@ -251,6 +253,18 @@ getmasterIpFromSentinelNodes(){
   log --debug "从 sentinel 获取"
   local sentinelNodes firstSentinelNode; sentinelNodes="$(getSentinelNodes)"
   log --debug "sentinelNodes: $sentinelNodes"
+  local sentinelNode; for sentinelNode in $sentinelNodes; do
+    log --debug "check ${sentinelNode##*/}?"
+    retry 60 0.5 0 checkSentinelStarted ${sentinelNode##*/} || {
+      log "${sentinelNode##*/} sentinel is not started"
+      return $SENTINEL_START_ERR
+    }
+    retry 60 0.5 0 checkRedisStarted ${sentinelNode##*/} || {
+      log "${sentinelNode##*/} redis-server is not started"
+      return $REDIS_START_ERR
+    }
+    log --debug "check ${sentinelNode##*/}"
+  done
   firstSentinelNode="$(echo "$sentinelNodes" |cut -d" " -f1)"
   log --debug "firstSentinelNode: $firstSentinelNode"
   log --debug "result: $(runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME)"
@@ -378,12 +392,20 @@ unbindVip() {
   ip addr del $REDIS_VIP/24 dev eth0 || [ "$?" -eq 2 ] # 2: not bound
 }
 
+checkSentinelStarted(){
+  nc -z -w3 $1 $SENTINEL_PORT
+}
+
 checkSentinelStopped() {
-  ! nc -z -w3 $1 $SENTINEL_PORT
+  ! checkSentinelStarted
+}
+
+checkRedisStarted(){
+  nc -z -w3 $1 $REDIS_PORT
 }
 
 checkRedisStopped() {
-  ! nc -z -w3 $1 $REDIS_PORT
+  ! checkRedisStarted
 }
 
 encodeCmd() {
