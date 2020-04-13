@@ -7,6 +7,7 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
+     "appv-21ddkc5h",
      "appv-315vkrx9",
      "appv-dw8hsl7o",
      "appv-7nnl5m03",
@@ -19,7 +20,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3",
-      "image": "img-ik2imz9l"
+      "image": "img-l9nxicqm"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -51,6 +52,7 @@
         "cmd": "appctl scaleIn"
       },
       "destroy": {
+        "allow_force": false,
         "cmd": "appctl destroy"
       },
       "run_command": {

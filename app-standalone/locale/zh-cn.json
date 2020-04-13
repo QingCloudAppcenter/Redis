@@ -131,6 +131,12 @@
   "err_code225": "需要先确认操作",
   "err_code226": "您所操作的数据库超出了您配置的最大数据库数目，请选择合适数据库操作",
   "err_code1": "内部错误",
+  "err_code227": "剩余节点存在 redis-server 存在异常，请通过工单与我们沟通",
+  "err_code228": "存在节点 redis-sentinel RESET 失败，请通过工单与我们沟通",
+  "err_code229": "存在节点 redis-sentinel 无法刷新配置，请通过工单与我们沟通",
+  "err_code230": "存在节点 redis-sentinel 未启动，请通过工单与我们沟通",
+  "err_code231": "存在节点 redis-server 未启动，请通过工单与我们沟通",
+  "err_code232": "待删除节点中存在节点 redis-server 未关闭，请通过工单与我们沟通",
   "disabled-commands_label": "禁用 FLUSH 命令",
   "disabled-commands_description": "是否禁用 FLUSHALL 和 FLUSHDB 命令，生产环境建议禁用，该项在集群创建后不可被修改",
   "run_command": "执行命令",
@@ -151,7 +157,7 @@
   "roles": "节点实时角色",
   "ip": "节点 IP",
   "role": "节点角色",
-  "disabled_delete": "删除后节点数大于等于3，禁止删除",
+  "disabled_delete": "禁止删除",
   "confirm": "确认操作？",
   "All existing data will be erased, and please ensure there is only one redis node; choose 'yes' to continue": "该操作仅支持单节点集群，且会清空现有集群的所有数据，数据需要自行备份，yes 表示确认并继续执行，no 表示不执行",
   "params": "参数",
@@ -160,5 +166,5 @@
   "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效",
   "replicaDelay": "主从复制落后字节数",
   "Bytes": "字节",
-  "replica_delay": "副本偏差量（与主节点的复制延迟）"
+  "replica_dfelay": "副本偏差量（与主节点的复制延迟）"
 }

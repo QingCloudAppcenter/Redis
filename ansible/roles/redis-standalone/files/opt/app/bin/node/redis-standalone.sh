@@ -15,6 +15,7 @@ SENTINEL_RESET_ERR=228
 SENTINEL_FLUSH_CONFIG_ERR=229
 SENTINEL_START_ERR=230
 REDIS_START_ERR=231
+REDIS_STOP_ERR=232
 
 
 initNode() {
@@ -157,42 +158,43 @@ destroy() {
       return 0
       }
     # determine redis-server is down for leaving nodes
-    log --debug "检查节点 down"
     log --debug "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES
     MY_IP：$MY_IP
-    返回值: $([[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]];echo $?)
+    return code: $([[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]];echo $?)
     "
     if [[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]]; then
-      log --debug "进来检查节点 down"
+      log --debug "start check redis-server down"
       local leavingNode; for leavingNode in $LEAVING_REDIS_NODES; do
-        log --debug "${leavingNode##*/} is down?"
-        retry 150 0.1 0 checkRedisStopped ${leavingNode##*/} || {log "WARN: redis-server '$leavingNode' is still up."}
-        log --debug "${leavingNode##*/} is down"
+        log "${leavingNode##*/} is down?"
+        retry 150 0.1 0 checkRedisStopped ${leavingNode##*/} || {
+          log "WARN: redis-server '$leavingNode' is still up."
+          return $REDIS_STOP_ERR
+          }
+        log "${leavingNode##*/} is down"
       done
       # 检查剩余的节点服务状态是 ok 的
-      log --debug "检查节点服务 ok"
       log --debug "REDIS_NODES: $REDIS_NODES"
       log --debug "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
       local remainingNodesIps masterIp; remainingNodesIps="$(getRemainingNodesIps)"
-      log --debug "remainingNodesIps: $remainingNodesIps"
+      log "remainingNodesIps: $remainingNodesIps"
       masterIp=$(findMasterIpByNodeIp $(echo "$remainingNodesIps" |head -n1))
       log --debug "masterIp: $masterIp"
       local replicaResultOnline="$(runRedisCmd -h $masterIp info replication |grep "state=online")"
       log --debug "replicaResultOnline: $replicaResultOnline"
       local remainingNodeIp; for remainingNodeIp in $remainingNodesIps; do
-        log --debug "$remainingNodeIp is ok?"
+        log "$remainingNodeIp is ok?"
         [[ "$remainingNodeIp" == "$masterIp" ]] || echo "$replicaResultOnline" |grep -q "ip=${remainingNodeIp//\./\\.}," || return $CLUSTER_STATS_ERR
-        log --debug "$remainingNodeIp is ok"
+        log "$remainingNodeIp is ok"
       done
       # 对所有的 sentinel 节点执行 sentinel reset
-      log --debug "sentinel reset"
+      log "start sentinel reset"
       local sentinelNodes; sentinelNodes="$(getSentinelNodes)"
       log --debug "sentinelNodes: $sentinelNodes"
       local sentinelNode; for sentinelNode in $sentinelNodes; do
-        log --debug "${sentinelNode##*/} reset?"
+        log "${sentinelNode##*/} reset?"
         runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
         runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
-        log --debug "${sentinelNode##*/} reset"
+        log "${sentinelNode##*/} reset"
       done
 
     fi
@@ -250,11 +252,11 @@ getRuntimeNameOfCmd() {
 runtimeSentinelFile=/data/redis/sentinel.conf
 
 getmasterIpFromSentinelNodes(){
-  log --debug "从 sentinel 获取"
+  log "getmasterIpFromSentinelNodes"
   local sentinelNodes firstSentinelNode; sentinelNodes="$(getSentinelNodes)"
   log --debug "sentinelNodes: $sentinelNodes"
   local sentinelNode; for sentinelNode in $sentinelNodes; do
-    log --debug "check ${sentinelNode##*/}?"
+    log "check ${sentinelNode##*/}?"
     retry 60 0.5 0 checkSentinelStarted ${sentinelNode##*/} || {
       log "${sentinelNode##*/} sentinel is not started"
       return $SENTINEL_START_ERR
@@ -263,7 +265,7 @@ getmasterIpFromSentinelNodes(){
       log "${sentinelNode##*/} redis-server is not started"
       return $REDIS_START_ERR
     }
-    log --debug "check ${sentinelNode##*/}"
+    log "check ${sentinelNode##*/} end"
   done
   firstSentinelNode="$(echo "$sentinelNodes" |cut -d" " -f1)"
   log --debug "firstSentinelNode: $firstSentinelNode"
@@ -285,7 +287,6 @@ getMasterIpForRevive() {
   local sentinelNodes="$(getSentinelNodes)"
   log --debug "sentinelNodes: $sentinelNodes"
   log --debug "MY_IP: $MY_IP"
-  log --debug "返回值：$([[ "$sentinelNodes " == *"/$MY_IP "* ]];echo $?)"
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
     local rc=0
     if isSvcEnabled redis-sentinel;then
@@ -295,11 +296,10 @@ getMasterIpForRevive() {
           log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
       return $rc
     else
-      log --debug "get masterIp from init"
+      log "get masterIp from init"
       getInitMasterIp
     fi
   else
-    log --debug "只能从 sentinel 获取了"
     getmasterIpFromSentinelNodes
   fi
 }
@@ -308,14 +308,11 @@ getMasterIpByConf() {
   local sentinelNodes="$(getSentinelNodes)"
   log --debug "sentinelNodes: $sentinelNodes"
   log --debug "MY_IP: $MY_IP"
-  log --debug "返回值：$([[ "$sentinelNodes " == *"/$MY_IP "* ]];echo $?)"
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
-    log --debug "正常进入获取"
     isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
       && awk 'BEGIN {rc=1} $0~/^sentinel monitor '$SENTINEL_MONITOR_CLUSTER_NAME' / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
       || getInitMasterIp
   else
-    log --debug "只能从 sentinel 获取了"
     getmasterIpFromSentinelNodes
   fi || getInitMasterIp
 }
