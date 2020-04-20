@@ -131,7 +131,7 @@
   "err_code225": "需要先确认操作",
   "err_code226": "您所操作的数据库超出了您配置的最大数据库数目，请选择合适数据库操作",
   "err_code1": "内部错误",
-  "err_code227": "剩余节点存在 redis-server 存在异常，请通过工单与我们沟通",
+  "err_code227": "剩余节点存在 redis-server 异常，请通过工单与我们沟通",
   "err_code228": "存在节点 redis-sentinel RESET 失败，请通过工单与我们沟通",
   "err_code229": "存在节点 redis-sentinel 无法刷新配置，请通过工单与我们沟通",
   "err_code230": "存在节点 redis-sentinel 未启动，请通过工单与我们沟通",

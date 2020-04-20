@@ -1,11 +1,6 @@
-getSlavePriority(){
-  local mySid="{{ getv "/host/sid" }}"
-  local ourSid="$(echo "{{ range gets "/hosts/*/sid" }}
-  {{- printf .Value }} 
-  {{ end }}" |sort -n)"
-  local sid counter=0; for sid in $ourSid;do
-    counter=$(($counter+1))
-    [[ "$sid" == "$mySid" ]] && break
-  done
-  if [[ $counter -le 3 ]];then echo 100; else echo 0;fi
+isVotingNode() {
+  local ourVotingNodesSid="$(sort -n <<< "{{ join (getvs "/hosts/*/sid") "\n" }}" |xargs |cut -d" " -f 1-3)"
+  echo "$ourVotingNodesSid" | grep -q $1
 }
+
+SENTINEL_MONITOR_CLUSTER_NAME="{{ getv "/cluster/cluster_id" }}"

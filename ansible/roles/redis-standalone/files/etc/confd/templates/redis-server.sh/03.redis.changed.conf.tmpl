@@ -27,7 +27,7 @@ renameCommands() {
 
 
 flush /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EOF
-slave-priority $(getSlavePriority)
+slave-priority $(if isVotingNode "{{ getv "/host/sid" }}";then echo 100 ;else echo 0;fi)
 databases {{ getv "/env/databases" "16" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
 appendfsync {{ getv "/env/appendfsync" "everysec" }}

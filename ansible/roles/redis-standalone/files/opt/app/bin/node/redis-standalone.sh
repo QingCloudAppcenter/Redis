@@ -36,7 +36,7 @@ start() {
 stop() {
   if [ -z "$LEAVING_REDIS_NODES" ] && isSvcEnabled redis-sentinel; then
     stopSvc redis-sentinel
-    local sentinelHost; for sentinelHost in $REDIS_NODES; do
+    local sentinelHost; for sentinelHost in $STABLE_REDIS_NODES; do
       if [[ "${sentinelHost##*/}" != "$MY_IP" ]]; then
         retry 150 0.1 0 checkSentinelStopped ${sentinelHost##*/} || log "WARN: sentinel '$sentinelHost' is still up."
       fi
@@ -119,10 +119,8 @@ checkMasterNotLeaving() {
   if [[ "$LEAVING_REDIS_NODES " == *"/$master "* ]]; then return $LEAVING_REDIS_NODES_INCLUDE_MASTER_ERR; fi
 }
 
-findRemainingNodesCount(){
-  local leavingNodesCount; leavingNodesCount=$(echo "$LEAVING_REDIS_NODES" |wc -w)
-  local allNodesCount; allNodesCount=$(echo "$REDIS_NODES" |wc -w)
-  echo $(($allNodesCount-$leavingNodesCount))
+findStableNodesCount() {
+  echo "$STABLE_REDIS_NODES" |wc -w
 }
 
 preScaleIn() {
@@ -130,7 +128,7 @@ preScaleIn() {
   checkMasterNotLeaving
 
   # 防止最终计划剩余3个节点的时候，删除了 sentinel 节点
-  if [[ $(findRemainingNodesCount) -ge 3 ]];then
+  if [[ $(findStableNodesCount) -ge 3 ]];then
     local firstToThirdNode="$(getSentinelNodes)"
     local node;for node in $firstToThirdNode;do
       echo "$LEAVING_REDIS_NODES" |grep -vq "$node" || return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
@@ -139,11 +137,13 @@ preScaleIn() {
 }
 
 getSentinelNodes(){
-  eval echo "$REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
+  eval echo "$STABLE_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
 }
 
-getRemainingNodesIps(){
-  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$LEAVING_REDIS_NODES" |xargs |tr -d '\n\r') <(echo "$REDIS_NODES" |xargs |tr -d '\n\r') |xargs -n1 |awk -F "/" '{print $3}'
+getStableNodesIps(){
+  log --debug "STABLE_REDIS_NODES: $STABLE_REDIS_NODES"
+  log --debug "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
+  echo "$STABLE_REDIS_NODES" |xargs -n1 |awk -F/ '{print $3}'
 }
 
 destroy() {
@@ -151,7 +151,7 @@ destroy() {
     checkMasterNotLeaving
     execute stop
     checkVip || ( execute start && return $MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR )
-    local remainingNodesCount=$(findRemainingNodesCount)
+    local remainingNodesCount=$(findStableNodesCount)
     log "remainingNodesCount: $remainingNodesCount"
     [[ $remainingNodesCount -ne 1 ]] || {
       log "skip reset sentinel"
@@ -173,18 +173,18 @@ destroy() {
         log "${leavingNode##*/} is down"
       done
       # 检查剩余的节点服务状态是 ok 的
-      log --debug "REDIS_NODES: $REDIS_NODES"
+      log --debug "REDIS_NODES: $STABLE_REDIS_NODES"
       log --debug "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
-      local remainingNodesIps masterIp; remainingNodesIps="$(getRemainingNodesIps)"
-      log "remainingNodesIps: $remainingNodesIps"
-      masterIp=$(findMasterIpByNodeIp $(echo "$remainingNodesIps" |head -n1))
+      local stableNodesIps masterIp; stableNodesIps="$(getStableNodesIps)"
+      log "stableNodesIps: $stableNodesIps"
+      masterIp=$(findMasterIpByNodeIp $(echo "$stableNodesIps" |head -n1))
       log --debug "masterIp: $masterIp"
       local replicaResultOnline="$(runRedisCmd -h $masterIp info replication |grep "state=online")"
       log --debug "replicaResultOnline: $replicaResultOnline"
-      local remainingNodeIp; for remainingNodeIp in $remainingNodesIps; do
-        log "$remainingNodeIp is ok?"
-        [[ "$remainingNodeIp" == "$masterIp" ]] || echo "$replicaResultOnline" |grep -q "ip=${remainingNodeIp//\./\\.}," || return $CLUSTER_STATS_ERR
-        log "$remainingNodeIp is ok"
+      local stableNodeIp; for stableNodeIp in $stableNodesIps; do
+        log "$stableNodeIp is ok?"
+        [[ "$stableNodeIp" == "$masterIp" ]] || echo "$replicaResultOnline" |grep -q "ip=${stableNodeIp//\./\\.}," || return $CLUSTER_STATS_ERR
+        log "$stableNodeIp is ok"
       done
       # 对所有的 sentinel 节点执行 sentinel reset
       log "start sentinel reset"
@@ -203,7 +203,7 @@ destroy() {
 }
 
 scaleIn() {
-  if [[ $(findRemainingNodesCount) -eq 1 ]]; then
+  if [[ $(findStableNodesCount) -eq 1 ]]; then
     stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
   fi 
 }
@@ -278,7 +278,7 @@ getmasterIpFromSentinelNodes(){
 }
 
 getInitMasterIp() {
-  local firstRedisNode=${REDIS_NODES%% *}
+  local firstRedisNode=${STABLE_REDIS_NODES%% *}
   echo -n ${firstRedisNode##*/}
 }
 
@@ -290,7 +290,7 @@ getMasterIpForRevive() {
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
     local rc=0
     if isSvcEnabled redis-sentinel;then
-      local otherFirstNodeIp="$(echo $REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
+      local otherFirstNodeIp="$(echo $STABLE_REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
       runRedisCmd --ip ${otherFirstNodeIp} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
         |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
           log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
@@ -341,7 +341,7 @@ backup(){
 }
 
 findMasterNodeId() {
-  echo $REDIS_NODES | xargs -n1 | awk -F/ '$3=="'$(findMasterIp)'" {print $2}'
+  echo $STABLE_REDIS_NODES | xargs -n1 | awk -F/ '$3=="'$(findMasterIp)'" {print $2}'
 }
 
 runRedisCmd() {
@@ -420,7 +420,7 @@ reload() {
     if [ -n "${JOINING_REDIS_NODES}" ]; then
       log --debug "scaling out ..."
       # 仅在从单个节点增加的时候才启动 sentinel
-      if [[ $(($(echo "$REDIS_NODES" |wc -w)-$(echo "$JOINING_REDIS_NODES" |wc -w))) -eq 1 ]]; then
+      if [[ $(findStableNodesCount) -eq 1 ]]; then
         configure && startSvc redis-sentinel
       fi
     elif [ -n "${LEAVING_REDIS_NODES}" ]; then
@@ -457,7 +457,7 @@ configureForChangeVxnet() {
   log --debug "exec configureForChangeVxnet"
   local runtimeConfigFile=/data/redis/redis.conf 
   sudo -u redis touch $nodesFile && rotate $nodesFile
-  echo $REDIS_NODES | xargs -n1 > $nodesFile
+  echo "$STABLE_REDIS_NODES" | xargs -n1 > $nodesFile
 
   if checkFileChanged $nodesFile; then
     log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
@@ -476,9 +476,11 @@ configureForSentinel() {
   echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT 2" > $monitorFile
 
   if isSvcEnabled redis-sentinel; then
+    # 处理升级过程中监控名称的改变
+    sed -i 's/master/'"$SENTINEL_MONITOR_CLUSTER_NAME"'/g' $runtimeSentinelFile.1
     # 防止莫名的单个$0 出现
     awk '(NF>1 && $0~/^[^ #$]/) ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
-      $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass master|rename-slaveof|rename-config|known-replica|known-slave)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
+      $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass '"$SENTINEL_MONITOR_CLUSTER_NAME"'|rename-slaveof|rename-config|known-replica|known-slave)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
   else
     rm -f $runtimeSentinelFile*
   fi
@@ -528,7 +530,7 @@ restoreByCustomRdb(){
   uploadedRDBFile="/data/caddy/upload/dump.rdb" redisCheckRdbPath="/opt/redis/current/redis-check-rdb" destRDBfile="/data/redis/dump.rdb"
 
   # 仅允许单个节点做恢复数据操作
-  [[ $(echo "$REDIS_NODES" |xargs -n1 |wc -l) == 1 ]] || return $NODES_NUMS_ERR
+  [[ $(echo "$STABLE_REDIS_NODES" |xargs -n1 |wc -l) == 1 ]] || return $NODES_NUMS_ERR
   # 检查 RDB 文件是否 OK
   local myRole; myRole="$(getMyRole)"
   [[ "$myRole" == "master" ]] || {
@@ -563,8 +565,8 @@ check(){
 }
 
 getRedisRoles(){ 
-  local remainingNodesCount=$(findRemainingNodesCount)
-  local node nodeIp myRole disabled_delete counter=0; for node in $(echo "$REDIS_NODES" |sort -n -t"/" -k1); do
+  local remainingNodesCount=$(findStableNodesCount)
+  local node nodeIp myRole disabled_delete counter=0; for node in $(echo "$STABLE_REDIS_NODES" |sort -n -t"/" -k1); do
     counter=$(($counter+1))
     nodeIp="$(echo "$node" |cut -d"/" -f3)"
     myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
