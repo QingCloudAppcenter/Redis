@@ -129,15 +129,21 @@ preScaleIn() {
 
   # 防止最终计划剩余3个节点的时候，删除了 sentinel 节点
   if [[ $(findStableNodesCount) -ge 3 ]];then
+    log --debug "check wether contain sentinel nodes"
     local firstToThirdNode="$(getSentinelNodes)"
+    log "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
+    log "sentinel nodes: $firstToThirdNode"
     local node;for node in $firstToThirdNode;do
-      echo "$LEAVING_REDIS_NODES" |grep -vq "$node" || return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
+      echo "$LEAVING_REDIS_NODES" |grep -vq "$node" || {
+        log "leaving nodes include sentinel node: $node"
+        return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
+      }
     done
   fi
 }
 
 getSentinelNodes(){
-  eval echo "$STABLE_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
+  eval echo "$STABLE_REDIS_NODES $LEAVING_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
 }
 
 getStableNodesIps(){
@@ -151,9 +157,9 @@ destroy() {
     checkMasterNotLeaving
     execute stop
     checkVip || ( execute start && return $MASTER_SALVE_SWITCH_WHEN_DEL_NODE_ERR )
-    local remainingNodesCount=$(findStableNodesCount)
-    log "remainingNodesCount: $remainingNodesCount"
-    [[ $remainingNodesCount -ne 1 ]] || {
+    local stableNodesCount=$(findStableNodesCount)
+    log "stableNodesCount: $stableNodesCount"
+    [[ $stableNodesCount -ne 1 ]] || {
       log "skip reset sentinel"
       return 0
       }
@@ -162,7 +168,7 @@ destroy() {
     MY_IP：$MY_IP
     return code: $([[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]];echo $?)
     "
-    if [[ "$LEAVING_REDIS_NODES " == *"/$MY_IP "* ]]; then
+    if [[ "${LEAVING_REDIS_NODES%% *} " == *"/$MY_IP "* ]]; then
       log --debug "start check redis-server down"
       local leavingNode; for leavingNode in $LEAVING_REDIS_NODES; do
         log "${leavingNode##*/} is down?"
@@ -565,16 +571,16 @@ check(){
 }
 
 getRedisRoles(){ 
-  local remainingNodesCount=$(findStableNodesCount)
-  local node nodeIp myRole disabled_delete counter=0; for node in $(echo "$STABLE_REDIS_NODES" |sort -n -t"/" -k1); do
+  local stableNodesCount=$(findStableNodesCount)
+  local node nodeIp myRole allow_deletion counter=0; for node in $(echo "$STABLE_REDIS_NODES" |sort -n -t"/" -k1); do
     counter=$(($counter+1))
     nodeIp="$(echo "$node" |cut -d"/" -f3)"
     myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
-    if [[ $remainingNodesCount -gt 3 ]]; then
-      if [[ $counter -le 3 ]];then disabled_delete="true";else disabled_delete="false";fi
+    if [[ $stableNodesCount -gt 3 ]]; then
+      if [[ $counter -le 3 ]];then allow_deletion="false";else allow_deletion="true";fi
     else
-      if [[ "$myRole" == "master" ]]; then disabled_delete="true";else disabled_delete="false";fi
+      if [[ "$myRole" == "master" ]]; then allow_deletion="false";else allow_deletion="true";fi
     fi
-    echo "$nodeIp $myRole $disabled_delete"
-  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","disabled_delete"],"data":.}'
+    echo "$nodeIp $myRole $allow_deletion"
+  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","allow_deletion"],"data":.}'
 }
