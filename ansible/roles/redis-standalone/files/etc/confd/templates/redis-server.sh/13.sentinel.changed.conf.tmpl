@@ -11,7 +11,7 @@ sentinelRenameCommands() {
     if [[ " $allowedCommands " != *" $cmd "* ]]; then
       renamed=$(echo -n ${cmd}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1)
     fi
-    echo sentinel rename-command master $cmd $renamed
+    echo sentinel rename-command $SENTINEL_MONITOR_CLUSTER_NAME $cmd $renamed
   done
 }
 
@@ -26,11 +26,11 @@ protected-mode no
 
 
 {{- if (ne (getv "/env/requirepass") "") }}
-sentinel auth-pass master "{{ getv "/env/requirepass" "" }}"
+sentinel auth-pass $SENTINEL_MONITOR_CLUSTER_NAME "{{ getv "/env/requirepass" "" }}"
 {{- end }}
-sentinel client-reconfig-script master /opt/app/bin/node/failover.sh
-sentinel down-after-milliseconds master {{ getv "/env/sentinel.down-after-milliseconds" "4000" }}
-sentinel failover-timeout master {{ getv "/env/sentinel.failover-timeout" "60000" }}
-sentinel parallel-syncs master {{ getv "/env/parallel-syncs" "4" }}
+sentinel client-reconfig-script $SENTINEL_MONITOR_CLUSTER_NAME /opt/app/bin/node/failover.sh
+sentinel down-after-milliseconds $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/sentinel.down-after-milliseconds" "4000" }}
+sentinel failover-timeout $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/sentinel.failover-timeout" "60000" }}
+sentinel parallel-syncs $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/parallel-syncs" "4" }}
 $(sentinelRenameCommands)
 SENTINEL_CONF_EOF
