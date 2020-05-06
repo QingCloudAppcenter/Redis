@@ -63,6 +63,7 @@ assignees: ''
 ## 升级
 - [ ] 数据不丢
 - [ ] 升级后设置日志留存大小限制值，查看日志留存配置生效
+- [ ] 升级至 redis 多节点架构，sentinel.conf 中的 master 更新为 cluster_id
 
 ## 其他
 - [ ] 关闭集群并启动集群
