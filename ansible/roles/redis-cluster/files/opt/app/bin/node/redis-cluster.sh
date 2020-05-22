@@ -31,14 +31,19 @@ initNode() {
 }
 
 stop(){
-  echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
+  configureForChangeVxnet
 }
 
 initCluster() {
-  # 防止新增节点执行
-  if [ -n "$JOINING_REDIS_NODES" ]; then return 0; fi
-  local nodesConf=/data/redis/nodes-6379.conf
+  local tmplConf nodesConf="/data/redis/nodes-6379.conf"
+  # 防止新增节点将集群的配置文件复制至目标位置
+  if [ -n "$JOINING_REDIS_NODES" ]; then 
+    tmplConf="/opt/app/conf/redis-cluster/nodes-6379.conf.init"
+    sudo -u redis cp $tmplConf $nodesConf
+    return 0; 
+  fi
+  
   [ -e "$nodesConf" ] || {
     local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
     sudo -u redis cp $tmplConf $nodesConf
@@ -422,48 +427,28 @@ encodeCmd() {
   echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}"
 }
 
-nodesFile=/data/redis/nodes
 rootConfDir=/opt/app/conf/redis-cluster
 
+# 修改 /data/redis/nodes-6379.conf，必须在 stop 之后执行
 configureForChangeVxnet(){
-  log "configureForChangeVxnet Start"
+  log "configureForChangeVxnet start"
+  local hostsFile="/etc/hosts"
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
-
-  # in case checkFileChanged err when metadata is disconnected
-  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
-    log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
-    return $CHANGE_VXNET_ERR
-  }
-  # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
-  if [[ -f "$nodesFile.2" ]]; then
-    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
-      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
-      return $CHANGE_VXNET_ERR
-    }
-  fi
-
-  if checkFileChanged $nodesFile && grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1; then
-    log "IP addresses changed from [
-      $(cat $nodesFile.1)
-      ] to [
-      $(cat $nodesFile)
-      ]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 <(sed "s/\./\\\./g" $nodesFile.1) $nodesFile |  sed 's#/#:'$REDIS_PORT'\\b/_ #g; s#^#s/\\b #g; s#$#:'$REDIS_PORT'_/g#g' | sed '$as/_//g' |paste -sd';')"
-    log "replaceCmd: $replaceCmd"
-    log "start rotate $runtimeNodesConfigFile"
-    rotate $runtimeNodesConfigFile
-    log "end rotate $runtimeNodesConfigFile"
-    log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-    [[ -f "$runtimeNodesConfigFile" ]] && {
+  local replaceCmd; replaceCmd="$(sed -n -e "/^# >> Redis Cluster nodes./,/^# << Redis Cluster nodes./p" $hostsFile | \
+  sed '/^#/d;s#^#s/#g;s#$#:'$REDIS_PORT'/g#g;s# #:'$REDIS_PORT'/#g' |tr '\n' ';')"
+  log "replaceCmd: $replaceCmd"
+  log "start rotate $runtimeNodesConfigFile"
+  rotate $runtimeNodesConfigFile
+  log "end rotate $runtimeNodesConfigFile"
+  log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
+  [[ -f "$runtimeNodesConfigFile" ]] && {
       log "start execute replaceCmd"
-      sed -i "${replaceCmd}" $runtimeNodesConfigFile
+      sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
       log "end execute replace"
     }
-    log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-  fi
+  log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
   log "configureForChangeVxnet End"
 }
-
 
 configureForRedis(){
   log "configureForRedis Start"
@@ -479,10 +464,8 @@ configure() {
   local changedConfigFile=$rootConfDir/redis.changed.conf
   local defaultConfigFile=$rootConfDir/redis.default.conf
   local runtimeConfigFile=/data/redis/redis.conf
-  sudo -u redis touch $runtimeConfigFile $nodesFile
-  rotate $runtimeConfigFile $nodesFile
-  echo $REDIS_NODES | xargs -n1 > $nodesFile
-  configureForChangeVxnet
+  sudo -u redis touch $runtimeConfigFile
+  rotate $runtimeConfigFile
   configureForRedis
 }
 
@@ -504,6 +487,11 @@ runCommand(){
   fi
 }
 
+getHostNamesToIpsCmd(){
+  local hostsFile="/etc/hosts"
+  sed -n "/^# >> Redis Cluster nodes./,/^# << Redis Cluster nodes./p" $hostsFile |sed '/^#/d;' | awk '{print $2,$1}'|sed 's#^#s/#g;s#$#/g#g;s# #/#g' |tr '\n' ';'
+}
+
 getRedisRoles(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
   log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
@@ -511,7 +499,8 @@ getRedisRoles(){
   local loadingTag="loading the dataset in memory"
   echo "$rawResult" |grep -q "$loadingTag" && return 0
   local firstProcessResult; firstProcessResult="$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}' |sort -t "," -k3)"
-  local regexpResult; regexpResult="$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')"
+  local replaceCmd; replaceCmd="$(getHostNamesToIpsCmd)"
+  local regexpResult; regexpResult="$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}');$replaceCmd"
   local secondProcssResult; secondProcssResult="$(echo "$firstProcessResult" |sed "$regexpResult" |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')"
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
 }
@@ -563,7 +552,8 @@ getClusterMatched(){
     myClusterIps="$myClusterIps${node//\./\\.}:$REDIS_PORT|"
   done
   myClusterIps="${myClusterIps%|*})"
-  if [[ "$(echo "$clusterNodes" |grep -Ev "$myClusterIps")" =~ [a-z0-9]+ ]];then
+  local replaceCmd; replaceCmd="$(getHostNamesToIpsCmd)"
+  if [[ "$(echo "$clusterNodes"|sed -n "$replaceCmd" |grep -Ev "$myClusterIps")" =~ [a-z0-9]+ ]];then
     log --debug "
       clusterNodes for node $targetIp dismatched cluster：
       $clusterNodes
