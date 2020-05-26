@@ -3,15 +3,7 @@ sed "/^# >> Redis Cluster nodes./,/^# << Redis Cluster nodes./d" $hostsFile > $h
 
 flush >> $hostsFile.swap << HOSTS_FILE_EOF
 # >> Redis Cluster nodes. WARNING: this is managed by script and please don't touch manually.
-{{- range $role := split "master master-replica" " " }}
-{{- range $node := ls (printf "/hosts/%s" $role) }}
-{{- $nodeIp := (getv (printf  "/hosts/%s/%s/ip" $role $node)) }}
-{{- $instanceId := (getv (printf "/hosts/%s/%s/instance_id" $role $node)) }}
-{{- $gid := (getv (printf "/hosts/%s/%s/gid" $role $node)) }}
-{{- $sid := (getv (printf "/hosts/%s/%s/sid" $role $node)) }}
-{{ printf $nodeIp }} {{ printf "%s-%s-%s" $instanceId $gid $sid }}
-{{- end }}
-{{- end }}
+$(echo "$hostsNames" |sed '1d')
 # << Redis Cluster nodes. WARNING: this is managed by script and please don't touch manually.
 HOSTS_FILE_EOF
 mv $hostsFile.swap $hostsFile

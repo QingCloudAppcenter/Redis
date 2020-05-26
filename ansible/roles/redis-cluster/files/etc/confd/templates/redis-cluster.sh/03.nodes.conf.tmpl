@@ -1,5 +1,5 @@
 buildRunId() {
-  local preRunId; preRunId="$(echo -n "${1?instance_id}-${2?gid}-${3?sid}-$(head -c 40 < /dev/zero | tr '\0' 'x')")"
+  local preRunId; preRunId="$(echo -n "$(buildHostName ${1?gid} ${2?sid} ${3?instanceId})-$(head -c 40 < /dev/zero | tr '\0' 'x')")"
   echo -n "${preRunId::40}"
 }
 
@@ -14,17 +14,13 @@ listNodes() {
   ' | xargs -n1 | sort -V
 }
 
-buildHostName(){
-  echo "${1?instance_id}-${2?gid}-${3?sid}"
-}
-
 generateSelfNodeConf(){
   local instanceId nodeGid nodeSid
   instanceId="{{ getv "/host/instance_id" }}"
   nodeGid="{{ getv "/host/gid" }}"
   nodeSid="{{ getv "/host/sid" }}"
   echo "
-$(buildRunId $instanceId $nodeGid $nodeSid) $(buildHostName $instanceId $nodeGid $nodeSid):{{ getv "/env/port" "6379" }}@16379 myself,master - 0 0 0 connected
+$(buildRunId $nodeGid $nodeSid $instanceId) $(buildHostName $nodeGid $nodeSid $instanceId):{{ getv "/env/port" "6379" }}@16379 myself,master - 0 0 0 connected
 vars currentEpoch 0 lastVoteEpoch 0
 "
 }
@@ -38,8 +34,8 @@ generateNodesConf() {
     nodeSid="$(echo $node |awk -F/ '{print $2}')"
     nodeRole="$(echo $node | awk -F/ '{print $3}')"
     instanceId="$(echo $node | awk -F/ '{print $4}')"
-    hostName=$(buildHostName $instanceId $nodeGid $nodeSid)
-    runId="$(buildRunId $instanceId $nodeGid $nodeSid)" 
+    hostName=$(buildHostName $nodeGid $nodeSid $instanceId)
+    runId="$(buildRunId $nodeGid $nodeSid $instanceId)" 
     if [ "$nodeRole" == "master" ]; then
       masterRunId="$runId"
       myMaster="-"
@@ -52,7 +48,7 @@ generateNodesConf() {
       myMaster="$masterRunId"
       shardsRange=""
     fi
-    if [[ "$hostName" =~ ^{{ getv "/host/instance_id" }} ]]; then nodeRole="myself,$nodeRole"; fi
+    if [[ "$hostName" =~ {{ getv "/host/instance_id" }}$ ]]; then nodeRole="myself,$nodeRole"; fi
     echo $runId $hostName:{{ getv "/env/port" "6379" }}@16379 $nodeRole $myMaster 0 0 0 connected $shardsRange
   done
 }

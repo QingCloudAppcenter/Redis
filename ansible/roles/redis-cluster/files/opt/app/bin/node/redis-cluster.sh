@@ -103,14 +103,32 @@ getFirstNodeIpInStableNodesExceptLeavingNodes(){
   awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$leavingNodeIps") <(echo "$stableNodesIps" |xargs) |awk '{printf $1}'
 }
 
+findHostNameByIp(){
+  local ip=${1?ip}
+  echo "$HOSTS_NAMES" |awk '{
+      if($1~/'^${ip//\./\\.}'$/){
+        print $2
+      }
+    }'
+}
+
 findMasterIdByJoiningSlaveIp(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
+  log --debug "firstNodeIpInStableNode: $firstNodeIpInStableNode"
   local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/${1//\./\\.}$" |cut -d "/" -f1)"
-  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/^'${1//\./\\.}'$/){print $5}}' |sed 's/\./\\./g')"
+  log --debug "gid: $gid"
+  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" '{if ($1=='$gid' && $5!~/^'${1//\./\\.}'$/){print $5}}' |sed 's/\./\\./g')"
+  log --debug "ipsInGid: $ipsInGid"
+  local ip ipsAndHostsNamesInGid="";for ip in $ipsInGid;do
+    ipsAndHostsNamesInGid="${ipsAndHostsNamesInGid}${ip}|$(findHostNameByIp ${ip//\\./\.})|"
+  done
+  log --debug "ipsAndHostsNamesInGid: $ipsAndHostsNamesInGid"
   local redisClusterNodes; redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
   log "redisClusterNodes:  $redisClusterNodes"
-  local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
+  local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsAndHostsNamesInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
+  log --debug "masterId: $masterId"
   local masterIdCount; masterIdCount="$(echo "$masterId" |wc -l)"
+  log --debug "masterIdCount: $masterIdCount"
   if [[ $masterIdCount == 1 ]]; then
     echo "$masterId"
   else
@@ -190,7 +208,7 @@ getMyIdByMyIp(){
   runRedisCmd -h ${1?my ip is required} CLUSTER MYID
 }
 
-resetMynode(){
+resetMyNode(){
   local nodeIp; nodeIp="$1"
   local resetResult; resetResult="$(runRedisCmd -h $nodeIp CLUSTER RESET)"
   if [[ "$resetResult" == "OK" ]]; then
@@ -275,7 +293,7 @@ preScaleIn() {
       fi
     done
     log "forget $leavingNodeIp end"
-    resetMynode $leavingNodeIp
+    resetMyNode $leavingNodeIp
     stableNodesIps="$(echo "$stableNodesIps" |grep -Ev "^${leavingNodeIp//\./\\.}$")"
   done
 }
@@ -432,10 +450,8 @@ rootConfDir=/opt/app/conf/redis-cluster
 # 修改 /data/redis/nodes-6379.conf，必须在 stop 之后执行
 configureForChangeVxnet(){
   log "configureForChangeVxnet start"
-  local hostsFile="/etc/hosts"
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
-  local replaceCmd; replaceCmd="$(sed -n -e "/^# >> Redis Cluster nodes./,/^# << Redis Cluster nodes./p" $hostsFile | \
-  sed '/^#/d;s#^#s/#g;s#$#:'$REDIS_PORT'/g#g;s# #:'$REDIS_PORT'/#g' |tr '\n' ';')"
+  local replaceCmd; replaceCmd="$(getReplaceIpsToHostNamesCmd)"
   log "replaceCmd: $replaceCmd"
   log "start rotate $runtimeNodesConfigFile"
   rotate $runtimeNodesConfigFile
@@ -443,7 +459,7 @@ configureForChangeVxnet(){
   log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
   [[ -f "$runtimeNodesConfigFile" ]] && {
       log "start execute replaceCmd"
-      sed -i "${replaceCmd//\./\\.}" $runtimeNodesConfigFile
+      sed -i "$replaceCmd" $runtimeNodesConfigFile
       log "end execute replace"
     }
   log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
@@ -487,9 +503,14 @@ runCommand(){
   fi
 }
 
-getHostNamesToIpsCmd(){
-  local hostsFile="/etc/hosts"
-  sed -n "/^# >> Redis Cluster nodes./,/^# << Redis Cluster nodes./p" $hostsFile |sed '/^#/d;' | awk '{print $2,$1}'|sed 's#^#s/#g;s#$#/g#g;s# #/#g' |tr '\n' ';'
+getReplaceIpsToHostNamesCmd(){
+  # s/172\.22\.4\.9/i-mmjiz5kn-1-1/g;xxxx
+  echo "$HOSTS_NAMES" |sed 's#^#s/#g;s#$#/g#g;s# #/#g' |tr '\n' ';' |sed "s/\\./\\\./g"
+}
+
+getReplaceHostNamesToIpsCmd(){
+  # s/i-mmjiz5kn-1-1/172\.22\.4\.9/g;xxxx
+  echo "$HOSTS_NAMES" |awk '{print $2,$1}'|sed 's#^#s/#g;s#$#/g#g;s# #/#g' |tr '\n' ';' |sed "s/\\./\\\./g"
 }
 
 getRedisRoles(){
@@ -499,7 +520,7 @@ getRedisRoles(){
   local loadingTag="loading the dataset in memory"
   echo "$rawResult" |grep -q "$loadingTag" && return 0
   local firstProcessResult; firstProcessResult="$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}' |sort -t "," -k3)"
-  local replaceCmd; replaceCmd="$(getHostNamesToIpsCmd)"
+  local replaceCmd; replaceCmd="$(getReplaceHostNamesToIpsCmd)"
   local regexpResult; regexpResult="$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}');$replaceCmd"
   local secondProcssResult; secondProcssResult="$(echo "$firstProcessResult" |sed "$regexpResult" |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')"
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
@@ -552,7 +573,7 @@ getClusterMatched(){
     myClusterIps="$myClusterIps${node//\./\\.}:$REDIS_PORT|"
   done
   myClusterIps="${myClusterIps%|*})"
-  local replaceCmd; replaceCmd="$(getHostNamesToIpsCmd)"
+  local replaceCmd; replaceCmd="$(getReplaceHostNamesToIpsCmd)"
   if [[ "$(echo "$clusterNodes"|sed -n "$replaceCmd" |grep -Ev "$myClusterIps")" =~ [a-z0-9]+ ]];then
     log --debug "
       clusterNodes for node $targetIp dismatched cluster：

@@ -1,0 +1,14 @@
+buildHostName(){
+  echo "${1?gid}-${2?sid}-${3?instance_id}"
+}
+
+hostsNames="{{- range $role := split "master master-replica" " " }}
+{{- range $node := ls (printf "/hosts/%s" $role) }}
+{{- $nodeIp := (getv (printf  "/hosts/%s/%s/ip" $role $node)) }}
+{{- $instanceId := (getv (printf "/hosts/%s/%s/instance_id" $role $node)) }}
+{{- $gid := (getv (printf "/hosts/%s/%s/gid" $role $node)) }}
+{{- $sid := (getv (printf "/hosts/%s/%s/sid" $role $node)) }}
+{{ printf $nodeIp }} $(buildHostName {{ printf $gid }} {{ printf $sid }} {{ printf $instanceId }})
+{{- end }}
+{{- end }}
+"
