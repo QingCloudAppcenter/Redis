@@ -5,13 +5,10 @@ import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.data.redis.connection.RedisClusterConfiguration;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisSentinelConfiguration;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
+import redis.clients.jedis.JedisPoolConfig;
 
 import java.util.HashSet;
 
@@ -29,7 +26,7 @@ public class RedisConfig {
                 sentinelProp.getMaster(),
                 new HashSet<>(sentinelProp.getNodes())
         );
-        config.setPassword(redisProperties.getPassword());
+        config.setPassword(RedisPassword.of(redisProperties.getPassword()));
         return config;
     }
 
@@ -40,6 +37,15 @@ public class RedisConfig {
     }
 
     // > Jedis
+
+    @Bean
+    @Profile("jedis")
+    public JedisPoolConfig jedisPoolConfig() {
+        JedisPoolConfig config = new JedisPoolConfig();
+        config.setMaxIdle(500);
+        config.setMaxTotal(1024);
+        return config;
+    }
 
     @Bean
     @Profile("jedis & sentinel")
@@ -55,31 +61,13 @@ public class RedisConfig {
 
     @Bean
     @Profile("jedis & cluster")
-    public RedisConnectionFactory jedisClusterConnectionFactory() {
-        return new JedisConnectionFactory(new RedisClusterConfiguration(redisProperties.getCluster().getNodes()));
+    public RedisConnectionFactory jedisClusterConnectionFactory(JedisPoolConfig jedisPoolConfig) {
+        return new JedisConnectionFactory(new RedisClusterConfiguration(redisProperties.getCluster().getNodes()), jedisPoolConfig);
     }
 
     // < Jedis
 
     // > Lettuce
-
-    @Bean
-    @Profile("lettuce & sentinel")
-    public RedisConnectionFactory lettuceSentinelConnectionFactory() {
-        return new LettuceConnectionFactory(redisSentinelConfiguration());
-    }
-
-    @Bean
-    @Profile("lettuce & vip")
-    public RedisConnectionFactory lettuceVipConnectionFactory() {
-        return new LettuceConnectionFactory(redisStandaloneConfiguration());
-    }
-
-    @Bean
-    @Profile("lettuce & cluster")
-    public RedisConnectionFactory lettuceClusterConnectionFactory() {
-        return new LettuceConnectionFactory(new RedisClusterConfiguration(redisProperties.getCluster().getNodes()));
-    }
 
     // < Lettuce
 }
