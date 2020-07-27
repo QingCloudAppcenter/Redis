@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
-import redis.clients.jedis.JedisPoolConfig;
 
 import java.util.HashSet;
 
@@ -39,15 +38,6 @@ public class RedisConfig {
     // > Jedis
 
     @Bean
-    @Profile("jedis")
-    public JedisPoolConfig jedisPoolConfig() {
-        JedisPoolConfig config = new JedisPoolConfig();
-        config.setMaxIdle(500);
-        config.setMaxTotal(1024);
-        return config;
-    }
-
-    @Bean
     @Profile("jedis & sentinel")
     public RedisConnectionFactory jedisSentinelConnectionFactory() {
         return new JedisConnectionFactory(redisSentinelConfiguration());
@@ -61,8 +51,10 @@ public class RedisConfig {
 
     @Bean
     @Profile("jedis & cluster")
-    public RedisConnectionFactory jedisClusterConnectionFactory(JedisPoolConfig jedisPoolConfig) {
-        return new JedisConnectionFactory(new RedisClusterConfiguration(redisProperties.getCluster().getNodes()), jedisPoolConfig);
+    public RedisConnectionFactory jedisClusterConnectionFactory() {
+        return new JedisConnectionFactory(
+            new RedisClusterConfiguration(redisProperties.getCluster().getNodes())
+        );
     }
 
     // < Jedis
