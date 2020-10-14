@@ -39,7 +39,7 @@
             {
               "key": "instance_class",
               "label": "instance_class_label",
-              "description": "instance_class_description",
+              "description": "",
               "type": "integer",
               "default": 202,
               "range": [

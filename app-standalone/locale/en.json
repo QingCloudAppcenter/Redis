@@ -15,7 +15,6 @@
   "memory_label": "Memory",
   "memory_description": "Memory of each node (in MiB)",
   "instance_class_label": "Instance Class",
-  "instance_class_description": "The instance type for the cluster to run, such as high performance, high performance plus",
   "count_label": "Node count",
   "count_description": "Number of Redis nodes. Failover function only included in 3-nodes version",
   "env_description": "Redis service properties. Need fully restart once you made a change to those properties",
