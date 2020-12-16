@@ -316,7 +316,7 @@ getMasterIpByConf() {
   log --debug "MY_IP: $MY_IP"
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
     isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-      && awk 'BEGIN {rc=1} $0~/^sentinel monitor '$SENTINEL_MONITOR_CLUSTER_NAME' / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+      && awk 'BEGIN {rc=1} $0~/^sentinel monitor (master|'$SENTINEL_MONITOR_CLUSTER_NAME') / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
       || getInitMasterIp
   else
     getmasterIpFromSentinelNodes
