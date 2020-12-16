@@ -342,7 +342,7 @@ backup(){
   local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
   local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
-  retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  retry 400 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
 }
 
