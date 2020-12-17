@@ -316,7 +316,7 @@ getMasterIpByConf() {
   log --debug "MY_IP: $MY_IP"
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
     isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-      && awk 'BEGIN {rc=1} $0~/^sentinel monitor '$SENTINEL_MONITOR_CLUSTER_NAME' / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+      && awk 'BEGIN {rc=1} $0~/^sentinel monitor (master|'$SENTINEL_MONITOR_CLUSTER_NAME') / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
       || getInitMasterIp
   else
     getmasterIpFromSentinelNodes
@@ -342,7 +342,7 @@ backup(){
   local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
   local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
-  retry 60 1 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  retry 400 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
 }
 
