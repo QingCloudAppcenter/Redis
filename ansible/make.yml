@@ -3,18 +3,20 @@
   hosts: all
   vars:
     target_env: "{{ lookup('env', 'target') }}"
-    caddy_plugins: upload
-  tasks:
-  - include_role:
-      name: "{{ name }}"
-    loop:
-    - arping-1.0.0
-    - appctl
-    - caddy-1.0.6
-    - jq-1.0.3
-    - redis-server-1.0.2
-    loop_control:
-      loop_var: name
+  roles:
+  - update-apt-sources-1.0.0
+  - disable-apt-jobs-1.0.0
+  - disable-motd-1.0.0
+  - app-agent-1.0.6
+  - arping-1.0.0
+  - appctl
+  - role: redis-server-1.0.4
+    vars:
+      version: "{{ redis_version }}"
+  - role: caddy-1.0.6
+    vars:
+      caddy_plugins: upload
+  - jq-1.0.3
 
 - name: redis standalone
   hosts: redis-standalone
