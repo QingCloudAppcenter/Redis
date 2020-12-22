@@ -16,7 +16,7 @@
   - role: caddy-1.0.6
     vars:
       caddy_plugins: upload
-  - jq-1.0.3
+  - jq-1.0.9
 
 - name: redis standalone
   hosts: redis-standalone
