@@ -551,7 +551,7 @@ getClusterMatched(){
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
     else
-      clusterNodes="$(cat $nodeConfFile)"
+      clusterNodes="$(grep -v '^vars currentEpoch' $nodeConfFile)"
     fi
   else
     clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
