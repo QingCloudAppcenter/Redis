@@ -44,6 +44,7 @@ stop() {
   fi
 
   _stop
+  swapIpAndName
 }
 
 revive() {
@@ -140,6 +141,11 @@ preScaleIn() {
       }
     done
   fi
+}
+
+preChangeVxnet() {
+  log "Changing vxnet from '$STABLE_REDIS_NODES' ..."
+  execute check
 }
 
 getSentinelNodes(){
@@ -415,7 +421,6 @@ encodeCmd() {
   echo -n ${1?command is required}${CLUSTER_ID} | sha256sum | cut -d' ' -f1
 }
 
-nodesFile=/data/redis/nodes
 rootConfDir=/opt/app/conf/redis-standalone
 changedConfigFile=$rootConfDir/redis.changed.conf
 changedSentinelFile=$rootConfDir/sentinel.changed.conf
@@ -449,7 +454,6 @@ configureForRedis() {
   log --debug "exec configureForRedis"
   local runtimeConfigFile=/data/redis/redis.conf defaultConfigFile=$rootConfDir/redis.default.conf \
         slaveofFile=$rootConfDir/redis.slaveof.conf
-  sudo -u redis touch $runtimeConfigFile && rotate $runtimeConfigFile
   local masterIp; masterIp="$(findMasterIp)" 
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
@@ -459,23 +463,24 @@ configureForRedis() {
     $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
 }
 
-configureForChangeVxnet() {
-  log --debug "exec configureForChangeVxnet"
+swapIpAndName() {
   local runtimeConfigFile=/data/redis/redis.conf 
-  sudo -u redis touch $nodesFile && rotate $nodesFile
-  echo "$STABLE_REDIS_NODES" | xargs -n1 > $nodesFile
-
-  if checkFileChanged $nodesFile; then
-    log "IP addresses changed from [$(paste -s $nodesFile.1)] to [$(paste -s $nodesFile)]. Updating config files accordingly ..."
-    local replaceCmd="$(join -j1 -t/ -o1.3,2.3 $nodesFile.1 $nodesFile | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
-    sed -i "$replaceCmd" $runtimeConfigFile $runtimeSentinelFile
+  local configFiles=$runtimeConfigFile
+  if isSvcEnabled redis-sentinel; then
+    configFiles="$configFiles $runtimeSentinelFile"
   fi
+  sudo -u redis touch $configFiles && rotate $configFiles
+  local fields='$3"/"$2'
+  if [ -n "$1" ]; then
+    fields='$2"/"$3'
+  fi
+  local replaceCmd="$(echo "$STABLE_REDIS_NODES" | xargs -n1 | awk -F/ '{print '$fields'}' | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
+  sed -i "$replaceCmd" $configFiles
 }
 
 configureForSentinel() {
   log --debug "exec configureForSentinel"
   local monitorFile=$rootConfDir/sentinel.monitor.conf
-  sudo -u redis touch $runtimeSentinelFile && rotate $runtimeSentinelFile
   local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
@@ -500,7 +505,7 @@ configureForRestore(){
 }
 
 configure() {
-  configureForChangeVxnet
+  swapIpAndName --reverse
   configureForSentinel
   configureForRedis  
   local masterIp; masterIp="$(findMasterIp)"
