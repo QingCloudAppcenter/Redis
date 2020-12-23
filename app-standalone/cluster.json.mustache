@@ -21,7 +21,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3",
-      "image": "img-y9xl1r9d"
+      "image": "img-xcg2q1p9"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -30,7 +30,6 @@
     "volume": {
       "size": {{cluster.node.volume_size}}
     },
-    "passphraseless": "ssh-rsa",
     "services": {
       "start": {
         "cmd": "appctl start"
@@ -55,6 +54,9 @@
       "destroy": {
         "allow_force": false,
         "cmd": "appctl destroy"
+      },
+      "change_vxnet": {
+        "pre_check": "appctl preChangeVxnet"
       },
       "run_command": {
         "type": "custom",
