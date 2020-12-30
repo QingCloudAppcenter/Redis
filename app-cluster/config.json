@@ -31,6 +31,14 @@
             "description": "Redis master node",
             "type": "array",
             "properties": [{
+                "key": "instance_class",
+                "label": "Instance Class",
+                "description": "",
+                "type": "integer",
+                "default": 202,
+                "range": [101, 202, 301],
+                "required": "yes"
+            }, {
                 "key": "cpu",
                 "label": "CPU",
                 "description": "Cpus of each node",
@@ -54,14 +62,6 @@
                 "default": 3,
                 "min": 3,
                 "max": 127,
-                "required": "yes"
-            }, {
-                "key": "instance_class",
-                "label": "Instance Class",
-                "description": "",
-                "type": "integer",
-                "default": 202,
-                "range": [101, 202, 301],
                 "required": "yes"
             }, {
                 "key": "replica",
