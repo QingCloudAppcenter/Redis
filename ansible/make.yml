@@ -10,7 +10,7 @@
   - app-agent-1.0.6
   - arping-1.0.0
   - appctl
-  - role: redis-server-1.0.4
+  - role: redis-server-1.1.0
     vars:
       version: "{{ redis_version }}"
   - role: caddy-1.0.6
