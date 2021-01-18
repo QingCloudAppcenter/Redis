@@ -30,80 +30,74 @@
       "label": "node_label",
       "description": "node_description",
       "type": "array",
-      "properties": [
-        {
-          "key": "instance_class",
-          "label": "instance_class_label",
-          "description": "",
-          "type": "integer",
-          "default": 202,
-          "range": [
-            101,
-            202,
-            301
-          ],
-          "required": "yes"
-        },
-        {
-          "key": "cpu",
-          "label": "cpu_label",
-          "description": "cpu_description",
-          "type": "integer",
-          "default": 1,
-          "range": [
-            1,
-            2
-          ],
-          "required": "yes"
-        },
-        {
-          "key": "memory",
-          "label": "memory_label",
-          "description": "memory_description",
-          "type": "integer",
-          "default": 2048,
-          "range": [
-            1024,
-            2048,
-            4096,
-            8192,
-            16384,
-            32768,
-            49152,
-            65536
-          ],
-          "required": "yes"
-        },
-        {
-          "key": "volume_size",
-          "label": "volume_size_label",
-          "description": "volume_size_description",
-          "type": "integer",
-          "default": 10,
-          "min": 10,
-          "max": 1000,
-          "step": 10,
-          "required": "yes"
-        },
-        {
-          "key": "count",
-          "label": "count_label",
-          "description": "count_description",
-          "type": "integer",
-          "default": 1,
-          "range": [
-            1,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9
-          ],
-          "required": "yes"
-        }
-      ]
+      "properties": [{
+        "key": "instance_class",
+        "label": "instance_class_label",
+        "description": "",
+        "type": "integer",
+        "default": 202,
+        "range": [
+          101,
+          202,
+          301
+        ],
+        "required": "yes"
+      }, {
+        "key": "cpu",
+        "label": "cpu_label",
+        "description": "cpu_description",
+        "type": "integer",
+        "default": 1,
+        "range": [
+          1,
+          2
+        ],
+        "required": "yes"
+      }, {
+        "key": "memory",
+        "label": "memory_label",
+        "description": "memory_description",
+        "type": "integer",
+        "default": 2048,
+        "range": [
+          1024,
+          2048,
+          4096,
+          8192,
+          16384,
+          32768,
+          49152,
+          65536
+        ],
+        "required": "yes"
+      }, {
+        "key": "volume_size",
+        "label": "volume_size_label",
+        "description": "volume_size_description",
+        "type": "integer",
+        "default": 10,
+        "min": 10,
+        "max": 1000,
+        "step": 10,
+        "required": "yes"
+      }, {
+        "key": "count",
+        "label": "count_label",
+        "description": "count_description",
+        "type": "integer",
+        "default": 1,
+        "range": [
+          1,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "required": "yes"
+      }]
     }]
   }, {
     "key": "service_params",
