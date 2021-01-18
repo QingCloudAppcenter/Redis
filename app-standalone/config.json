@@ -1,566 +1,513 @@
 {
   "type": "array",
-  "properties": [
-    {
-      "key": "cluster",
-      "description": "cluster_description",
+  "properties": [{
+    "key": "cluster",
+    "description": "cluster_description",
+    "type": "array",
+    "properties": [{
+      "key": "name",
+      "label": "name_label",
+      "description": "name_description",
+      "type": "string",
+      "default": "Redis Standalone",
+      "required": "no"
+    }, {
+      "key": "description",
+      "label": "description_label",
+      "description": "description_description",
+      "type": "string",
+      "default": "",
+      "required": "no"
+    }, {
+      "key": "vxnet",
+      "label": "vxnet_label",
+      "description": "vxnet_description",
+      "type": "string",
+      "default": "",
+      "required": "yes"
+    }, {
+      "key": "node",
+      "label": "node_label",
+      "description": "node_description",
       "type": "array",
       "properties": [
         {
-          "key": "name",
-          "label": "name_label",
-          "description": "name_description",
-          "type": "string",
-          "default": "Redis Standalone",
-          "required": "no"
-        },
-        {
-          "key": "description",
-          "label": "description_label",
-          "description": "description_description",
-          "type": "string",
-          "default": "",
-          "required": "no"
-        },
-        {
-          "key": "vxnet",
-          "label": "vxnet_label",
-          "description": "vxnet_description",
-          "type": "string",
-          "default": "",
-          "required": "yes"
-        },
-        {
-          "key": "node",
-          "label": "node_label",
-          "description": "node_description",
-          "type": "array",
-          "properties": [
-            {
-              "key": "instance_class",
-              "label": "instance_class_label",
-              "description": "",
-              "type": "integer",
-              "default": 202,
-              "range": [
-                101,
-                202,
-                301
-              ],
-              "required": "yes"
-            },
-            {
-              "key": "cpu",
-              "label": "cpu_label",
-              "description": "cpu_description",
-              "type": "integer",
-              "default": 1,
-              "range": [
-                1,
-                2
-              ],
-              "required": "yes"
-            },
-            {
-              "key": "memory",
-              "label": "memory_label",
-              "description": "memory_description",
-              "type": "integer",
-              "default": 2048,
-              "range": [
-                1024,
-                2048,
-                4096,
-                8192,
-                16384,
-                32768,
-                49152,
-                65536
-              ],
-              "required": "yes"
-            },
-            {
-              "key": "volume_size",
-              "label": "volume_size_label",
-              "description": "volume_size_description",
-              "type": "integer",
-              "default": 10,
-              "min": 10,
-              "max": 1000,
-              "step": 10,
-              "required": "yes"
-            },
-            {
-              "key": "count",
-              "label": "count_label",
-              "description": "count_description",
-              "type": "integer",
-              "default": 1,
-              "range": [
-                1,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9
-              ],
-              "required": "yes"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "key": "service_params",
-      "description": "Custom service configuration properties",
-      "type": "array",
-      "properties": [
-        {
-          "key": "cmd",
-          "label": "command",
-          "description": "The common for master node",
-          "type": "string",
-          "default": "FLUSHDB",
+          "key": "instance_class",
+          "label": "instance_class_label",
+          "description": "",
+          "type": "integer",
+          "default": 202,
           "range": [
-            "FLUSHDB",
-            "FLUSHALL",
-            "BGSAVE"
+            101,
+            202,
+            301
           ],
           "required": "yes"
         },
         {
-          "key": "params",
-          "label": "params",
-          "description": "The params for flush commands",
-          "type": "string",
-          "default": "ASYNC", 
-          "range": [
-            "",
-            "ASYNC"
-          ],
-          "required": "no"
-        },
-        {
-          "key": "db",
-          "label": "database",
-          "description": "The database for master node",
+          "key": "cpu",
+          "label": "cpu_label",
+          "description": "cpu_description",
           "type": "integer",
-          "default": 0,
-          "min": 0,
+          "default": 1,
+          "range": [
+            1,
+            2
+          ],
           "required": "yes"
         },
         {
-          "key": "timeout",
-          "label": "timeout",
-          "description": "The timeout for flush commands",
+          "key": "memory",
+          "label": "memory_label",
+          "description": "memory_description",
           "type": "integer",
-          "default": 5, 
-          "min":5,
+          "default": 2048,
+          "range": [
+            1024,
+            2048,
+            4096,
+            8192,
+            16384,
+            32768,
+            49152,
+            65536
+          ],
           "required": "yes"
         },
         {
-          "key": "confirm",
-          "label": "confirm",
-          "description": "All existing data will be erased, and please ensure there is only one redis node; choose 'yes' to continue",
-          "type": "string",
-          "default": "no",
-          "required": "yes",
-          "range": [
-            "yes",
-            "no"
-          ]
-        }
-      ]
-    },
-    {
-      "key": "env",
-      "description": "Redis service properties. Need fully restart once you made a change to those properties",
-      "type": "array",
-      "properties": [
-        {
-          "description": "disabled-commands_description",
-          "required": "yes",
-          "label": "disabled-commands_label",
-          "default": "no",
-          "key": "disabled-commands",
-          "type": "string",
-          "changeable": false,
-          "range": [
-            "yes",
-            "no"
-          ]
-        },
-        {
-          "description": "maxmemory_portion_description",
-          "required": "no",
-          "label": "maxmemory_portion_label",
-          "default": 80,
-          "key": "maxmemory_portion",
-          "min": 10,
-          "max": 95,
-          "type": "integer"
-        },
-        {
-          "description": "databases_description",
-          "required": "no",
-          "label": "databases",
-          "default": 16,
-          "key": "databases",
-          "min": 1,
-          "max": 2000,
-          "type": "integer"
-        },
-        {
-          "description": "sentinel.down-after-milliseconds_description",
-          "required": "no",
-          "label": "sentinel.down-after-milliseconds_label",
-          "default": 4000,
-          "key": "sentinel.down-after-milliseconds",
-          "min": 2000,
-          "max": 30000,
-          "type": "integer"
-        },
-        {
-          "description": "sentinel.failover-timeout_description",
-          "required": "no",
-          "label": "sentinel.failover-timeout_label",
-          "default": 60000,
-          "key": "sentinel.failover-timeout",
-          "min": 30000,
-          "max": 180000,
-          "type": "integer"
-        },
-        {
-          "description": "enable-commands_description",
-          "required": "no",
-          "label": "enable-commands_label",
-          "range": [
-            "DISABLE_ALL",
-            "CONFIG",
-            "SAVE",
-            "KEYS"
-          ],
-          "default": "DISABLE_ALL",
-          "changeable": true,
-          "separator": ",",
-          "key": "enable-commands",
-          "multichoice": true,
-          "type": "string"
-        },
-        {
-          "description": "activerehashing_description",
-          "default": "yes",
-          "required": "no",
-          "label": "activerehashing_label",
-          "range": [
-            "yes",
-            "no"
-          ],
-          "key": "activerehashing",
-          "type": "string"
-        },
-        {
-          "description": "appendonly_description",
-          "default": "yes",
-          "required": "no",
-          "label": "appendonly_label",
-          "range": [
-            "yes",
-            "no"
-          ],
-          "key": "appendonly",
-          "type": "string"
-        },
-        {
-          "description": "appendfsync_description",
-          "default": "everysec",
-          "required": "no",
-          "label": "appendfsync_label",
-          "range": [
-            "everysec",
-            "no",
-            "always"
-          ],
-          "key": "appendfsync",
-          "type": "string"
-        },
-        {
-          "description": "hash-max-ziplist-entries_description",
-          "default": 512,
-          "required": "no",
-          "label": "hash-max-ziplist-entries_label",
-          "key": "hash-max-ziplist-entries",
+          "key": "volume_size",
+          "label": "volume_size_label",
+          "description": "volume_size_description",
           "type": "integer",
-          "min": 0,
-          "max": 512
-        },
-        {
-          "description": "hash-max-ziplist-value_description",
-          "default": 64,
-          "required": "no",
-          "label": "hash-max-ziplist-value_label",
-          "key": "hash-max-ziplist-value",
-          "type": "integer",
-          "min": 0,
-          "max": 64
-        },
-        {
-          "description": "latency-monitor-threshold_description",
-          "default": 0,
-          "required": "no",
-          "label": "latency-monitor-threshold_label",
-          "key": "latency-monitor-threshold",
-          "type": "integer",
-          "min": 0,
-          "max": 600000
-        },
-        {
-          "description": "list-max-ziplist-entries_description",
-          "default": 512,
-          "required": "no",
-          "label": "list-max-ziplist-entries_label",
-          "key": "list-max-ziplist-entries",
-          "type": "integer",
-          "max": 512,
-          "min": 0
-        },
-        {
-          "description": "list-max-ziplist-value_description",
-          "default": 64,
-          "required": "no",
-          "label": "list-max-ziplist-value_label",
-          "key": "list-max-ziplist-value",
-          "type": "integer",
-          "min": 0,
-          "max": 64
-        },
-        {
-          "description": "maxclients_description",
-          "default": 65000,
-          "required": "no",
-          "label": "maxclients_label",
-          "key": "maxclients",
-          "type": "integer",
-          "min": 1,
-          "max": 65000
-        },
-        {
-          "description": "requirepass_description",
-          "default": "",
-          "required": "no",
-          "label": "requirepass_label",
-          "key": "requirepass",
-          "type": "password",
-          "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
-        },
-        {
-          "description": "maxmemory-policy_description",
-          "default": "volatile-lru",
-          "required": "no",
-          "label": "maxmemory-policy_label",
-          "range": [
-            "volatile-lru",
-            "allkeys-lru",
-            "volatile-random",
-            "allkeys-random",
-            "volatile-ttl",
-            "noeviction"
-          ],
-          "key": "maxmemory-policy",
-          "type": "string"
-        },
-        {
-          "description": "maxmemory-samples_description",
-          "default": 3,
-          "required": "no",
-          "label": "maxmemory-samples_label",
-          "key": "maxmemory-samples",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "min-slaves-max-lag_description",
           "default": 10,
-          "required": "no",
-          "label": "min-slaves-max-lag_label",
-          "key": "min-slaves-max-lag",
-          "type": "integer",
-          "min": 0
+          "min": 10,
+          "max": 1000,
+          "step": 10,
+          "required": "yes"
         },
         {
-          "description": "min-slaves-to-write_description",
-          "default": 0,
-          "required": "no",
-          "label": "min-slaves-to-write_label",
-          "key": "min-slaves-to-write",
+          "key": "count",
+          "label": "count_label",
+          "description": "count_description",
           "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "no-appendfsync-on-rewrite_description",
-          "default": "yes",
-          "required": "no",
-          "label": "no-appendfsync-on-rewrite_label",
+          "default": 1,
           "range": [
-            "yes",
-            "no"
+            1,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
           ],
-          "key": "no-appendfsync-on-rewrite",
-          "type": "string"
-        },
-        {
-          "description": "notify-keyspace-events_description",
-          "default": "",
-          "required": "no",
-          "label": "notify-keyspace-events_label",
-          "key": "notify-keyspace-events",
-          "type": "string"
-        },
-        {
-          "description": "repl-backlog-size_description",
-          "default": 1048576,
-          "required": "no",
-          "label": "repl-backlog-size_label",
-          "key": "repl-backlog-size",
-          "type": "integer",
-          "min": 16384
-        },
-        {
-          "description": "repl-backlog-ttl_description",
-          "default": 3600,
-          "required": "no",
-          "label": "repl-backlog-ttl_label",
-          "key": "repl-backlog-ttl",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "repl-timeout_description",
-          "default": 60,
-          "required": "no",
-          "label": "repl-timeout_label",
-          "key": "repl-timeout",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "set-max-intset-entries_description",
-          "default": 512,
-          "required": "no",
-          "label": "set-max-intset-entries_label",
-          "key": "set-max-intset-entries",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "slowlog-log-slower-than_description",
-          "default": -1,
-          "required": "no",
-          "label": "slowlog-log-slower-than_label",
-          "key": "slowlog-log-slower-than",
-          "type": "integer",
-          "min": -1,
-          "max": 60000
-        },
-        {
-          "description": "slowlog-max-len_description",
-          "default": 128,
-          "required": "no",
-          "label": "slowlog-max-len_label",
-          "key": "slowlog-max-len",
-          "type": "integer",
-          "min": 0,
-          "max": 1000
-        },
-        {
-          "description": "tcp-keepalive_description",
-          "default": 300,
-          "required": "no",
-          "label": "tcp-keepalive_label",
-          "key": "tcp-keepalive",
-          "type": "integer",
-          "min": 0,
-          "max": 2147483647
-        },
-        {
-          "description": "timeout_description",
-          "default": 0,
-          "required": "no",
-          "label": "timeout_label",
-          "key": "timeout",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "port_description",
-          "default": 6379,
-          "required": "no",
-          "label": "port_label",
-          "key": "port",
-          "type": "integer",
-          "min": 1,
-          "max": 65536
-        },
-        {
-          "description": "zset-max-ziplist-entries_description",
-          "default": 128,
-          "required": "no",
-          "label": "zset-max-ziplist-entries_label",
-          "key": "zset-max-ziplist-entries",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "zset-max-ziplist-value_description",
-          "default": 64,
-          "required": "no",
-          "label": "zset-max-ziplist-value_label",
-          "key": "zset-max-ziplist-value",
-          "type": "integer",
-          "min": 0
-        },
-        {
-          "description": "lua-time-limit_description",
-          "default": 5000,
-          "required": "no",
-          "label": "lua-time-limit_label",
-          "key": "lua-time-limit",
-          "type": "integer",
-          "min": -1
-        },
-        {
-          "key": "web.console.enabled",
-          "label": "Enable web console",
-          "description": "enable or not for web console",
-          "type": "boolean",
-          "default": false,
-          "required": "no",
-          "range": [
-            true,
-            false
-          ]
-        },
-        {
-          "key": "web.console.username",
-          "label": "Admin Username",
-          "description": "username of admin web console",
-          "type": "string",
-          "pattern": "^([a-z0-9.-]+)?$",
-          "default": "admin",
-          "required": "no"
-        },
-        {
-          "key": "web.console.password",
-          "label": "Admin Password",
-          "description": "password of admin web console",
-          "type": "password",
-          "pattern": "^\\w{0,24}$",
-          "default": "",
-          "required": "no"
+          "required": "yes"
         }
       ]
-    }
-  ]
+    }]
+  }, {
+    "key": "service_params",
+    "description": "Custom service configuration properties",
+    "type": "array",
+    "properties": [{
+      "key": "cmd",
+      "label": "command",
+      "description": "The common for master node",
+      "type": "string",
+      "default": "FLUSHDB",
+      "range": [
+        "FLUSHDB",
+        "FLUSHALL",
+        "BGSAVE"
+      ],
+      "required": "yes"
+    }, {
+      "key": "params",
+      "label": "params",
+      "description": "The params for flush commands",
+      "type": "string",
+      "default": "ASYNC", 
+      "range": [
+        "",
+        "ASYNC"
+      ],
+      "required": "no"
+    }, {
+      "key": "db",
+      "label": "database",
+      "description": "The database for master node",
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "required": "yes"
+    }, {
+      "key": "timeout",
+      "label": "timeout",
+      "description": "The timeout for flush commands",
+      "type": "integer",
+      "default": 5, 
+      "min":5,
+      "required": "yes"
+    }, {
+      "key": "confirm",
+      "label": "confirm",
+      "description": "All existing data will be erased, and please ensure there is only one redis node; choose 'yes' to continue",
+      "type": "string",
+      "default": "no",
+      "required": "yes",
+      "range": [
+        "yes",
+        "no"
+      ]
+    }]
+  }, {
+    "key": "env",
+    "description": "Redis service properties. Need fully restart once you made a change to those properties",
+    "type": "array",
+    "properties": [{
+      "description": "disabled-commands_description",
+      "required": "yes",
+      "label": "disabled-commands_label",
+      "default": "no",
+      "key": "disabled-commands",
+      "type": "string",
+      "changeable": false,
+      "range": [
+        "yes",
+        "no"
+      ]
+    }, {
+      "description": "maxmemory_portion_description",
+      "required": "no",
+      "label": "maxmemory_portion_label",
+      "default": 80,
+      "key": "maxmemory_portion",
+      "min": 10,
+      "max": 95,
+      "type": "integer"
+    }, {
+      "description": "databases_description",
+      "required": "no",
+      "label": "databases",
+      "default": 16,
+      "key": "databases",
+      "min": 1,
+      "max": 2000,
+      "type": "integer"
+    }, {
+      "description": "sentinel.down-after-milliseconds_description",
+      "required": "no",
+      "label": "sentinel.down-after-milliseconds_label",
+      "default": 4000,
+      "key": "sentinel.down-after-milliseconds",
+      "min": 2000,
+      "max": 30000,
+      "type": "integer"
+    }, {
+      "description": "sentinel.failover-timeout_description",
+      "required": "no",
+      "label": "sentinel.failover-timeout_label",
+      "default": 60000,
+      "key": "sentinel.failover-timeout",
+      "min": 30000,
+      "max": 180000,
+      "type": "integer"
+    }, {
+      "description": "enable-commands_description",
+      "required": "no",
+      "label": "enable-commands_label",
+      "range": [
+        "DISABLE_ALL",
+        "CONFIG",
+        "SAVE",
+        "KEYS"
+      ],
+      "default": "DISABLE_ALL",
+      "changeable": true,
+      "separator": ",",
+      "key": "enable-commands",
+      "multichoice": true,
+      "type": "string"
+    }, {
+      "description": "activerehashing_description",
+      "default": "yes",
+      "required": "no",
+      "label": "activerehashing_label",
+      "range": [
+        "yes",
+        "no"
+      ],
+      "key": "activerehashing",
+      "type": "string"
+    }, {
+      "description": "appendonly_description",
+      "default": "yes",
+      "required": "no",
+      "label": "appendonly_label",
+      "range": [
+        "yes",
+        "no"
+      ],
+      "key": "appendonly",
+      "type": "string"
+    }, {
+      "description": "appendfsync_description",
+      "default": "everysec",
+      "required": "no",
+      "label": "appendfsync_label",
+      "range": [
+        "everysec",
+        "no",
+        "always"
+      ],
+      "key": "appendfsync",
+      "type": "string"
+    }, {
+      "description": "hash-max-ziplist-entries_description",
+      "default": 512,
+      "required": "no",
+      "label": "hash-max-ziplist-entries_label",
+      "key": "hash-max-ziplist-entries",
+      "type": "integer",
+      "min": 0,
+      "max": 512
+    }, {
+      "description": "hash-max-ziplist-value_description",
+      "default": 64,
+      "required": "no",
+      "label": "hash-max-ziplist-value_label",
+      "key": "hash-max-ziplist-value",
+      "type": "integer",
+      "min": 0,
+      "max": 64
+    }, {
+      "description": "latency-monitor-threshold_description",
+      "default": 0,
+      "required": "no",
+      "label": "latency-monitor-threshold_label",
+      "key": "latency-monitor-threshold",
+      "type": "integer",
+      "min": 0,
+      "max": 600000
+    }, {
+      "description": "list-max-ziplist-entries_description",
+      "default": 512,
+      "required": "no",
+      "label": "list-max-ziplist-entries_label",
+      "key": "list-max-ziplist-entries",
+      "type": "integer",
+      "max": 512,
+      "min": 0
+    }, {
+      "description": "list-max-ziplist-value_description",
+      "default": 64,
+      "required": "no",
+      "label": "list-max-ziplist-value_label",
+      "key": "list-max-ziplist-value",
+      "type": "integer",
+      "min": 0,
+      "max": 64
+    }, {
+      "description": "maxclients_description",
+      "default": 65000,
+      "required": "no",
+      "label": "maxclients_label",
+      "key": "maxclients",
+      "type": "integer",
+      "min": 1,
+      "max": 65000
+    }, {
+      "description": "requirepass_description",
+      "default": "",
+      "required": "no",
+      "label": "requirepass_label",
+      "key": "requirepass",
+      "type": "password",
+      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
+    }, {
+      "description": "maxmemory-policy_description",
+      "default": "volatile-lru",
+      "required": "no",
+      "label": "maxmemory-policy_label",
+      "range": [
+        "volatile-lru",
+        "allkeys-lru",
+        "volatile-random",
+        "allkeys-random",
+        "volatile-ttl",
+        "noeviction"
+      ],
+      "key": "maxmemory-policy",
+      "type": "string"
+    }, {
+      "description": "maxmemory-samples_description",
+      "default": 3,
+      "required": "no",
+      "label": "maxmemory-samples_label",
+      "key": "maxmemory-samples",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "min-slaves-max-lag_description",
+      "default": 10,
+      "required": "no",
+      "label": "min-slaves-max-lag_label",
+      "key": "min-slaves-max-lag",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "min-slaves-to-write_description",
+      "default": 0,
+      "required": "no",
+      "label": "min-slaves-to-write_label",
+      "key": "min-slaves-to-write",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "no-appendfsync-on-rewrite_description",
+      "default": "yes",
+      "required": "no",
+      "label": "no-appendfsync-on-rewrite_label",
+      "range": [
+        "yes",
+        "no"
+      ],
+      "key": "no-appendfsync-on-rewrite",
+      "type": "string"
+    }, {
+      "description": "notify-keyspace-events_description",
+      "default": "",
+      "required": "no",
+      "label": "notify-keyspace-events_label",
+      "key": "notify-keyspace-events",
+      "type": "string"
+    }, {
+      "description": "repl-backlog-size_description",
+      "default": 1048576,
+      "required": "no",
+      "label": "repl-backlog-size_label",
+      "key": "repl-backlog-size",
+      "type": "integer",
+      "min": 16384
+    }, {
+      "description": "repl-backlog-ttl_description",
+      "default": 3600,
+      "required": "no",
+      "label": "repl-backlog-ttl_label",
+      "key": "repl-backlog-ttl",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "repl-timeout_description",
+      "default": 60,
+      "required": "no",
+      "label": "repl-timeout_label",
+      "key": "repl-timeout",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "set-max-intset-entries_description",
+      "default": 512,
+      "required": "no",
+      "label": "set-max-intset-entries_label",
+      "key": "set-max-intset-entries",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "slowlog-log-slower-than_description",
+      "default": -1,
+      "required": "no",
+      "label": "slowlog-log-slower-than_label",
+      "key": "slowlog-log-slower-than",
+      "type": "integer",
+      "min": -1,
+      "max": 60000
+    }, {
+      "description": "slowlog-max-len_description",
+      "default": 128,
+      "required": "no",
+      "label": "slowlog-max-len_label",
+      "key": "slowlog-max-len",
+      "type": "integer",
+      "min": 0,
+      "max": 1000
+    }, {
+      "description": "tcp-keepalive_description",
+      "default": 300,
+      "required": "no",
+      "label": "tcp-keepalive_label",
+      "key": "tcp-keepalive",
+      "type": "integer",
+      "min": 0,
+      "max": 2147483647
+    }, {
+      "description": "timeout_description",
+      "default": 0,
+      "required": "no",
+      "label": "timeout_label",
+      "key": "timeout",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "port_description",
+      "default": 6379,
+      "required": "no",
+      "label": "port_label",
+      "key": "port",
+      "type": "integer",
+      "min": 1,
+      "max": 65536
+    }, {
+      "description": "zset-max-ziplist-entries_description",
+      "default": 128,
+      "required": "no",
+      "label": "zset-max-ziplist-entries_label",
+      "key": "zset-max-ziplist-entries",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "zset-max-ziplist-value_description",
+      "default": 64,
+      "required": "no",
+      "label": "zset-max-ziplist-value_label",
+      "key": "zset-max-ziplist-value",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "lua-time-limit_description",
+      "default": 5000,
+      "required": "no",
+      "label": "lua-time-limit_label",
+      "key": "lua-time-limit",
+      "type": "integer",
+      "min": -1
+    }, {
+      "key": "web.console.enabled",
+      "label": "Enable web console",
+      "description": "enable or not for web console",
+      "type": "boolean",
+      "default": false,
+      "required": "no",
+      "range": [
+        true,
+        false
+      ]
+    }, {
+      "key": "web.console.username",
+      "label": "Admin Username",
+      "description": "username of admin web console",
+      "type": "string",
+      "pattern": "^([a-z0-9.-]+)?$",
+      "default": "admin",
+      "required": "no"
+    }, {
+      "key": "web.console.password",
+      "label": "Admin Password",
+      "description": "password of admin web console",
+      "type": "password",
+      "pattern": "^\\w{0,24}$",
+      "default": "",
+      "required": "no"
+    }]
+  }]
 }
