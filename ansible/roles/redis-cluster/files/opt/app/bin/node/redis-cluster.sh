@@ -448,7 +448,7 @@ configureForChangeVxnet(){
       ] to [
       $(cat $nodesFile)
       ]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 <(sed "s/\./\\\./g" $nodesFile.1) $nodesFile |  sed 's#/#:'$REDIS_PORT'\\b/_ #g; s#^#s/\\b #g; s#$#:'$REDIS_PORT'_/g#g' | sed '$as/_//g' |paste -sd';')"
+    local replaceCmd; replaceCmd="$(join -1 1 -2 1 -t/ -o 2.2,1.2 <(join -1 4 -2 4 -t/ -o1.5,2.5 $nodesFile.1 $nodesFile|sort) <(awk -F "[: ]+" '/^[0-9a-f]{24,}\>/i{print $2"/"$1}' $runtimeNodesConfigFile|sort) | awk -F"/" -v port=$REDIS_PORT '{print "s/"$1" \\([0-9\\.]\\{,15\\}\\):"port"@/"$1" "$2":"port"@/g"}' | paste -sd';')"
     log "replaceCmd: $replaceCmd"
     log "start rotate $runtimeNodesConfigFile"
     rotate $runtimeNodesConfigFile
