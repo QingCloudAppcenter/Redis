@@ -1,6 +1,0 @@
-isVotingNode() {
-  local ourVotingNodesSid="$(sort -n <<< "{{ join (getvs "/hosts/*/sid") "\n" }}" |xargs |cut -d" " -f 1-3)"
-  echo "$ourVotingNodesSid" | grep -q $1
-}
-
-SENTINEL_MONITOR_CLUSTER_NAME="{{ getv "/cluster/cluster_id" }}"

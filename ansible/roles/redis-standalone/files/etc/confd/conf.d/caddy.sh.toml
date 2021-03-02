@@ -1,8 +1,0 @@
-[template]
-src = "caddy.sh.tmpl"
-dest = "/opt/app/bin/tmpl/caddy.sh"
-mode = "0700"
-keys = [
-  "/",
-]
-reload_cmd = "/opt/app/bin/tmpl/caddy.sh; appctl reload caddy"

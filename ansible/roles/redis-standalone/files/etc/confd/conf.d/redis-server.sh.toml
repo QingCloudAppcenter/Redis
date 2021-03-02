@@ -1,8 +1,0 @@
-[template]
-src = "redis-server.sh.tmpl"
-dest = "/opt/app/bin/tmpl/redis-server.sh"
-mode = "0700"
-keys = [
-  "/",
-]
-reload_cmd = "/opt/app/bin/tmpl/redis-server.sh; appctl reload redis-server"
