@@ -1,0 +1,16 @@
+---
+
+- name: prepare tmp path
+  include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
+
+- name: copy conf files
+  copy:
+    src: files/opt/app/
+    dest: /opt/app/
+    owner: root
+    group: svc
+    mode: preserve
+    directory_mode: u=rwx,g=rx,o=
+
+- name: install confd files
+  include_tasks: ../../utils/tasks/process-confd-files.yml

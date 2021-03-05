@@ -1,0 +1,37 @@
+sentinelRenameCommands() {
+  local unsafeCommands="
+    CONFIG
+    REPLICAOF
+    SLAVEOF
+  "
+
+  local allowedCommands="$(echo " {{ replace (getv "/env/enable-commands" "DISABLE_ALL") "," " " -1 }} " | sed "/ DISABLE_ALL /d")"
+  local cmd; for cmd in $unsafeCommands; do
+    local renamed=$cmd
+    if [[ " $allowedCommands " != *" $cmd "* ]]; then
+      renamed=$(echo -n ${cmd}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1)
+    fi
+    echo sentinel rename-command $SENTINEL_MONITOR_CLUSTER_NAME $cmd $renamed
+  done
+}
+
+flush /opt/app/conf/redis-standalone/sentinel.changed.conf << SENTINEL_CONF_EOF
+bind 0.0.0.0
+daemonize no
+supervised systemd
+pidfile /var/run/redis/sentinel.pid
+dir /tmp
+logfile /data/redis/logs/redis-sentinel.log
+port 26379
+protected-mode no
+
+
+{{- if (ne (getv "/env/requirepass") "") }}
+sentinel auth-pass $SENTINEL_MONITOR_CLUSTER_NAME "{{ getv "/env/requirepass" "" }}"
+{{- end }}
+sentinel client-reconfig-script $SENTINEL_MONITOR_CLUSTER_NAME /opt/app/bin/node/failover.sh
+sentinel down-after-milliseconds $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/sentinel.down-after-milliseconds" "4000" }}
+sentinel failover-timeout $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/sentinel.failover-timeout" "60000" }}
+sentinel parallel-syncs $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/parallel-syncs" "4" }}
+$(sentinelRenameCommands)
+SENTINEL_CONF_EOF
