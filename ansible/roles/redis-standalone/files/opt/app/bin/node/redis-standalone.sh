@@ -466,15 +466,17 @@ configureForRedis() {
 swapIpAndName() {
   local runtimeConfigFile=/data/redis/redis.conf 
   local configFiles=$runtimeConfigFile
+  local replaceCmd fields
   if isSvcEnabled redis-sentinel; then
     configFiles="$configFiles $runtimeSentinelFile"
   fi
   sudo -u redis touch $configFiles && rotate $configFiles
-  local fields='$3"/"$2'
-  if [ -n "$1" ]; then
-    fields='$2"/"$3'
+  if [ -n "$1" ];then
+    fields='{print "s/\\<"$2"\\>/"$3"/g"}'
+  else
+    fields='{gsub("\\.", "\\.", $3);{print "s/\\<"$3"\\>/"$2"/g"}}'
   fi
-  local replaceCmd="$(echo "$STABLE_REDIS_NODES" | xargs -n1 | awk -F/ '{print '$fields'}' | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
+  replaceCmd="$(echo "$STABLE_REDIS_NODES" | xargs -n1 | awk -F/ "$fields" | paste -sd';')"
   sed -i "$replaceCmd" $configFiles
 }
 
