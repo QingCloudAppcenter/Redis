@@ -426,12 +426,47 @@ rootConfDir=/opt/app/conf/redis-cluster
 
 swapIpAndName() {
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
+<<<<<<< HEAD
   local fields replaceCmd
   sudo -u redis touch $runtimeNodesConfigFile && rotate $runtimeNodesConfigFile
   if [ -n "$1" ];then
     fields='{print "s/ "$4":"port"@/ "$5":"port"@/g"}'
   else
     fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":"port"@/ "$4":"port"@/g"}}'
+=======
+
+  # in case checkFileChanged err when metadata is disconnected
+  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
+    log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
+    return $CHANGE_VXNET_ERR
+  }
+  # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
+  if [[ -f "$nodesFile.2" ]]; then
+    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
+      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
+      return $CHANGE_VXNET_ERR
+    }
+  fi
+
+  if checkFileChanged $nodesFile && grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1; then
+    log "IP addresses changed from [
+      $(cat $nodesFile.1)
+      ] to [
+      $(cat $nodesFile)
+      ]. Updating config files accordingly ..."
+    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 <(sed "s/\./\\\./g" $nodesFile.1) $nodesFile |  sed 's#/#:'$REDIS_PORT'\\b/_ #g; s#^#s/\\b #g; s#$#:'$REDIS_PORT'_/g#g' | sed '$as/_//g' |paste -sd';')"
+    log "replaceCmd: $replaceCmd"
+    log "start rotate $runtimeNodesConfigFile"
+    rotate $runtimeNodesConfigFile
+    log "end rotate $runtimeNodesConfigFile"
+    log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
+    [[ -f "$runtimeNodesConfigFile" ]] && {
+      log "start execute replaceCmd"
+      sed -i "${replaceCmd}" $runtimeNodesConfigFile
+      log "end execute replace"
+    }
+    log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
+>>>>>>> parent of 61b5548... 修复网段IP地址相同情况下切换私网后服务异常的问题
   fi
   replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v port="$REDIS_PORT" "$fields"  | paste -sd';')"
   sed -i "$replaceCmd" $runtimeNodesConfigFile
