@@ -443,7 +443,7 @@ configureForRedis(){
   local defaultConfigFile=$rootConfDir/redis.default.conf
   local runtimeConfigFile=/data/redis/redis.conf
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+    $changedConfigFile $defaultConfigFile $runtimeConfigFile.1 > $runtimeConfigFile
   log "configureForRedis End"
 }
 
