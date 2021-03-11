@@ -185,6 +185,9 @@ getMyIdByMyIp(){
   runRedisCmd -h ${1?my ip is required} CLUSTER MYID
 }
 
+
+
+
 resetMynode(){
   local nodeIp; nodeIp="$1"
   local resetResult; resetResult="$(runRedisCmd -h $nodeIp CLUSTER RESET)"
@@ -605,3 +608,13 @@ checkGroupMatchedCommand(){
     checkClusterMatched "$stableNodesIps"
   fi
 }
+
+getNodesOrder() {
+  nodesInfo="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
+  if echo "$nodesInfo"| grep -qE "\<fail\>" ; then
+    echo "fail"
+  else
+    echo "ok"
+  fi
+}
+
