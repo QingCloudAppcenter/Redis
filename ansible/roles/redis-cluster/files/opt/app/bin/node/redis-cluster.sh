@@ -610,11 +610,12 @@ checkGroupMatchedCommand(){
 }
 
 getNodesOrder() {
-  nodesInfo="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
-  if echo "$nodesInfo"| grep -qE "\<fail\>" ; then
-    echo "fail"
-  else
-    echo "ok"
+  local nodesInfo nodesList
+  nodesStatus="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
+  if echo "$nodesStatus"| grep -qE "\<fail\>" ; then
+    log "node fail: $(echo "$nodesStatus" | xargs -n1 | grep -E "\<fail\>" | paste -sd ";" )"
+    return $CLUSTER_NODE_ERR
   fi
+  nodesList="$(join -1 3 -2 1 -t/ -o 1.1,2.2,1.2 <(echo "$NODES_ID" | xargs -n1 | sort -t "/" -k 3 ) <(echo "$nodesInfo" | xargs -n1 | sort))"
+  echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ","
 }
-
