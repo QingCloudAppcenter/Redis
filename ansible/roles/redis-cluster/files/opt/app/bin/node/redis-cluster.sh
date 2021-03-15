@@ -54,6 +54,7 @@ start() {
   isNodeInitialized || execute initNode
   configure
   _start
+  # redis-cli Info Persistence | awk -F":" 'BEGIN{f=1}$1=="loading" && $2==1{f=0;exit} END{exit f}' 
 }
 
 checkRedisStateIsOkByInfo(){
@@ -265,8 +266,7 @@ preScaleIn() {
     waitUntilAllNodesIsOk "$stableNodesIps"
     log "forget $leavingNodeIp"
     local leavingNodeId; leavingNodeId="$(getMyIdByMyIp $leavingNodeIp)"
-    local node nodeIp; for node in $REDIS_NODES; do
-      nodeIp=${node##*/}
+    for nodeIp in $(echo "$REDIS_NODES" | xargs -n1 | awk -F"/" '{print $5}'); do
       if echo "$stableNodesIps" | grep -E "^${nodeIp//\./\\.}$" |grep -Evq "^${leavingNodeIp//\./\\.}$"; then
         log "forget in ${nodeIp}"
         runRedisCmd -h ${nodeIp} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)."; return $CLUSTER_FORGET_ERR)    
@@ -433,13 +433,13 @@ configureForChangeVxnet(){
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
 
   # in case checkFileChanged err when metadata is disconnected
-  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
+  grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
     log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
     return $CHANGE_VXNET_ERR
   }
   # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
   if [[ -f "$nodesFile.2" ]]; then
-    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
+    grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
       log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
       return $CHANGE_VXNET_ERR
     }
@@ -561,8 +561,8 @@ getClusterMatched(){
   fi
 
   local myClusterIps; myClusterIps="("
-  local node; for node in $REDIS_NODES; do
-    node="${node##*/}"
+  local node 
+  for node in $(echo "$REDIS_NODES" | xargs -n1 | awk -F"/" '{print $5}'); do
     myClusterIps="$myClusterIps${node//\./\\.}:$REDIS_PORT|"
   done
   myClusterIps="${myClusterIps%|*})"
@@ -610,12 +610,13 @@ checkGroupMatchedCommand(){
 }
 
 getNodesOrder() {
-  local nodesStatus nodesList
+  local nodesStatus nodesList failInfo
   nodesStatus="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
-  if echo "$nodesStatus"| grep -qE "\<fail\>" ; then
-    log "node fail: $(echo "$nodesStatus" | xargs -n1 | grep -E "\<fail\>" | paste -sd ";" )"
+  failInfo=$(echo "$nodesStatus"| xargs -n1 | awk -F "/" '$2 !~ /^(master|slave)$/{print}')
+  if [ "$fail" != "" ];then
+    log "node fail: $(echo "$failInfo" | xargs -n1 | paste -sd ";" )"
     return $CLUSTER_NODE_ERR
   fi
-  nodesList="$(join -1 3 -2 1 -t/ -o 1.1,2.2,1.2 <(echo "$NODES_ID" | xargs -n1 | sort -t "/" -k 3 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
+  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.6 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
   echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ","
 }
