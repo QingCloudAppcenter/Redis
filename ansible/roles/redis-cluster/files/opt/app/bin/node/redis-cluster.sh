@@ -605,3 +605,15 @@ checkGroupMatchedCommand(){
     checkClusterMatched "$stableNodesIps"
   fi
 }
+
+getNodesOrder() {
+  local nodesStatus nodesList failInfo
+  nodesStatus="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
+  failInfo="$(echo "$nodesStatus"| xargs -n1 | awk -F "/" '$2 !~ /^(master|slave)$/{print}')"
+  if [ "$failInfo" != "" ];then
+    log "node fail: $(echo "$failInfo" | xargs -n1 | paste -sd ";" )"
+    return $CLUSTER_NODE_ERR
+  fi
+  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.6 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
+  echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ","
+}
