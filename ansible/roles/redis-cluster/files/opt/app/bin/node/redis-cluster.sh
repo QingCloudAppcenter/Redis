@@ -51,7 +51,7 @@ init() {
 }
 
 getLoadStatus() {
-  runRedisCmd info Replication | grep -Eq '^(slave[0-9]|master_host):'
+  runRedisCmd info Replication | grep -Eq '^(slave[0-9]+|master_host):'
 }
 
 start() {
