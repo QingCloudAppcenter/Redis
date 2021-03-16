@@ -28,18 +28,9 @@ initNode() {
   _initNode
 }
 
-getLoadStatus() {
-  runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
-}
-
 start() {
   isNodeInitialized || execute initNode
-  configure
-  _start
-  local waitTime
-  waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
-  log "retry $waitTime 1 0 getLoadStatus"
-  retry $waitTime 1 0 getLoadStatus
+  configure && _start
 }
 
 stop() {
