@@ -51,7 +51,7 @@ init() {
 }
 
 getLoadStatus() {
-  runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
+  runRedisCmd info Replication | grep -Eq '^(slave[0-9]|master_host):'
 }
 
 start() {
