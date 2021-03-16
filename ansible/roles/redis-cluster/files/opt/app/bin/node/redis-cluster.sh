@@ -50,10 +50,18 @@ init() {
   initCluster
 }
 
+getLoadStatus() {
+  runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
+}
+
 start() {
   isNodeInitialized || execute initNode
   configure
   _start
+  local waitTime
+  waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
+  log "retry $waitTime 1 0 getLoadStatus"
+  retry $waitTime 1 0 getLoadStatus
 }
 
 checkRedisStateIsOkByInfo(){
@@ -262,8 +270,8 @@ preScaleIn() {
     waitUntilAllNodesIsOk "$stableNodesIps"
     log "forget $leavingNodeIp"
     local leavingNodeId; leavingNodeId="$(getMyIdByMyIp $leavingNodeIp)"
-    local node nodeIp; for node in $REDIS_NODES; do
-      nodeIp=${node##*/}
+    local node nodeIp 
+    for node in $(echo "$REDIS_NODES" | xargs -n1 | awk -F"/" '{print $5}'); do
       if echo "$stableNodesIps" | grep -E "^${nodeIp//\./\\.}$" |grep -Evq "^${leavingNodeIp//\./\\.}$"; then
         log "forget in ${nodeIp}"
         runRedisCmd -h ${nodeIp} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)."; return $CLUSTER_FORGET_ERR)    
@@ -558,8 +566,8 @@ getClusterMatched(){
   fi
 
   local myClusterIps; myClusterIps="("
-  local node; for node in $REDIS_NODES; do
-    node="${node##*/}"
+  local node 
+  for node in $(echo "$REDIS_NODES" | xargs -n1 | awk -F"/" '{print $5}'); do
     myClusterIps="$myClusterIps${node//\./\\.}:$REDIS_PORT|"
   done
   myClusterIps="${myClusterIps%|*})"
