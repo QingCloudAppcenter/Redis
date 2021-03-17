@@ -51,17 +51,25 @@ init() {
 }
 
 getLoadStatus() {
-  runRedisCmd info Replication | grep -Eq '^(slave[0-9]+|master_host):'
+  local gid
+  gid=$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip=$MY_IP '$5==ip{print $1}')
+  if echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip=$MY_IP -v gid=$gid '$5!=ip && $1==gid {exit 1}'; then
+    runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
+  else
+    runRedisCmd info Replication | grep -Eq '^(slave[0-9]|master_host):'
+  fi
 }
 
 start() {
   isNodeInitialized || execute initNode
   configure
   _start
-  local waitTime
-  waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
-  log "retry $waitTime 1 0 getLoadStatus"
-  retry $waitTime 1 0 getLoadStatus
+  if [ "$VERTICAL_SCALING_ROLES" != "" ]; then
+    local waitTime
+    waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
+    log "retry $waitTime 1 0 getLoadStatus"
+    retry $waitTime 1 0 getLoadStatus
+  fi
 }
 
 checkRedisStateIsOkByInfo(){
