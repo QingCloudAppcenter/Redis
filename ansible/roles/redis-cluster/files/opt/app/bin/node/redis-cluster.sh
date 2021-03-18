@@ -98,11 +98,11 @@ waitUntilAllNodesIsOk(){
 }
 
 getStableNodesIps(){
-  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $5}' <(echo "$JOINING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs)
+  awk -F "/" 'NR==FNR{a[$2]++}NR>FNR && !a[$2] {print $5}' <(echo "$JOINING_REDIS_NODES" |xargs -n1) <(echo "$REDIS_NODES" |xargs -n1)
 }
 
 getNodesIpsAfterScaleIn(){
-  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $5}' <(echo "$LEAVING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs)
+  awk -F "/" 'NR==FNR{a[$2]++}NR>FNR && !a[$2] {print $5}' <(echo "$LEAVING_REDIS_NODES" |xargs -n1) <(echo "$REDIS_NODES" |xargs -n1)
 }
 
 getFirstNodeIpInStableNodesExceptLeavingNodes(){
