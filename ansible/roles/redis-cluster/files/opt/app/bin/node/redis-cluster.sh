@@ -52,8 +52,8 @@ init() {
 
 getLoadStatus() {
   local gid
-  gid=$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip=$MY_IP '$5==ip{print $1}')
-  if echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip=$MY_IP -v gid=$gid '$5!=ip && $1==gid {exit 1}'; then
+  gid=$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip="$MY_IP" '$5==ip{print $1}')
+  if echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip="$MY_IP" -v gid=$gid '$5!=ip && $1==gid {exit 1}'; then
     runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
   else
     runRedisCmd info Replication | grep -Eq '^(slave[0-9]|master_host):'
@@ -98,11 +98,11 @@ waitUntilAllNodesIsOk(){
 }
 
 getStableNodesIps(){
-  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$JOINING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs) |xargs -n1 |awk -F "/" '{print $5}'
+  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $5}' <(echo "$JOINING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs)
 }
 
 getNodesIpsAfterScaleIn(){
-  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $0}' <(echo "$LEAVING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs) |xargs -n1 |awk -F "/" '{print $5}'
+  awk 'BEGIN{RS=" ";ORS=" "}NR==FNR{a[$0]}NR>FNR{ if(!($0 in a)) print $5}' <(echo "$LEAVING_REDIS_NODES" |xargs) <(echo "$REDIS_NODES" |xargs)
 }
 
 getFirstNodeIpInStableNodesExceptLeavingNodes(){
@@ -115,13 +115,14 @@ getFirstNodeIpInStableNodesExceptLeavingNodes(){
 }
 
 findMasterIdByJoiningSlaveIp(){
-  local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
-  local gid; gid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/${1//\./\\.}$" |cut -d "/" -f1)"
-  local ipsInGid; ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/^'${1//\./\\.}'$/){print $5}}' |sed 's/\./\\./g')"
-  local redisClusterNodes; redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
+  local firstNodeIpInStableNode gid ipsInGid redisClusterNodes masterId masterIdCount
+  firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
+  gid="$(echo "$REDIS_NODES" |xargs -n1 | awk -F"/" -v ip="$1" '$5==ip{print $1}')"
+  ipsInGid="$(echo "$REDIS_NODES" |xargs -n1 |awk -F "/" 'BEGIN{ORS="|"}{if ($1=='$gid' && $5!~/^'${1//\./\\.}'$/){print $5}}' |sed 's/\./\\./g')"
+  redisClusterNodes="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
   log "redisClusterNodes:  $redisClusterNodes"
-  local masterId; masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
-  local masterIdCount; masterIdCount="$(echo "$masterId" |wc -l)"
+  masterId="$(echo "$redisClusterNodes" |awk '$0~/.*('${ipsInGid:0:-1}'):'$REDIS_PORT'.*(master){1}.*/{print $1}')"
+  masterIdCount="$(echo "$masterId" |wc -l)"
   if [[ $masterIdCount == 1 ]]; then
     echo "$masterId"
   else
@@ -159,16 +160,15 @@ scaleOut() {
     return $NO_JOINING_NODES_DETECTED_ERR
   }
   # add master nodes
-  local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
-  local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
-  local node; for node in $JOINING_REDIS_NODES;do
-    if [[ "$(echo "$node"|cut -d "/" -f3)" == "master" ]];then
-      waitUntilAllNodesIsOk "$stableNodesIps"
-      log "add master node ${node##*/}"
-      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT
-      log "add master node ${node##*/} end"
-      stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
-    fi
+  local stableNodesIps firstNodeIpInStableNode node
+  stableNodesIps="$(getStableNodesIps)"
+  firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
+  for node in $(echo "$JOINING_REDIS_NODES" | awk -F/ '$3=="master"{prin $5}');do
+    waitUntilAllNodesIsOk "$stableNodesIps"
+    log "add master node ${node}"
+    runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT
+    log "add master node ${node} end"
+    stableNodesIps="$(echo "$stableNodesIps ${node}")"
   done
   # rebalance slots
   log "check stableNodesIps: $stableNodesIps"
@@ -183,17 +183,15 @@ scaleOut() {
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
   # add slave nodes
-  local node; for node in $JOINING_REDIS_NODES;do
-    if [[ "$(echo "$node"|cut -d "/" -f3)" == "slave" ]];then
-      log "add master-replica node ${node##*/}"
-      waitUntilAllNodesIsOk "$stableNodesIps"
-      # 新增的从节点在短时间内其在配置文件中的身份为 master，会导致再次增加从节点时获取到的 masterId 为多个，这里需要等到 masterId 为一个为止 
-      local masterId; masterId="$(retry 20 1 0 findMasterIdByJoiningSlaveIp ${node##*/})"
-      log "${node##*/}: masterId is $masterId"
-      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
-      log "add master-replica node ${node##*/} end"
-      stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
-    fi
+  for node in $(echo "$JOINING_REDIS_NODES" | awk -F/ '$3=="master"{prin $5}') ;do
+    log "add master-replica node ${node}"
+    waitUntilAllNodesIsOk "$stableNodesIps"
+    # 新增的从节点在短时间内其在配置文件中的身份为 master，会导致再次增加从节点时获取到的 masterId 为多个，这里需要等到 masterId 为一个为止
+    local masterId; masterId="$(retry 20 1 0 findMasterIdByJoiningSlaveIp ${node})"
+    log "${node}: masterId is $masterId"
+    runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
+    log "add master-replica node ${node} end"
+    stableNodesIps="$(echo "$stableNodesIps ${node}")"
   done
 }
 
@@ -550,7 +548,7 @@ getGroupMatched(){
   if [[ "$targetRole" == "slave" ]]; then
       local targetMasterId; targetMasterId="$(echo "$targetRoleInfo" |awk '{print $2}')"
       local targetMasterIp; targetMasterIp="$(echo "$clusterNodes" |awk '{if ($1~/'$targetMasterId'/){split($2,ips,":");print ips[1]}}')"
-      local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 |grep -E "/(${targetMasterIp//\./\\.}|${targetIp//\./\\.})$" |cut -d "/" -f1 |uniq)"
+      local ourGid; ourGid="$(echo "$REDIS_NODES" |xargs -n1 | awk -F"/" '($5=="'${targetMasterIp}'" || $5=="'$targetIp'") && (!c[$1]++) {print $1}')"
       [[ $(echo "$ourGid" |awk '{print NF}') == 1 ]] || {
         log --debug "clusterNodes for $targetIp dismatched group: 
         $clusterNodes
