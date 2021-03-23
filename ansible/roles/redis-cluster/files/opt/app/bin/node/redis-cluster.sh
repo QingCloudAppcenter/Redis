@@ -30,7 +30,21 @@ initNode() {
   _initNode
 }
 
+checkMyRoleSlave() {
+  getRedisRole "$MY_IP" | grep -qE "^slave$"
+}
+
 stop(){
+  if [ "$VERTICAL_SCALING_ROLES" != "" ]; then
+    local slaveIP
+    if [ "$(getRedisRole "$MY_IP")" == "master" ]; then
+       slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else {gids[$1]=$5}}END{print gids[gid]}')"
+       [ -n "$slaveIP" ] && {
+         runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
+         retry 120 1 0 checkMyRoleSlave
+       }
+    fi
+  fi
   echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
 }
