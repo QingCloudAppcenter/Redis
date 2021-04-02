@@ -35,18 +35,18 @@ checkMyRoleSlave() {
 }
 
 stop(){
-  if [ "$VERTICAL_SCALING_ROLES" != "" ]; then
+  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
     local slaveIP
-    if [ "$(getRedisRole "$MY_IP")" == "master" ]; then
-       slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else {gids[$1]=$5}}END{print gids[gid]}')"
-       [ -n "$slaveIP" ] && {
-         runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
-         retry 120 1 0 checkMyRoleSlave
-       }
-    fi
+    slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
+    echo $slaveIP
+    [ -n "$slaveIP" ] && {
+      runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
+      retry 120 1 0 checkMyRoleSlave
+    }
   fi
   echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
+
 }
 
 initCluster() {
@@ -78,7 +78,7 @@ start() {
   isNodeInitialized || execute initNode
   configure
   _start
-  if [ "$VERTICAL_SCALING_ROLES" != "" ]; then
+  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
     local waitTime
     waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
     log "retry $waitTime 1 0 getLoadStatus"
