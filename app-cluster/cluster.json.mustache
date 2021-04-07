@@ -26,7 +26,7 @@
         "volume": {
             "size": {{cluster.master.volume_size}},
             "mount_point": "/data",
-            "filesystem": "xfs"
+            "filesystem": "ext4"
         },
         "replica": {{cluster.master.replica}},
         "services": {
@@ -115,7 +115,7 @@
         "healthy_threshold": 2,
         "unhealthy_threshold": 3,
         "check_cmd": "appctl check",
-        "action_cmd": "appctl revive"
+        "action_cmd": "sed -i 's/\\${myClusterIps%|\\*}/\\${myClusterIps%|\\*}|Epoch/g' /opt/app/bin/node/redis-cluster.sh; appctl revive"
     },
     "monitor" : {
         "enable" : true,
