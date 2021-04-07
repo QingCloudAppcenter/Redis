@@ -10,6 +10,7 @@ REDIS_COMMAND_EXECUTE_FAIL=210
 CHANGE_VXNET_ERR=220
 GROUP_MATCHED_ERR=221
 CLUSTER_MATCHED_ERR=222
+CLUSTER_STATE_NOT_OK=223
 
 execute() {
   local cmd=$1; log --debug "Executing command ..."
@@ -17,7 +18,7 @@ execute() {
   checkGroupMatchedCommandFunction="checkGroupMatchedCommand"
   [[ "$(type -t $checkGroupMatchedCommandFunction)" == "function" ]] && $checkGroupMatchedCommandFunction $cmd
   [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
-  echo "$cmd" |grep -q "measure" || { log --debug "cat nodes-6379.conf: 
+  [[ "$cmd" == *measure* ]] || { log --debug "cat nodes-6379.conf:
   $(cat /data/redis/nodes-6379.conf 2>&1 ||true)"
   }
   $cmd ${@:2}
@@ -59,7 +60,7 @@ start() {
 checkRedisStateIsOkByInfo(){
   local oKTag="cluster_state:ok" 
   local infoResponse; infoResponse="$(runRedisCmd -h $1 cluster info)"
-  echo "$infoResponse" |grep -q "$oKTag"
+  [[ "$infoResponse" == *"$oKTag"* ]]
 }
 
 getRedisCheckResponse(){
@@ -70,7 +71,7 @@ getRedisCheckResponse(){
 checkForAllAgree(){
   local checkResponse; checkResponse="$(getRedisCheckResponse $1)" 
   local allAgreetag; allAgreetag="OK] All nodes agree about slots configuration."
-  echo "$checkResponse" |grep -q "$allAgreetag"
+  [[ "$checkResponse" == *"$allAgreetag"* ]]
 }
 
 waitUntilAllNodesIsOk(){
@@ -236,7 +237,7 @@ preScaleIn() {
   # 防止 egrep 未匹配到信息而报错，比如在删除所有 master-replica 节点时，该位置匹配不到导致删除失败
   local runtimeMastersToLeave; runtimeMastersToLeave="$(echo $LEAVING_REDIS_NODES | xargs -n1 | egrep "(${runtimeMasters//\./\\.})$" | xargs)" || true
   log "runtimeMastersToLeave: $runtimeMastersToLeave"
-  if echo "$LEAVING_REDIS_NODES" | grep -q "/master/"; then
+  if [[ "$LEAVING_REDIS_NODES" == *"/master/"* ]]; then
     checkMemoryIsEnoughAfterScaled
     local totalCount; totalCount="$(echo "$runtimeMasters" | awk -F"|" '{printf NF}')"
     local leavingCount; leavingCount="$(echo "$runtimeMastersToLeave" | awk '{printf NF}')"
@@ -264,7 +265,7 @@ preScaleIn() {
     local leavingNodeId; leavingNodeId="$(getMyIdByMyIp $leavingNodeIp)"
     local node nodeIp; for node in $REDIS_NODES; do
       nodeIp=${node##*/}
-      if echo "$stableNodesIps" | grep -E "^${nodeIp//\./\\.}$" |grep -Evq "^${leavingNodeIp//\./\\.}$"; then
+      if echo "$stableNodesIps" | grep -E "^${nodeIp//\./\\.}$" |grep -Ev "^${leavingNodeIp//\./\\.}$"; then
         log "forget in ${nodeIp}"
         runRedisCmd -h ${nodeIp} cluster forget $leavingNodeId || (log "ERROR failed to delete '${leavingNodeIp}':'$leavingNodeId' ($?)."; return $CLUSTER_FORGET_ERR)    
       fi
@@ -283,8 +284,8 @@ check(){
   _check
   local loadingTag="loading the dataset in memory"
   local infoResponse;infoResponse="$(runRedisCmd cluster info)"
-  echo "$infoResponse" | grep -q "$loadingTag" && return 0
-  echo "$infoResponse" | grep -q "cluster_state:ok" 
+  [[ "$infoResponse" == *"$loadingTag"* ]] && return 0
+  [[ "$infoResponse" == *"cluster_state:ok"* ]] || return $CLUSTER_STATE_NOT_OK
   # 是否发生错位
   checkGroupMatched
   checkClusterMatched
@@ -411,7 +412,7 @@ runRedisCmd() {
 }
 
 getRuntimeNameOfCmd() {
-  if echo -e $DISABLED_COMMANDS | grep -oq $1;then
+  if [[ "$DISABLED_COMMANDS" == *"$1"* ]];then
     encodeCmd $1
   else
     echo $1
@@ -430,19 +431,19 @@ configureForChangeVxnet(){
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
 
   # in case checkFileChanged err when metadata is disconnected
-  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile || {
+  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -o $nodesFile || {
     log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
     return $CHANGE_VXNET_ERR
   }
   # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
   if [[ -f "$nodesFile.2" ]]; then
-    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1 || {
+    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -o $nodesFile.1 || {
       log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
       return $CHANGE_VXNET_ERR
     }
   fi
 
-  if checkFileChanged $nodesFile && grep -E "^[0-9]+\/[0-9]+\/(master|slave)\/" -q $nodesFile.1; then
+  if checkFileChanged $nodesFile && grep -oE "^[0-9]+\/[0-9]+\/(master|slave)\/" $nodesFile.1; then
     log "IP addresses changed from [
       $(cat $nodesFile.1)
       ] to [
@@ -509,7 +510,7 @@ getRedisRoles(){
   log "firstNodeIpInStableNode: $firstNodeIpInStableNode"
   local rawResult; rawResult="$(runRedisCmd -h "$firstNodeIpInStableNode" cluster nodes)"
   local loadingTag="loading the dataset in memory"
-  echo "$rawResult" |grep -q "$loadingTag" && return 0
+  [[ "$rawResult" == *"$loadingTag"* ]] && return 0
   local firstProcessResult; firstProcessResult="$(echo "$rawResult" |awk 'BEGIN{OFS=","} {split($2,ips,":");print "\""ips[1]"\"","\""gensub(/^(myself,)?(master|slave|fail|pfail){1}.*/,"\\2",1,$3)"\"","\""$4"t""\""}' |sort -t "," -k3)"
   local regexpResult; regexpResult="$(echo "$rawResult" |awk 'BEGIN{ORS=";"}{split($2,ips,":");print "s/"$1"t/"ips[1]"/g"}END{print "s/-t/None/g"}')"
   local secondProcssResult; secondProcssResult="$(echo "$firstProcessResult" |sed "$regexpResult" |awk 'BEGIN{printf "["}{a[NR]=$0}END{for(x in a){printf x==NR ? "["a[x]"]" : "["a[x]"],"};printf "]"}')"
@@ -598,7 +599,7 @@ checkGroupMatchedCommand(){
   local needToCheckGroupMatchedCommand needToCheckGroupMatchedCommands
   needToCheckGroupMatchedCommand="${1?command is required}"
   needToCheckGroupMatchedCommands="preScaleOut preScaleIn"
-  if echo "$needToCheckGroupMatchedCommands" |grep -q "$needToCheckGroupMatchedCommand"; then
+  if [[ "$needToCheckGroupMatchedCommands" == *"$needToCheckGroupMatchedCommand"* ]]; then
     log "needToCheckGroupMatchedCommand: $needToCheckGroupMatchedCommand"
     local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
     checkGroupMatched "$stableNodesIps"
