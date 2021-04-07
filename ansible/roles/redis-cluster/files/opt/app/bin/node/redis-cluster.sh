@@ -557,13 +557,13 @@ getClusterMatched(){
     clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
   fi
 
-  local myClusterIps; myClusterIps="("
+  local expectedNodes; expectedNodes="("
   local node; for node in $REDIS_NODES; do
     node="${node##*/}"
-    myClusterIps="$myClusterIps${node//\./\\.}:$REDIS_PORT|"
+    expectedNodes="$expectedNodes${node//\./\\.}:$REDIS_PORT|"
   done
-  myClusterIps="${myClusterIps%|*})"
-  if [[ "$(echo "$clusterNodes" |grep -Ev "$myClusterIps")" =~ [a-z0-9]+ ]];then
+  expectedNodes="${expectedNodes%|*})"
+  if [[ "$(echo "$clusterNodes" |grep -Ev "$expectedNodes")" =~ [a-z0-9]+ ]];then
     log --debug "
       clusterNodes for node $targetIp dismatched cluster：
       $clusterNodes
