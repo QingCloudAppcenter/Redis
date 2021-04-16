@@ -32,8 +32,8 @@ initNode() {
 }
 
 stop(){
-  echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
+  swapIpAndName
 }
 
 initCluster() {
@@ -423,48 +423,20 @@ encodeCmd() {
   echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}"
 }
 
-nodesFile=/data/redis/nodes
 rootConfDir=/opt/app/conf/redis-cluster
 
-configureForChangeVxnet(){
-  log "configureForChangeVxnet Start"
+swapIpAndName() {
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
-
-  # in case checkFileChanged err when metadata is disconnected
-  egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -o $nodesFile || {
-    log "Data format in $nodesFile is err, content: [$(paste -s $nodesFile)]"
-    return $CHANGE_VXNET_ERR
-  }
-  # 防止创建资源时产生的第一个 nodes.1 的空文件干扰
-  if [[ -f "$nodesFile.2" ]]; then
-    egrep "^[0-9]+\/[0-9]+\/(master|slave)\/" -o $nodesFile.1 || {
-      log "Data format in $nodeFile.1 is err, content: [$(paste -s $nodesFile.1)]"
-      return $CHANGE_VXNET_ERR
-    }
+  local fields replaceCmd
+  sudo -u redis touch $runtimeNodesConfigFile && rotate $runtimeNodesConfigFile
+  if [ -n "$1" ];then
+    fields='{print "s/ "$4":"port"@/ "$5":"port"@/g"}'
+  else
+    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":"port"@/ "$4":"port"@/g"}}'
   fi
-
-  if checkFileChanged $nodesFile && grep -oE "^[0-9]+\/[0-9]+\/(master|slave)\/" $nodesFile.1; then
-    log "IP addresses changed from [
-      $(cat $nodesFile.1)
-      ] to [
-      $(cat $nodesFile)
-      ]. Updating config files accordingly ..."
-    local replaceCmd; replaceCmd="$(join -1 4 -2 4 -t/ -o1.5,2.5 <(sed "s/\./\\\./g" $nodesFile.1) $nodesFile |  sed 's#/#:'$REDIS_PORT'\\b/_ #g; s#^#s/\\b #g; s#$#:'$REDIS_PORT'_/g#g' | sed '$as/_//g' |paste -sd';')"
-    log "replaceCmd: $replaceCmd"
-    log "start rotate $runtimeNodesConfigFile"
-    rotate $runtimeNodesConfigFile
-    log "end rotate $runtimeNodesConfigFile"
-    log "prereplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-    [[ -f "$runtimeNodesConfigFile" ]] && {
-      log "start execute replaceCmd"
-      sed -i "${replaceCmd}" $runtimeNodesConfigFile
-      log "end execute replace"
-    }
-    log "postreplace：content in $runtimeNodesConfigFile: $(cat $runtimeNodesConfigFile)"
-  fi
-  log "configureForChangeVxnet End"
+  replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v port="$REDIS_PORT" "$fields"  | paste -sd';')"
+  sed -i "$replaceCmd" $runtimeNodesConfigFile
 }
-
 
 configureForRedis(){
   log "configureForRedis Start"
@@ -472,7 +444,7 @@ configureForRedis(){
   local defaultConfigFile=$rootConfDir/redis.default.conf
   local runtimeConfigFile=/data/redis/redis.conf
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+    $changedConfigFile $defaultConfigFile $runtimeConfigFile.1 > $runtimeConfigFile
   log "configureForRedis End"
 }
 
@@ -480,10 +452,9 @@ configure() {
   local changedConfigFile=$rootConfDir/redis.changed.conf
   local defaultConfigFile=$rootConfDir/redis.default.conf
   local runtimeConfigFile=/data/redis/redis.conf
-  sudo -u redis touch $runtimeConfigFile $nodesFile
-  rotate $runtimeConfigFile $nodesFile
-  echo $REDIS_NODES | xargs -n1 > $nodesFile
-  configureForChangeVxnet
+  sudo -u redis touch $runtimeConfigFile
+  rotate $runtimeConfigFile 
+  swapIpAndName --reverse
   configureForRedis
 }
 
