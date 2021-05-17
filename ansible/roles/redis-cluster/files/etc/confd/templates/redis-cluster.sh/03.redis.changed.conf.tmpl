@@ -55,4 +55,6 @@ port {{ getv "/env/port" "6379" }}
 masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
 requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
 $(renameCommands)
+io-threads-do-reads $([ {{ getv "/host/cpu" "" }} -eq 8 ] && echo "yes" || echo "no" )
+io-threads 6
 REDIS_CHANGED_CONF_EOF

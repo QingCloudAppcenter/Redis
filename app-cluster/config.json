@@ -26,6 +26,14 @@
             "default": "",
             "required": "yes"
         }, {
+            "key": "resource_group",
+            "label": "Resource Configuration",
+            "description": "Test: 3 disc nodes with 1 HAProxy node; Prod: 3 disc nodes with 2 HAProxy nodes",
+            "type": "string",
+            "customizable" : false,
+            "default": "Prod",
+            "range": ["Test", "Prod"]
+        }, {
             "key": "master",
             "label": "Master",
             "description": "Redis master node",
@@ -36,6 +44,7 @@
                 "description": "",
                 "type": "integer",
                 "default": 202,
+                "resource_group" : [101, 202],
                 "range": [101, 202, 301],
                 "required": "yes"
             }, {
@@ -43,15 +52,15 @@
                 "label": "CPU",
                 "description": "Cpus of each node",
                 "type": "integer",
-                "default": 1,
-                "range": [1,2],
+                "default": 8,
+                "range": [2, 8],
                 "required": "yes"
             }, {
                 "key": "memory",
                 "label": "Memory",
                 "description": "Memory of each node (in MiB)",
                 "type": "integer",
-                "default": 2048,
+                "default": 8192,
                 "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536],
                 "required": "yes"
             }, {
@@ -60,7 +69,7 @@
                 "description": "Number of master nodes (shards) for the cluster to create",
                 "type": "integer",
                 "default": 3,
-                "min": 3,
+                "min": 1,
                 "max": 127,
                 "required": "yes"
             }, {

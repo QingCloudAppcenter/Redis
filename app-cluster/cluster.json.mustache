@@ -9,7 +9,8 @@
      "appv-9yvinzz0",
      "appv-okxhok17",
      "appv-0l56bsk6",
-     "appv-pjxqcdm1"
+     "appv-pjxqcdm1",
+     "appv-79rlu7jt"
     ],    
     "nodes": [{
         "role": "master",
@@ -17,7 +18,8 @@
             "type": "lxc",
             "prefer_type": "lxc",
             "zone": "pek3",
-            "image": "img-6h033wk1"
+            "sriov_nic": true,
+            "image": "img-mno01kvu"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -132,6 +134,12 @@
                 "value_type": "str",
                 "statistics_type": "latest",
                 "enums": ["true", "false"]
+            },
+            "instantaneous_ops_per_sec" : {
+                "unit" : "Times",
+                "value_type" : "int",
+                "statistics_type" : "max",
+                "scale_factor_when_display" : 1
             },
             "key_count" : {
                 "unit" : "Times",
@@ -286,6 +294,7 @@
 
         },
         "groups" : {
+            "QPS": ["instantaneous_ops_per_sec"],
             "is_group_matched": ["group_matched"],
             "replicaDelay": ["replica_delay"],
             "Operations" : [ "get_count", "set_count", "key_based_count", "string_based_count"],
@@ -297,7 +306,7 @@
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
-        "display" : ["node_role", "is_group_matched", "replicaDelay", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
+        "display" : ["node_role", "is_group_matched", "QPS", "replicaDelay", "memory_usage", "Operations", "Operations2", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate"],
         "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched","node_role"]
     },
     "display_tabs" : {
