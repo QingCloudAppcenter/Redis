@@ -41,13 +41,14 @@ stop(){
     slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
     echo $slaveIP
     [ -n "$slaveIP" ] && {
+      log "runRedisCmd -h $slaveIP CLUSTER FAILOVER TAKEOVER"
       runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
+      log "retry 120 1 0 checkMyRoleSlave"
       retry 120 1 0 checkMyRoleSlave
     }
   fi
-  echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
-
+  swapIpAndName
 }
 
 initCluster() {
