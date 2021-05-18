@@ -20,7 +20,7 @@
   "maxmemory-percent": "最大内存比例",
   "Cpus of each node": "每个节点的核数，一般作为缓存，单核就足够了，在数据量较大，数据写入速度很快的情况下，可以视情况使用双核",
   "enable-config": "打开config和save命令",
-  "The replica number for each master": "每个分片（主节点）的副本点数量",
+  "The replica number for each master": "每个分片（主节点）的副本点数量<br>输入每个分片的副本数量, 推荐1,（范围0-5）",
   "The volume size for each instance": "每个节点的硬盘大小，建议最小设置为内存大小的三倍",
   "Active rehashing uses 1 millisecond every 100 milliseconds of CPU time in order to help rehashing the main Redis hash table": "是否开启rehashing以节省内存空间",
   "The Append Only File is an alternative persistence mode that provides much better durability.": "是否使用AOF持久化",
