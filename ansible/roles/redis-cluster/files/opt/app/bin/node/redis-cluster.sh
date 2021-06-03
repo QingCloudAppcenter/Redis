@@ -36,7 +36,7 @@ checkMyRoleSlave() {
 }
 
 stop(){
-  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
+  if [ -n "${REBUILD_AUDIT}${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
     local slaveIP
     slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
     echo $slaveIP
@@ -49,6 +49,8 @@ stop(){
   fi
   _stop
   swapIpAndName
+  curl -Ss http://metadata/self | awk '{print strftime("%H:%M:%S ")$0}' >> /data/metadata.log
+
 }
 
 initCluster() {
@@ -80,7 +82,8 @@ start() {
   isNodeInitialized || execute initNode
   configure
   _start
-  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
+  curl -Ss http://metadata/self | awk '{print strftime("%H:%M:%S ")$0}' >> /data/metadata.log
+  if [ -n "${REBUILD_AUDIT}${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
     local waitTime
     waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
     log "retry $waitTime 1 0 getLoadStatus"
@@ -169,6 +172,9 @@ preScaleOut(){
 }
 
 scaleOut() {
+  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
+  local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
+  rotate $runtimeNodesConfigFile
   log "joining nodes $JOINING_REDIS_NODES"
   [[ -n "$JOINING_REDIS_NODES" ]] || {
     log "no joining nodes detected"
@@ -191,7 +197,7 @@ scaleOut() {
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
-  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT || {
+  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT >> $logFile || {
       log "ERROR failed to rebalance the cluster ($?)."
       return $REBALANCE_ERR
     }
@@ -253,6 +259,9 @@ checkMemoryIsEnoughAfterScaled(){
 
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
+  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
+  local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
+  rotate $runtimeNodesConfigFile
   log "leaving nodes $LEAVING_REDIS_NODES"
   log "getFirstNodeIpInStableNode"
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
@@ -275,7 +284,7 @@ preScaleIn() {
     #(( $leavingCount>0 && $totalCount-$leavingCount>2 )) || (log "ERROR broken cluster: runm='$runtimeMasters' leav='$LEAVING_REDIS_NODES'."; return $NUMS_OF_REMAIN_NODES_TOO_LESS_ERR)
     log "== rebalance start =="
     local leavingIds node; leavingIds="$(for node in $runtimeMastersToLeave; do getMyIdByMyIp ${node##*/}; done)"
-    runRedisCmd --timeout 86400 -h "$firstNodeIpInStableNode" --cluster rebalance --cluster-weight $(echo $leavingIds | xargs -n1 | sed 's/$/=0/g' | xargs) $firstNodeIpInStableNode:$REDIS_PORT || {
+    runRedisCmd --timeout 86400 -h "$firstNodeIpInStableNode" --cluster rebalance --cluster-weight $(echo $leavingIds | xargs -n1 | sed 's/$/=0/g' | xargs) $firstNodeIpInStableNode:$REDIS_PORT >> $logFile || {
       log "ERROR failed to rebalance the cluster ($?)."
       return $REBALANCE_ERR
     }
@@ -384,18 +393,8 @@ measure() {
   else
     replicaDelay=0
   fi
-  runRedisCmd info all | awk -F: 'BEGIN {
-    g["hash_based_count"] = "^h"
-    g["list_based_count"] = "^(bl|br|l|rp)"
-    g["set_based_count"] = "^s[^e]"
-    g["sorted_set_based_count"] = "^(bz|z)"
-    g["stream_based_count"] = "^x"
-    g["key_based_count"] = "^(del|dump|exists|expire|expireat|keys|migrate|move|object|persist|pexpire|pexpireat|pttl|randomkey|rename|renamenx|restore|sort|touch|ttl|type|unlink|wait|scan)"
-    g["string_based_count"] = "^(append|bitcount|bitfield|bitop|bitpos|decr|decrby|get|getbit|getrange|getset|incr|incrby|incrbyfloat|mget|mset|msetnx|psetex|set|setbit|setex|setnx|setrange|strlen)"
-    g["set_count"] = "^(getset|hmset|hset|hsetnx|lset|mset|msetnx|psetex|set|setbit|setex|setnx|setrange)"
-    g["get_count"] = "^(get|getbit|getrange|getset|hget|hgetall|hmget|mget)"
-  }
-  {
+
+  runRedisCmd info all | awk -F: '{
     if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
     }
@@ -404,11 +403,7 @@ measure() {
     for(k in r) {
       if(k~/^cmdstat_/) {
         cmd = gensub(/^cmdstat_/, "", 1, k)
-        for(regexp in g) {
-          if(cmd ~ g[regexp]) {
-            m[regexp] += r[k]
-          }
-        }
+        m[cmd] += r[k]
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
       } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
@@ -433,6 +428,8 @@ runRedisCmd() {
   local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
   local result retCode=0
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
+  log "timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p \"$REDIS_PORT\" $@"
+  log $(echo $result | sed "s/\r/; /g")
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
     retCode=$REDIS_COMMAND_EXECUTE_FAIL
@@ -610,13 +607,16 @@ checkGroupMatchedCommand(){
 }
 
 getNodesOrder() {
-  local nodesStatus nodesList failInfo
+  local nodesStatus nodesList failInfo result
   nodesStatus="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
   failInfo="$(echo "$nodesStatus"| xargs -n1 | awk -F "/" '$2 !~ /^(master|slave)$/{print}')"
   if [ "$failInfo" != "" ];then
     log "node fail: $(echo "$failInfo" | xargs -n1 | paste -sd ";" )"
     return $CLUSTER_NODE_ERR
   fi
-  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.6 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
-  echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ","
+  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.4 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
+  result="$(echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ",")"
+  log "$result"
+  echo $result
 }
+

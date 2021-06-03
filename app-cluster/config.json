@@ -30,7 +30,6 @@
             "label": "Resource Configuration",
             "description": "Test: 3 disc nodes with 1 HAProxy node; Prod: 3 disc nodes with 2 HAProxy nodes",
             "type": "string",
-            "customizable" : false,
             "default": "Prod",
             "range": ["Test", "Prod"]
         }, {
@@ -44,7 +43,7 @@
                 "description": "",
                 "type": "integer",
                 "default": 202,
-                "resource_group" : [101, 202],
+                "resource_group": [101, 202],
                 "range": [101, 202, 301],
                 "required": "yes"
             }, {
@@ -53,7 +52,8 @@
                 "description": "Cpus of each node",
                 "type": "integer",
                 "default": 8,
-                "range": [2, 8],
+                "range": [1, 2, 8],
+                "resource_group": [8, 8],
                 "required": "yes"
             }, {
                 "key": "memory",
@@ -62,6 +62,7 @@
                 "type": "integer",
                 "default": 8192,
                 "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536],
+                "resource_group": [8192, 8192],
                 "required": "yes"
             }, {
                 "key": "count",
@@ -71,6 +72,7 @@
                 "default": 3,
                 "min": 1,
                 "max": 127,
+                "resource_group": [3, 3],
                 "required": "yes"
             }, {
                 "key": "replica",
@@ -78,6 +80,7 @@
                 "description": "The replica number for each master",
                 "type": "integer",
                 "default": 1,
+                "resource_group": [1, 1],
                 "required": "yes"
             }, {
                 "key": "volume_size",
@@ -86,6 +89,7 @@
                 "type": "integer",
                 "default": 10,
                 "min":10,
+                "resource_group": [10, 10],
                 "required": "yes"
             }]
         }]
