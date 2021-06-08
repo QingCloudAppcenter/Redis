@@ -49,8 +49,6 @@ stop(){
   fi
   _stop
   swapIpAndName
-  curl -Ss http://metadata/self | awk '{print strftime("%H:%M:%S ")$0}' >> /data/metadata.log
-
 }
 
 initCluster() {
@@ -403,7 +401,7 @@ measure() {
     for(k in r) {
       if(k~/^cmdstat_/) {
         cmd = gensub(/^cmdstat_/, "", 1, k)
-        m[cmd] += r[k]
+        m[cmd] += r[k]/10
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
       } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
@@ -428,9 +426,7 @@ runRedisCmd() {
   local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
   local result retCode=0
   result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
-  log "timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p \"$REDIS_PORT\" $@"
-  log $(echo $result | sed "s/\r/; /g")
-  if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
+  if [ "$retCode" != 0 ] || [[ "$cmd" != *measure* ]] && [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
     retCode=$REDIS_COMMAND_EXECUTE_FAIL
   else
