@@ -36,7 +36,7 @@ checkMyRoleSlave() {
 }
 
 stop(){
-  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
+  if [ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
     local slaveIP
     slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
     echo $slaveIP
@@ -80,7 +80,7 @@ start() {
   isNodeInitialized || execute initNode
   configure
   _start
-  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
+  if [ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" ]; then
     local waitTime
     waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
     log "retry $waitTime 1 0 getLoadStatus"
@@ -617,6 +617,8 @@ getNodesOrder() {
     log "node fail: $(echo "$failInfo" | xargs -n1 | paste -sd ";" )"
     return $CLUSTER_NODE_ERR
   fi
-  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.6 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
-  echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ","
+  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.4 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
+  result="$(echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ",")"
+  log "getNodesOrder: $result"
+  echo "$result"
 }
