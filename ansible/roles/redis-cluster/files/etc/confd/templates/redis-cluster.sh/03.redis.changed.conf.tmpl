@@ -24,7 +24,11 @@ renameCommands() {
   done
 }
 
+
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
+port {{ getv "/env/port" "6379" }}
+tls-port {{ getv "/env/tls-port" "0" }}
+tls-cluster {{ getv "/env/tls-cluster" "no" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
@@ -51,7 +55,6 @@ tcp-keepalive {{ getv "/env/tcp-keepalive" "0" }}
 timeout {{ getv "/env/timeout" "0" }}
 zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
 zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
-port {{ getv "/env/port" "6379" }}
 masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
 requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
 $(renameCommands)

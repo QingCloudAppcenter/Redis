@@ -25,7 +25,8 @@ execute() {
 }
 
 initNode() {
-  mkdir -p /data/redis/logs
+  mkdir -p /data/redis/{logs,tls}
+  touch /data/redis/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
@@ -425,7 +426,12 @@ runRedisCmd() {
   local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
   local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
   local result retCode=0
-  result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
+  if [ $REDIS_PORT == 0 ]; then
+    result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p "$REDIS_TLS_PORT" $@ 2>&1)" || retCode=$?
+  else
+    result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
+  fi
+
   if [ "$retCode" != 0 ] || [[ "$cmd" != *measure* ]] && [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
     retCode=$REDIS_COMMAND_EXECUTE_FAIL
@@ -451,14 +457,15 @@ rootConfDir=/opt/app/conf/redis-cluster
 
 swapIpAndName() {
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
-  local fields replaceCmd
+  local fields replaceCmd  port=$REDIS_PORT
+  [ "$REDIS_TLS_CLUSTER" == "yes" ] && port=$REDIS_TLS_PORT
   sudo -u redis touch $runtimeNodesConfigFile && rotate $runtimeNodesConfigFile
   if [ -n "$1" ];then
-    fields='{print "s/ "$4":"port"@/ "$5":"port"@/g"}'
+    fields='{print "s/ "$4":[0-9]\\+@[0-9]\\+ / "$5":"port"@"port+10000" /g"}'
   else
-    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":"port"@/ "$4":"port"@/g"}}'
+    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
   fi
-  replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v port="$REDIS_PORT" "$fields"  | paste -sd';')"
+  replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v port="$port" "$fields"  | paste -sd';')"
   sed -i "$replaceCmd" $runtimeNodesConfigFile
 }
 

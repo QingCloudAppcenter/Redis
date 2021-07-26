@@ -20,7 +20,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-wxtlg3sv"
+            "image": "img-5uj9cjwu"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -75,7 +75,7 @@
         "disabled-commands": {{env.disabled-commands}},
         "enable-config": {{env.enable-config}},
         "appcenterignore-requirepass": {{env.requirepass}},
-        "port": 6379,
+        "port": {{env.port}},
         "appctl.maxmemory.percent": {{env.appctl.maxmemory.percent}},
         "activerehashing": {{env.activerehashing}},
         "appendonly": {{env.appendonly}},
@@ -106,7 +106,13 @@
         "web.console.password": {{env.web.console.password}},
         "zset-max-ziplist-entries": {{env.zset-max-ziplist-entries}},
         "zset-max-ziplist-value": {{env.zset-max-ziplist-value}},
-        "lua-time-limit": {{env.lua-time-limit}}
+        "lua-time-limit": {{env.lua-time-limit}},
+        "tls-port": {{env.tls-port}},
+        "tls-cluster": {{env.tls-cluster}},
+        "tls-cert": {{env.tls-cert}},
+        "tls-key": {{env.tls-key}},
+        "tls-ca-cert": {{env.tls-ca-cert}},
+        "tls-dh-params": {{env.tls-dh-params}}
     },
     "advanced_actions": ["change_vxnet","scale_horizontal"],
     "endpoints": {
