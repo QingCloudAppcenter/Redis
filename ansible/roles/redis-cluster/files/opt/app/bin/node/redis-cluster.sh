@@ -39,7 +39,6 @@ stop(){
   if [ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
     local slaveIP
     slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
-    echo $slaveIP
     [ -n "$slaveIP" ] && {
       log "runRedisCmd -h $slaveIP CLUSTER FAILOVER TAKEOVER"
       runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
@@ -81,10 +80,8 @@ start() {
   configure
   _start
   if [ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" ]; then
-    local waitTime
-    waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
-    log "retry $waitTime 1 0 getLoadStatus"
-    retry $waitTime 1 0 getLoadStatus
+    log "retry 86400 1 0 getLoadStatus"
+    retry 86400 1 0 getLoadStatus
   fi
 }
 

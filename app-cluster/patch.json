@@ -1,8 +1,8 @@
 {
-  "patch_policy": [""],
+  "patch_policy": ["", "appp-0os99bi8", "appp-v97d1dlf", "appp-hcmre1oo"],
   "patch_nodes": [{
     "container": {
-        "snapshot": "ss-8bdxueqt",
+        "snapshot": "ss-a0qr7bdl",
         "zone": "pek3"
     },
     "patch": [{

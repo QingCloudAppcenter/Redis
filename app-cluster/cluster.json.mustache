@@ -11,14 +11,13 @@
      "appv-0l56bsk6",
      "appv-pjxqcdm1"
     ],
-    "upgrading_policy": "sequential",
     "nodes": [{
         "role": "master",
         "container": {
             "type": "lxc",
             "prefer_type": "lxc",
             "zone": "pek3",
-            "image": "img-ptl9vi6k"
+            "image": "img-t6etbjsx"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -64,7 +63,7 @@
                 }
             },
             "get_nodes_order": {
-                "event": ["upgrade", "rollback", "scale_vertical"],
+                "event": ["rollback", "scale_vertical"],
                 "cmd": "appctl getNodesOrder"
             }
         }
