@@ -1,16 +1,16 @@
-flush /data/redis/tls/redis.crt << TLS_CERT_EOF
+flush /opt/app/conf/redis-cluster/tls/redis.crt << TLS_CERT_EOF
 {{ join (getvs "/env/tls-cert") "" }}
 TLS_CERT_EOF
 
-flush /data/redis/tls/redis.key << TLS_KEY_EOF
+flush /opt/app/conf/redis-cluster/tls/redis.key << TLS_KEY_EOF
 {{ join (getvs "/env/tls-key") "" }}
 TLS_KEY_EOF
 
-flush /data/redis/tls/ca.crt << TLS_CA_CERT_EOF
+flush /opt/app/conf/redis-cluster/tls/ca.crt << TLS_CA_CERT_EOF
 {{ join (getvs "/env/tls-ca-cert") "" }}
 TLS_CA_CERT_EOF
 
-flush /data/redis/tls/redis.dh << TLS_DH_PARAMS_EOF
+flush /opt/app/conf/redis-cluster/tls/redis.dh << TLS_DH_PARAMS_EOF
 {{ join (getvs "/env/tls-dh-params") "" }}
 TLS_DH_PARAMS_EOF
 

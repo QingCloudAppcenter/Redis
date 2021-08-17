@@ -20,7 +20,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-5uj9cjwu"
+            "image": "img-pn7q3jz9"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -117,7 +117,11 @@
     "advanced_actions": ["change_vxnet","scale_horizontal"],
     "endpoints": {
         "client": {
-            "port": 6379,
+            "port": {{env.port}},
+            "protocol": "tcp"
+        },
+        "tls-client": {
+            "port": {{env.tls-port}},
             "protocol": "tcp"
         }
     },

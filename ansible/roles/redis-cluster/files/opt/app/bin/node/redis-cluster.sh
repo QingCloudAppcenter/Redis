@@ -1,4 +1,4 @@
-NO_JOINING_NODES_DETECTED_ERR=240
+/O_JOINING_NODES_DETECTED_ERR=240
 NUMS_OF_REMAIN_NODES_TOO_LESS_ERR=241
 DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=242
 REBALANCE_ERR=243
@@ -81,7 +81,6 @@ start() {
   isNodeInitialized || execute initNode
   configure
   _start
-  curl -Ss http://metadata/self | awk '{print strftime("%H:%M:%S ")$0}' >> /data/metadata.log
   if [ -n "${REBUILD_AUDIT}${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
     local waitTime
     waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
@@ -102,16 +101,29 @@ getRedisCheckResponse(){
 }
 
 checkForAllAgree(){
-  local checkResponse; checkResponse="$(getRedisCheckResponse $1)" 
-  local allAgreetag; allAgreetag="OK] All nodes agree about slots configuration."
-  [[ "$checkResponse" == *"$allAgreetag"* ]]
+  local checkResponse retCode=0
+  checkResponse="$(getRedisCheckResponse $1 || retCode=$?)"
+  [[ "$checkResponse" == *"OK] All nodes agree about slots configuration."* ]]
+  [[ "$checkInfo" != *"Nodes don't agree about configuration"* ]]
+  return $retCode
 }
+
+
+checkAllAddSuccess(){
+  local ip checkResponse retCode=0 newIP=$1
+  shift 1;
+  for ip in $@ ;do
+    checkResponse="$(runRedisCmd -h $ip cluster nodes || retCode=$?)"
+    [[ "$checkResponse" == *" $newIP:$REDIS_PORT@"* ]]
+  done
+}
+
 
 waitUntilAllNodesIsOk(){
   local ip; for ip in ${1?stableNodesIps is required};do
     log --debug "check node $ip"
     retry 120 1 0 checkRedisStateIsOkByInfo $ip
-    retry 120 1 0 checkForAllAgree $ip
+    retry 600 1 0 checkForAllAgree $ip
   done
 }
 
@@ -170,15 +182,48 @@ preScaleOut(){
   return 0
 }
 
+scaleClusterRebalance() {
+  local redisCmd retCode checkInfo result TIME Num=0 logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log firstNodeIpInStableNode=$1
+  redisCmd="$(redisCli)"
+  while [[ $Num -lt 64 ]]; do
+    retCode=0
+    #result="$()"
+    echo "$redisCmd -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT"
+    $redisCmd -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT || retCode=$?
+    log "scaleClusterRebalance fix rebalance (Code:$retCode). $result"
+    #[[ $retCode -eq 0 ]] && [[ "$result" =~  "ERR I don't know about node|The following slots are open" ]] || return
+    log "start checkInfo -h $firstNodeIpInStableNode --cluster check $firstNodeIpInStableNode:$REDIS_PORT"
+    checkInfo="$($redisCmd -h $firstNodeIpInStableNode --cluster check $firstNodeIpInStableNode:$REDIS_PORT 2>&1  || retCode=$? )"
+    log "rebalance check result (Code:$retCodeFix). $checkInfo "
+    if [[ "$checkInfo" == *"ERR I don't know about node"* || "$checkInfo" ==  *'The following slots are open'*  ]]; then
+      let Num+=1
+      TIME="$(date +%s.%3N)"
+      retCodeFix=0
+      log "-h $firstNodeIpInStableNode --cluster fix $firstNodeIpInStableNode:$REDIS_PORT"
+      result="$($redisCmd -h $firstNodeIpInStableNode --cluster fix $firstNodeIpInStableNode:$REDIS_PORT 2>&1 || retCodeFix=$?)"
+      log "scaleClusterRebalance fix $Num time:$(date +%s.%3N -d "-$TIME second") (Code:$retCodeFix). $result"
+    elif [[ $retCode -ne 0 ]]; then
+      log "scaleClusterRebalance ERROR (Code:$retCodeFix)."
+      break
+    elif [[ $retCode -eq 0 ]]; then
+      return 0
+    fi
+  done
+  log "ERROR failed to rebalance the cluster ($?)."
+  return $REBALANCE_ERR
+}
+
+
 scaleOut() {
-  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
-  local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
+  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
   rotate $runtimeNodesConfigFile
   log "joining nodes $JOINING_REDIS_NODES"
   [[ -n "$JOINING_REDIS_NODES" ]] || {
     log "no joining nodes detected"
     return $NO_JOINING_NODES_DETECTED_ERR
   }
+
+  #runRedisCmd cluster nodes | awk -F "[ :]+" '{print $2}'
   # add master nodes
   local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
@@ -186,7 +231,8 @@ scaleOut() {
     if [[ "$(echo "$node"|cut -d "/" -f3)" == "master" ]];then
       waitUntilAllNodesIsOk "$stableNodesIps"
       log "add master node ${node##*/}"
-      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT
+      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT >> $logFile
+      retry 120 1 0 checkAllAddSuccess "${node##*/}" "$stableNodesIps" 
       log "add master node ${node##*/} end"
       stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
     fi
@@ -196,10 +242,11 @@ scaleOut() {
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
+  #scaleClusterRebalance $firstNodeIpInStableNode
   runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT >> $logFile || {
       log "ERROR failed to rebalance the cluster ($?)."
       return $REBALANCE_ERR
-    }
+  }
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
@@ -211,7 +258,7 @@ scaleOut() {
       # 新增的从节点在短时间内其在配置文件中的身份为 master，会导致再次增加从节点时获取到的 masterId 为多个，这里需要等到 masterId 为一个为止 
       local masterId; masterId="$(retry 20 1 0 findMasterIdByJoiningSlaveIp ${node##*/})"
       log "${node##*/}: masterId is $masterId"
-      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId
+      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT --cluster-slave --cluster-master-id $masterId >> $logFile
       log "add master-replica node ${node##*/} end"
       stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
     fi
@@ -350,7 +397,7 @@ reload() {
   if ! isNodeInitialized; then return 0;fi
 
   if [[ "$1" == "redis-server" ]]; then
-    local changedConfigFile="$rootConfDir/redis.changed.conf"
+    local changedConfigFile="$rootConfDir/redis.changed.conf $(echo $TLS_CONF_LIST | xargs -n1 | cut -f 1 -d:)"
     # redis.conf 发生改变时可以对 redis 做重启操作，防止添加节点时redis-server 重启
     if checkFileChanged $changedConfigFile; then 
        stopSvc "redis-server"
@@ -422,17 +469,20 @@ measure() {
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics"; return $rc )
 }
 
+redisCli() {
+  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
+  if [ $REDIS_TLS_CLUSTER == "yes" ]; then
+    echo "/opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
+  else
+    echo "/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT $@"
+  fi
+}
+
 runRedisCmd() {
   local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
-  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
   local result retCode=0
-  if [ $REDIS_PORT == 0 ]; then
-    result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p "$REDIS_TLS_PORT" $@ 2>&1)" || retCode=$?
-  else
-    result="$(timeout --preserve-status ${timeout}s /opt/redis/current/redis-cli $authOpt -p "$REDIS_PORT" $@ 2>&1)" || retCode=$?
-  fi
-
-  if [ "$retCode" != 0 ] || [[ "$cmd" != *measure* ]] && [[ "$result" == *ERR* ]]; then
+  result="$(timeout --preserve-status ${timeout}s $(redisCli) $@  2>&1)" || retCode=$?
+  if [ "$retCode" != 0 ] || [[ "$cmd" != *measure* && "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
     retCode=$REDIS_COMMAND_EXECUTE_FAIL
   else
@@ -457,15 +507,15 @@ rootConfDir=/opt/app/conf/redis-cluster
 
 swapIpAndName() {
   local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
-  local fields replaceCmd  port=$REDIS_PORT
+  local fields replaceCmd  port=$REDIS_PLAIN_PORT
   [ "$REDIS_TLS_CLUSTER" == "yes" ] && port=$REDIS_TLS_PORT
   sudo -u redis touch $runtimeNodesConfigFile && rotate $runtimeNodesConfigFile
   if [ -n "$1" ];then
-    fields='{print "s/ "$4":[0-9]\\+@[0-9]\\+ / "$5":"port"@"port+10000" /g"}'
+    fields='{print "s/ "$4":\\([0-9]\\+\\)@/ "$5":\1@/g"}'
   else
     fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
   fi
-  replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v port="$port" "$fields"  | paste -sd';')"
+  replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
   sed -i "$replaceCmd" $runtimeNodesConfigFile
 }
 
@@ -479,6 +529,16 @@ configureForRedis(){
   log "configureForRedis End"
 }
 
+rotateTLS() {
+  local tlsConf changedConf runtimeConf
+  for tlsConf in $TLS_CONF_LIST; do
+    changedConf="${tlsConf%:*}"
+    runtimeConf="${tlsConf#*:}"
+    rotate $runtimeConf
+    cat $changedConf > $runtimeConf
+  done
+}
+
 configure() {
   local changedConfigFile=$rootConfDir/redis.changed.conf
   local defaultConfigFile=$rootConfDir/redis.default.conf
@@ -487,10 +547,15 @@ configure() {
   rotate $runtimeConfigFile 
   swapIpAndName --reverse
   configureForRedis
+  rotateTLS
 }
 
 checkFileChanged() {
-  ! ([ -f "$1.1" ] && cmp -s $1 $1.1)
+  local configFile retCode=1
+  for configFile in $@ ; do
+    [ -f "$configFile.1" ] && cmp -s $configFile $configFile.1 || retCode=0
+  done
+  return $retCode
 }
 
 runCommand(){

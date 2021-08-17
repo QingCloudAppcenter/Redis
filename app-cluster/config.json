@@ -149,6 +149,23 @@
             "min": 0,
             "required": "no"
         }, {
+            "key": "tls-port",
+            "label": "tls-port",
+            "description": "tls-port",
+            "type": "integer",
+            "default": 6479,
+            "max": 55535,
+            "min": 0,
+            "required": "no"
+        }, {
+            "key": "tls-cluster",
+            "label": "tls-cluster",
+            "description": "tls-cluster",
+            "type": "string",
+            "required": "no",
+            "default": "no",
+            "range": ["yes", "no"]
+        }, {
             "key": "appctl.maxmemory.percent",
             "label": "maxmemory-percent",
             "description": "Max memory percent Redis can make use of.",
@@ -400,23 +417,6 @@
             "type": "integer",
             "default": 5000,
             "required": "no"
-        }, {
-            "key": "tls-port",
-            "label": "tls-port",
-            "description": "tls-port",
-            "type": "integer",
-            "default": 0,
-            "max": 55535,
-            "min": 0,
-            "required": "no"
-        }, {
-            "key": "tls-cluster",
-            "label": "tls-cluster",
-            "description": "tls-cluster",
-            "required": "yes",
-            "type": "string",
-            "default": "no",
-            "range": ["yes", "no"]
         }, {
             "key": "tls-cert",
             "label": "tls-cert",
