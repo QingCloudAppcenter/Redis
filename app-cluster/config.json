@@ -28,10 +28,11 @@
         }, {
             "key": "resource_group",
             "label": "Resource Configuration",
-            "description": "Test: 3 disc nodes with 1 HAProxy node; Prod: 3 disc nodes with 2 HAProxy nodes",
+            "description": "Multithreaded Prod: 80000qps<br>Single Threaded Prod: 20000qps<br>Multithreaded Test: 30000qps<br>Single Threaded Test: 10000qps",
             "type": "string",
-            "default": "Prod",
-            "range": ["Test", "Prod"]
+            "customizable": true,
+            "default": "MultithreadedProd",
+            "range": ["MultithreadedProd", "SingleThreadedProd","MultithreadedTest", "SingleThreadedTest"]
         }, {
             "key": "master",
             "label": "Master",
@@ -43,7 +44,7 @@
                 "description": "",
                 "type": "integer",
                 "default": 202,
-                "resource_group": [101, 202],
+                "resource_group": [202, 202, 101, 101],
                 "range": [101, 202, 301],
                 "required": "yes"
             }, {
@@ -52,8 +53,8 @@
                 "description": "Cpus of each node",
                 "type": "integer",
                 "default": 8,
-                "range": [1, 2, 8],
-                "resource_group": [8, 8],
+                "range": [2, 8, 16, 32, 64],
+                "resource_group": [8,2,8,2],
                 "required": "yes"
             }, {
                 "key": "memory",
@@ -61,8 +62,7 @@
                 "description": "Memory of each node (in MiB)",
                 "type": "integer",
                 "default": 8192,
-                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536],
-                "resource_group": [8192, 8192],
+                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536, 131072],
                 "required": "yes"
             }, {
                 "key": "count",
@@ -72,7 +72,6 @@
                 "default": 3,
                 "min": 1,
                 "max": 127,
-                "resource_group": [3, 3],
                 "required": "yes"
             }, {
                 "key": "replica",
@@ -80,7 +79,6 @@
                 "description": "The replica number for each master",
                 "type": "integer",
                 "default": 1,
-                "resource_group": [1, 1],
                 "required": "yes"
             }, {
                 "key": "volume_size",
@@ -89,7 +87,7 @@
                 "type": "integer",
                 "default": 10,
                 "min":10,
-                "resource_group": [10, 10],
+                "resource_group": [10, 10, 10, 10],
                 "required": "yes"
             }]
         }]
@@ -141,7 +139,7 @@
         "type": "array",
         "properties": [{
             "key": "port",
-            "label": "port",
+            "label": "Port",
             "description": "port",
             "type": "integer",
             "default": 6379,
@@ -150,16 +148,16 @@
             "required": "no"
         }, {
             "key": "tls-port",
-            "label": "tls-port",
-            "description": "tls-port",
+            "label": "TLS-Port",
+            "description": "TLS Listening Port",
             "type": "integer",
-            "default": 6479,
+            "default": 0,
             "max": 55535,
             "min": 0,
             "required": "no"
         }, {
             "key": "tls-cluster",
-            "label": "tls-cluster",
+            "label": "TLS-Cluster",
             "description": "tls-cluster",
             "type": "string",
             "required": "no",
@@ -418,38 +416,100 @@
             "default": 5000,
             "required": "no"
         }, {
-            "key": "tls-cert",
-            "label": "tls-cert",
-            "description": "tls-cert-file",
+            "key": "tls-auth-clients",
+            "label": "TLS-Auth-Clients",
+            "description": "tls-auth-clients-description",
             "type": "string",
-            "pattern": ".*",
+            "required": "no",
+            "default": "no",
+            "range": ["no", "optional", "yes"]
+        }, {
+            "key": "tls-protocols",
+            "label": "TLS-Protocols",
+            "description": "tls-protocols-description",
+            "type": "string",
+            "pattern": "TLSv1(\\.[1-3])(\\s+TLSv1(\\.[1-3]))*|",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-ciphers",
+            "label": "TLS-Ciphers",
+            "description": "tls-ciphers-description",
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-ciphersuites",
+            "label": "TLS-Ciphersuites",
+            "description": "tls-ciphersuites-description",
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-prefer-server-ciphers",
+            "label": "TLS-Prefer-Server-Ciphers",
+            "description": "tls-prefer-server-ciphers-description",
+            "type": "string",
+            "required": "no",
+            "default": "no",
+            "range": ["no", "yes"]
+        }, {
+            "key": "tls-session-caching",
+            "label": "tls-session-caching",
+            "description": "tls-session-caching-description",
+            "type": "string",
+            "required": "no",
+            "default": "yes",
+            "range": ["yes", "no"]
+        }, {
+            "key": "tls-session-cache-size",
+            "label": "TLS-Session-Cache-Size",
+            "description": "tls-session-cache-size-description",
+            "type": "integer",
+            "default": 20480,
+            "required": "no"
+        }, {
+            "key": "tls-session-cache-timeout",
+            "label": "TLS-Session-Cache-Timeout",
+            "description": "tls-session-cache-timeout-description",
+            "type": "integer",
+            "default": 300,
+            "required": "no"
+        }, {
+            "key": "tls-cert",
+            "label": "TLS-Cert",
+            "description": "X.509 certificate",
+            "type": "string",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
             "multiline" : true,
             "default": "-----BEGIN CERTIFICATE-----\nMIID6DCCAdACFDk/1R22WLExbv3r5JKR/87RHox2MA0GCSqGSIb3DQEBCwUAMDUx\nEzARBgNVBAoMClJlZGlzIFRlc3QxHjAcBgNVBAMMFUNlcnRpZmljYXRlIEF1dGhv\ncml0eTAeFw0yMTA3MjAwMzEyNDFaFw0yMjA3MjAwMzEyNDFaMCwxEzARBgNVBAoM\nClJlZGlzIFRlc3QxFTATBgNVBAMMDEdlbmVyaWMtY2VydDCCASIwDQYJKoZIhvcN\nAQEBBQADggEPADCCAQoCggEBALLYLQ/ohgyg0cBKk2fUuQ0+TYa5chJLheUWOJsf\nZA293xhnXkIr/jkd4rvQxi0Rv0yLKEfcSYdZCQqZVnbmO8G1eBkdaW4dDMYqDy8w\nkJtWJBA4M+WOrUkyRYbuFyUuuKr/djkWo+LwPHqHaCV/y6Ia+wj/r298xo0TNoDE\nsB0JPmbBXivJkzH5UIl9veYy3oYoAIggqdye5x05/Ox7EzSiANAea5dWG9EtNk/X\nqf2KdLCOistuP8LvNImL1ZcNYtYfbNXtptbfjld9HD2IFqTY0cC+3N+HkGqi9EgI\nFiL7HRU1j/xelDfrIpd5FlxyHMvAYKSmrGe1VSrTqJBUQxkCAwEAATANBgkqhkiG\n9w0BAQsFAAOCAgEAAhRXt8ofa1FJRL2+3IMmDtJpc2OZf2t9GM3Q09LUCR8ySoEm\nFPzyGHwx/r8wFljKSggMt7Et5B0zy49pkixEwRkWFVeZ5TvsjkCkiu9CC/YSLZng\naRwL7SIe6FsfwSkLSXI1Hf6AU6VEyZOgar9uCuvL5ZfrlIVjY6uT/J5puKBmSWyc\nYxKLl/0to0YznTcadCE09LLkDvZpqVz37y2LfD56wMd4huRAJSSFK+Fuim0+NJpX\njpJt3dtk11E4HZmMSmzgWd0+yS8DALuhKCpZZyB1Wo+MNmftxH4JgwyXfbXVe4zj\n8Gys8XMnuuQy04oUID+hD/zWip116n0gEwiNoP7+cvw9LIUDo/7+Waidg0bUEYVC\nP2O8xYfm2Jd634w3ide0IBRUh+EZMGIQ3MxbL9E+vHfO3ScDkW9JNZtHpm7jdg9j\no2u2Iv7OX7pg7g07qFfDgn7UelFR4aw6+szV+ZzJjvv78TlNN+w2rx4iOoYbFQRG\niHelDFmi86KLhkCEAdN+94URM6PUVrBhO7BiH8+j48qIbmnm2/oZhiSeKglJJ4N5\nV5CJKKCOrPpBmDiq6SmCIOnK+N9RokmD5s6aRS8Rpqi0T7VJIqpYVHlYlMrFudsX\nXDM0Q29iYvwjHLYLVSNtH1wNnieC8rpnHV57fsqDndYZf6dWeEjE+9Ug9TE=\n-----END CERTIFICATE-----",
             "required": "no"
         }, {
             "key": "tls-key",
-            "label": "tls-key",
-            "description": "tls-key-file",
+            "label": "TLS-Key",
+            "description": "X.509 private",
             "type": "string",
-            "pattern": ".*",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
             "multiline" : true,
             "default": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAstgtD+iGDKDRwEqTZ9S5DT5NhrlyEkuF5RY4mx9kDb3fGGde\nQiv+OR3iu9DGLRG/TIsoR9xJh1kJCplWduY7wbV4GR1pbh0MxioPLzCQm1YkEDgz\n5Y6tSTJFhu4XJS64qv92ORaj4vA8eodoJX/Lohr7CP+vb3zGjRM2gMSwHQk+ZsFe\nK8mTMflQiX295jLehigAiCCp3J7nHTn87HsTNKIA0B5rl1Yb0S02T9ep/Yp0sI6K\ny24/wu80iYvVlw1i1h9s1e2m1t+OV30cPYgWpNjRwL7c34eQaqL0SAgWIvsdFTWP\n/F6UN+sil3kWXHIcy8BgpKasZ7VVKtOokFRDGQIDAQABAoIBAQCviMYRyyNm2aGF\nnqy3SG6otPHavcFce4vbocfFWTYW1rlVdn9pa0yGOvMDbJJWQgkE08ChZ3Ezywu4\nv2/CG4+jPL23yMpmLVUQWs+0fXIxRIb49HDbawJhyVm8aYuGDylpjHs45SPN5gU2\nLhjmVVxEqz6hQnOqdUlbxfPEx0gj9f6flAn+o+tjCKeEpBk6KK+CVi1wZJZ5Rxif\n2JG7VdKgez1pA2f8yWWO8BmP6aLubt1UDHFdphKafGoOtoPOcFBkEccGOkgz/jFi\nb9T4vMCH8M7uQVfDF/x16i4Oh7pftWX/9mm64hvoin4QHEsGzNp859MfNJCwcY8a\nPDUSJ3KRAoGBANg8FOKg04iOYryVPiI8FWpru6EzBM5cODckz2Bk1ItoqniIHUE8\naEb0a5AB9Mu/DaZ6A8ZiO0CSOU+YQPX88t2diAGsOaaY1T1kiOYWbfuMP9u9cuav\ncKPFAohkZsYsPhzAcCFz3+rPODsGFFRy7HfIxN3YRP7SXC/4Q6/EusXzAoGBANO7\n1Q4N7CXFFRx1No7zq8hF5Hw3SKCXoyA0135xTSrBKofVouMA7l0JHgMVHuu2LavM\ns+nMG9VFsjsN2YBWIJMNsiq0h/VL8b9AilFnjYQ5n/xmeTp6+bbMyzaCMj0yc/C5\nhgSdv3FQedK4FZPooYvR9Rhlm2sNWw60Rsb1SlnDAoGAUUL7AlQ4SshfuMlJaWo1\nDiJgh+r5cmfbxHVz7aDW83EpJ1TX0a1W7ttqFNt3WJ57DcYq5wIBjHmnSg9I0mj2\nCGzsMNy9aatj78d5XyasvGzvjq/6n1DtPs6J7iH1MaJs0TdMrHW0f7TSR/Q37aim\nzzlHKqvc+fqqJGjjXwnKuxsCgYEAlvQfXbnHVtY/yt42W4yWOF68G2M+wF/bySZj\nTJ5yqby2GcnSK42KY4IQh5oTRXHI9ecnjdQbM95Qx5GEM98zsiPdllzHYbcXT4cw\nFgGB/3cl/MkCPRNX3V/8sYv5TXAfAM0EI15kEuGROQ5NM/py0kCKQS6Ps6798GnO\n3CIdNAkCgYEAoXLOvThQqzH0KzK4WLeP1DzerutYjromoDkXIP8NYEPoHUPVdD1m\n9DrDbR2aKmuzc9sbyXYoM5t+FxspT7sQQMU0lcFAPLgLCMcaAl81gXZFZDojc9JN\nOu/TXcuLSKbW0xTxHRBCG0CjYuRTd2j1TTNzayfUWi4pNufTrsJJybw=\n-----END RSA PRIVATE KEY-----",
             "required": "no"
         }, {
             "key": "tls-ca-cert",
-            "label": "tls-ca-cert",
-            "description": "tls-ca-cert-file",
+            "label": "TLS-CA-Cert",
+            "description": "Configure a CA certificate(s) bundle or directory to authenticate TLS/SSL clients and peers.",
             "type": "string",
-            "pattern": ".*",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
             "multiline" : true,
             "default": "-----BEGIN CERTIFICATE-----\nMIIFSzCCAzOgAwIBAgIUCLnCOZ1/gRFBpRB2f2yruI3D0gAwDQYJKoZIhvcNAQEL\nBQAwNTETMBEGA1UECgwKUmVkaXMgVGVzdDEeMBwGA1UEAwwVQ2VydGlmaWNhdGUg\nQXV0aG9yaXR5MB4XDTIxMDcyMDAzMTI0MVoXDTMxMDcxODAzMTI0MVowNTETMBEG\nA1UECgwKUmVkaXMgVGVzdDEeMBwGA1UEAwwVQ2VydGlmaWNhdGUgQXV0aG9yaXR5\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA26fxm+Eq/04EBId7Hy4F\nfo5m1ayKmCiBfioneO+nkTNdWPvgM0HE8sJIM0auTAszq9o9ASB0qdf6WUVuOObK\n5XCMZR/F+kopnPydjwRAnbFUc+e/OwRwkylhylwJ4AxQbujdIhrNYWhiyjqs2+EU\nmwDZwJGLHvKhPLon+dC9AHPF2W83RU9lHDAUXgwvSi9Q5YXTO7O4oU93ci+X52AW\nod0z4o8IUFSwBjNkibdvR7tedJYmkHKGDtGz4Y2eBqDd/V1C4OCPoo1LvyRNGqlU\nkYiLt4pO1gGHgZ2V6NpZTM1WLuxwnfxrlFVwqzMGA17WakJz/Jb6GGuqDpSIjrVo\nKv5tGVfp6AY7+3pkyIVWx3ahQt5coUPGQSd8Cj279j1JsYG7p58zHBmMUnwkaxSO\n9vaFghBATxZ8B14OC2Zhk064nPVcApsJ0a0kCItTNKgVlbUEm6FD1Kp+VFngcJ43\nnCrMkBrSPKbaCs+qWt5Ov8niEm1t8LHj25t6gzsfKukrJersxwD/GWXKu9Okh6E3\nqLNdeZN/fFG+z05lhSHFwvoX4YjtlmflEtR65IaGHqaHvG5agoMui5k74OH4ZVyI\n3ItIVNLIkgRiYTN+9cK0EY1zOJyeCS5t9eQLl8rASpBNw8POP+SORUAR+wDZis/B\ngH66XMmFXrKxKwJIlpqU3MsCAwEAAaNTMFEwHQYDVR0OBBYEFPk7fdezaoXzVpBr\nWBnVgkzXyFVHMB8GA1UdIwQYMBaAFPk7fdezaoXzVpBrWBnVgkzXyFVHMA8GA1Ud\nEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggIBACZL7X9Vgk5ExIyn2ZhurRRo\nFFu29dF6Vy2HkRZjKhzZ8vaJ4Adm5qcazZJyM3a4mpKFfGXD61Nn2eUJNQhMP6WJ\njhGwOk1+2l/pBZMSz+Y2pRbkg/MY8Dzexr43cvc6YS75WU89YQ87VvbXSOXPSGq7\ncJTP30b/vESdHPAqZNoswcwdjXnm4WqaN/mdHfWX65SLTFgZXkZJqJCfLenGis9d\n3NUzSTczj5xeFFdWrolJ4LQ6N6OfaUxbs+li4sZArKEb0L+zPu/Z06bd4m4mKCJ4\n4Iue/a5XbjCotgPEqOwvs2p7a7A/mLdEIlkQYZfGPHh6Mqd5eZ2Jx1M263SsBDFA\njG9Ypc7VVw76LDiLBHoZajPqUUQuf4K++YHYn8qAlb2LtgDKkX4S/2wvxvHCJ7Ok\nKcNavx9H8NujjH43wx4Y74PDopbfHIBmoJi3K4zvMAUH0G1RywTMvfgT2wav/aao\nPhQyXceO/yLbgYdypOfIGpHj82nqilaJmjeenOTON0iU+XV9EvXpsyyBxa+ip/Po\nCZ08OcQznBgcwD5nWdQUUgsaVEX2SHiejRy2t1pRWJNfsLlQipLPCYpBJSYpMbT9\n2mHDeQ92NUjy3JbqdZscpB29bewG7pEO7xy5mXbri0M2HQbSMN2AbqJcSpP12nz+\n8WqQDM0bfBJFr5T7EKwl\n-----END CERTIFICATE-----",
             "required": "no"
         }, {
             "key": "tls-dh-params",
-            "label": "tls-dh-params",
-            "description": "tls-dh-params-file",
+            "label": "TLS-DH-Params",
+            "description": "Configure a DH parameters file to enable Diffie-Hellman (DH) key exchange",
             "type": "string",
-            "pattern": ".*",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
             "multiline" : true,
             "default": "-----BEGIN DH PARAMETERS-----\nMIIBCAKCAQEAgtg+Dhny6obRrHqwNmKvzQYcCnWJgdp7sgIBrj0fGdpO4a7Ta7G5\nQXrwl04aPUCIDLRxE6bW8TgeltCoAdzq4Fy7FyhmmKytT9EBx8glWgpVjyI+cK+f\n8ZOsyUCHwLOhRVlohUTB64rZDKlG4lg3wuR75xeVPO6prJJyHmwh/1od/l5C4MCr\n3L2EGty4cU+Oy+PJjtnDig9raIRmu6MQCt7GKCXaBEwWvd89+dVmWcLa+SDEshI6\nPo+JF8qRqQX1TxbOpun7fsEfYYt/bBzK5R00YyFJ9juJXq+iapULneJn9iQtZVEL\naGkhH5jWiZ9APtybtXXJZYPNbBo+HyQ2kwIBAg==\n-----END DH PARAMETERS-----",
             "required": "no"

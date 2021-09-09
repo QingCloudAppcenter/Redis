@@ -58,6 +58,21 @@ zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
 masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
 requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
 $(renameCommands)
-io-threads-do-reads $([ {{ getv "/host/cpu" "" }} -eq 8 ] && echo "yes" || echo "no" )
+rename-command acl $(echo -n "{{ getv "/cluster/cluster_id" }}{{ getv "/host/node_id" }}acl" | md5sum | cut -f 1 -d " ")
+{{- if (eq (getv "/host/cpu") 8) }}
+io-threads-do-reads yes
 io-threads 6
+{{- else }}
+io-threads-do-reads no
+io-threads 1
+{{- end }}
+tls-auth-clients {{ getv "/env/tls-auth-clients" }}
+tls-cluster {{ getv "/env/tls-cluster" }}
+tls-protocols "{{ getv "/env/tls-protocols" }}"
+tls-ciphers "{{ getv "/env/tls-ciphers" }}"
+tls-ciphersuites "{{ getv "/env/tls-ciphersuites" }}"
+tls-prefer-server-ciphers {{ getv "/env/tls-prefer-server-ciphers" }}
+tls-session-caching {{ getv "/env/tls-session-caching" }}
+tls-session-cache-size {{ getv "/env/tls-session-cache-size" }}
+tls-session-cache-timeout {{ getv "/env/tls-session-cache-timeout" }}
 REDIS_CHANGED_CONF_EOF

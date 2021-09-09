@@ -11,6 +11,17 @@ CHANGE_VXNET_ERR=220
 GROUP_MATCHED_ERR=221
 CLUSTER_MATCHED_ERR=222
 CLUSTER_STATE_NOT_OK=223
+LOAD_ACLFILE_ERR=224
+
+ROOT_CONF_DIR=/opt/app/conf/redis-cluster
+CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
+DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
+CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
+
+REDIS_DIR=/data/redis
+RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
+RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
+NODE_CONF_FILE=$REDIS_DIR/nodes-6379.conf
 
 execute() {
   local cmd=$1; log --debug "Executing command ..."
@@ -27,6 +38,7 @@ execute() {
 initNode() {
   mkdir -p /data/redis/{logs,tls}
   touch /data/redis/tls/{ca.crt,redis.crt,redis.dh,redis.key}
+  touch /data/redis/aclfile.conf
   chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
@@ -182,41 +194,9 @@ preScaleOut(){
   return 0
 }
 
-scaleClusterRebalance() {
-  local redisCmd retCode checkInfo result TIME Num=0 logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log firstNodeIpInStableNode=$1
-  redisCmd="$(redisCli)"
-  while [[ $Num -lt 64 ]]; do
-    retCode=0
-    #result="$()"
-    echo "$redisCmd -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT"
-    $redisCmd -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT || retCode=$?
-    log "scaleClusterRebalance fix rebalance (Code:$retCode). $result"
-    #[[ $retCode -eq 0 ]] && [[ "$result" =~  "ERR I don't know about node|The following slots are open" ]] || return
-    log "start checkInfo -h $firstNodeIpInStableNode --cluster check $firstNodeIpInStableNode:$REDIS_PORT"
-    checkInfo="$($redisCmd -h $firstNodeIpInStableNode --cluster check $firstNodeIpInStableNode:$REDIS_PORT 2>&1  || retCode=$? )"
-    log "rebalance check result (Code:$retCodeFix). $checkInfo "
-    if [[ "$checkInfo" == *"ERR I don't know about node"* || "$checkInfo" ==  *'The following slots are open'*  ]]; then
-      let Num+=1
-      TIME="$(date +%s.%3N)"
-      retCodeFix=0
-      log "-h $firstNodeIpInStableNode --cluster fix $firstNodeIpInStableNode:$REDIS_PORT"
-      result="$($redisCmd -h $firstNodeIpInStableNode --cluster fix $firstNodeIpInStableNode:$REDIS_PORT 2>&1 || retCodeFix=$?)"
-      log "scaleClusterRebalance fix $Num time:$(date +%s.%3N -d "-$TIME second") (Code:$retCodeFix). $result"
-    elif [[ $retCode -ne 0 ]]; then
-      log "scaleClusterRebalance ERROR (Code:$retCodeFix)."
-      break
-    elif [[ $retCode -eq 0 ]]; then
-      return 0
-    fi
-  done
-  log "ERROR failed to rebalance the cluster ($?)."
-  return $REBALANCE_ERR
-}
-
-
 scaleOut() {
-  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
-  rotate $runtimeNodesConfigFile
+  local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
+  rotate $NODE_CONF_FILE
   log "joining nodes $JOINING_REDIS_NODES"
   [[ -n "$JOINING_REDIS_NODES" ]] || {
     log "no joining nodes detected"
@@ -242,7 +222,6 @@ scaleOut() {
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
-  #scaleClusterRebalance $firstNodeIpInStableNode
   runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT >> $logFile || {
       log "ERROR failed to rebalance the cluster ($?)."
       return $REBALANCE_ERR
@@ -305,9 +284,8 @@ checkMemoryIsEnoughAfterScaled(){
 
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
-  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
   local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
-  rotate $runtimeNodesConfigFile
+  rotate $NODE_CONF_FILE
   log "leaving nodes $LEAVING_REDIS_NODES"
   log "getFirstNodeIpInStableNode"
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
@@ -366,6 +344,10 @@ scaleIn(){
   true
 }
 
+clearDisk() {
+  find /data/redis/ -maxdepth 1 -type f -mtime +3 -regex "/data/redis/temp-rewriteaof-[0-9]+.aof" -delete
+}
+
 check(){
   _check
   local loadingTag="loading the dataset in memory"
@@ -375,6 +357,7 @@ check(){
   # 是否发生错位
   checkGroupMatched
   checkClusterMatched
+  clearDisk
 }
 
 checkBgsaveDone(){
@@ -397,12 +380,17 @@ reload() {
   if ! isNodeInitialized; then return 0;fi
 
   if [[ "$1" == "redis-server" ]]; then
-    local changedConfigFile="$rootConfDir/redis.changed.conf $(echo $TLS_CONF_LIST | xargs -n1 | cut -f 1 -d:)"
     # redis.conf 发生改变时可以对 redis 做重启操作，防止添加节点时redis-server 重启
-    if checkFileChanged $changedConfigFile; then 
-       stopSvc "redis-server"
-       configure
-       startSvc "redis-server"
+    if checkFileChanged "$CHANGED_CONFIG_FILE $(echo $TLS_CONF_LIST | xargs -n1 | cut -f 1 -d:)"; then 
+      stopSvc "redis-server"
+      configure
+      startSvc "redis-server"
+    elif checkFileChanged $CHANGED_ACL_FILE; then
+      configure
+      runRedisCmd $ACL_CMD LOAD || {
+        log "load aclfile ERROR."
+        return $LOAD_ACLFILE_ERR
+    }
     fi
     return 0
   fi
@@ -449,7 +437,7 @@ measure() {
     for(k in r) {
       if(k~/^cmdstat_/) {
         cmd = gensub(/^cmdstat_/, "", 1, k)
-        m[cmd] += r[k]/10
+        m[cmd] += r[k]
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
       } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
@@ -503,29 +491,24 @@ encodeCmd() {
   echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}"
 }
 
-rootConfDir=/opt/app/conf/redis-cluster
 
 swapIpAndName() {
-  local runtimeNodesConfigFile=/data/redis/nodes-6379.conf
   local fields replaceCmd  port=$REDIS_PLAIN_PORT
   [ "$REDIS_TLS_CLUSTER" == "yes" ] && port=$REDIS_TLS_PORT
-  sudo -u redis touch $runtimeNodesConfigFile && rotate $runtimeNodesConfigFile
+  sudo -u redis touch $NODE_CONF_FILE && rotate $NODE_CONF_FILE
   if [ -n "$1" ];then
     fields='{print "s/ "$4":\\([0-9]\\+\\)@/ "$5":\1@/g"}'
   else
     fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
   fi
   replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
-  sed -i "$replaceCmd" $runtimeNodesConfigFile
+  sed -i "$replaceCmd" $NODE_CONF_FILE
 }
 
 configureForRedis(){
   log "configureForRedis Start"
-  local changedConfigFile=$rootConfDir/redis.changed.conf
-  local defaultConfigFile=$rootConfDir/redis.default.conf
-  local runtimeConfigFile=/data/redis/redis.conf
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $defaultConfigFile $runtimeConfigFile.1 > $runtimeConfigFile
+    $CHANGED_CONFIG_FILE $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE.1 > $RUNTIME_CONFIG_FILE
   log "configureForRedis End"
 }
 
@@ -540,11 +523,10 @@ rotateTLS() {
 }
 
 configure() {
-  local changedConfigFile=$rootConfDir/redis.changed.conf
-  local defaultConfigFile=$rootConfDir/redis.default.conf
-  local runtimeConfigFile=/data/redis/redis.conf
-  sudo -u redis touch $runtimeConfigFile
-  rotate $runtimeConfigFile 
+  sudo -u redis touch $RUNTIME_CONFIG_FILE
+  rotate $RUNTIME_ACL_FILE
+  rotate $RUNTIME_CONFIG_FILE
+  cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
   swapIpAndName --reverse
   configureForRedis
   rotateTLS
@@ -585,13 +567,13 @@ getRedisRoles(){
 }
 
 getGroupMatched(){
-  local clusterNodes groupMatched="true" nodeConfFile="/data/redis/nodes-6379.conf" targetIp="${1:-$MY_IP}"
+  local clusterNodes groupMatched="true" targetIp="${1:-$MY_IP}"
 
   if [[ "$targetIp" == "$MY_IP" ]]; then
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
     else
-      clusterNodes="$(cat $nodeConfFile)"
+      clusterNodes="$(cat $NODE_CONF_FILE)"
     fi
   else
     clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
@@ -614,12 +596,12 @@ getGroupMatched(){
 }
 
 getClusterMatched(){
-  local clusterNodes clusterMatched="true" nodeConfFile="/data/redis/nodes-6379.conf" targetIp="${1:-$MY_IP}"
+  local clusterNodes clusterMatched="true" targetIp="${1:-$MY_IP}"
   if [[ "$targetIp" == "$MY_IP" ]]; then
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
     else
-      clusterNodes="$(grep -v '^vars currentEpoch' $nodeConfFile)"
+      clusterNodes="$(grep -v '^vars currentEpoch' $NODE_CONF_FILE)"
     fi
   else
     clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
