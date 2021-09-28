@@ -166,5 +166,8 @@
   "The timeout for flush commands": "FLUSH 命令执行的超时时间，仅对 FLUSHALL 和 FLUSHDB 有效",
   "replicaDelay": "主从复制落后字节数",
   "Bytes": "字节",
-  "replica_delay": "副本偏差量（与主节点的复制延迟）"
+  "replica_delay": "副本偏差量（与主节点的复制延迟）",
+  "Enable zabbix": "开启zabbix-agent2服务",
+  "Zabbix server host": "Zabbix server 主机地址列表",
+  "Zabbix NAMED SESSIONS": "Zabbix 会话名"
 }

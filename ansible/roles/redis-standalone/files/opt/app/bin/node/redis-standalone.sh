@@ -51,6 +51,11 @@ revive() {
   checkSvc redis-server || configureForRedis
   _revive $@
   checkVip || setUpVip
+  checkSentinelMasterHost || {
+    stopSvc redis-sentinel
+    configureForSentinel
+    startSvc redis-sentinel
+  }
 }
 
 findMasterIpByNodeIp(){
@@ -217,7 +222,7 @@ destroy() {
 scaleIn() {
   if [[ $(findStableNodesCount) -eq 1 ]]; then
     stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
-  fi 
+  fi
 }
 
 restore() {
@@ -242,7 +247,7 @@ restore() {
     retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
     local cmd; cmd="$(getRuntimeNameOfCmd CONFIG)"
     [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
-  fi     
+  fi
 }
 
 checkLoadDataDone(){
@@ -294,19 +299,30 @@ getInitMasterIp() {
   echo -n ${firstRedisNode##*/}
 }
 
+
+getRedisMasterIp() {
+  local masterIP num=0
+  for nodeIp in $(echo $STABLE_REDIS_NODES |awk 'BEGIN{RS=" "; FS="/"} {{print $3}}'); do
+    if [[ "$(runRedisCmd --ip $nodeIp role | sed -n "1p")" =~ "master" ]];then
+      ((num+=1))
+      masterIP="$masterIP $nodeIp"
+    fi
+  done
+  if [[ $num -ne 1 ]];then
+    log "get master Split brain $masterIP"
+    return 1
+  else
+    echo $masterIP
+  fi
+}
 # 防止 revive 时从本地文件获取，导致双主以及vip 解绑
 getMasterIpForRevive() {
   local sentinelNodes="$(getSentinelNodes)"
   log --debug "sentinelNodes: $sentinelNodes"
   log --debug "MY_IP: $MY_IP"
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
-    local rc=0
     if isSvcEnabled redis-sentinel;then
-      local otherFirstNodeIp="$(echo $STABLE_REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
-      runRedisCmd --ip ${otherFirstNodeIp} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
-        |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
-          log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
-      return $rc
+      getRedisMasterIp
     else
       log "get masterIp from init"
       getInitMasterIp
@@ -357,17 +373,18 @@ findMasterNodeId() {
 }
 
 runRedisCmd() {
-  local redisIp=$MY_IP maxTime=5 result retCode=0
+  local redisIp=$MY_IP redisPort=$REDIS_PORT maxTime=5 retCode=0 args=$@ result
   if [[ "$1" == "--timeout" ]]; then maxTime=$2 && shift 2;fi
-  if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  result="$(timeout --preserve-status ${maxTime}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
+  if [[ "$1" == "--ip" || "$1" == "-h" ]]; then redisIp=$2 && shift 2; fi
+  if [[ "$1" == "--port" || "$1" == "-p" ]]; then redisPort=$2 && shift 2; fi
+  result="$(timeout --preserve-status ${maxTime}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $redisPort $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
-    log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
+    log "ERROR failed to run redis command '$args' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"
   fi
   return $retCode
-} 
+}
 
 checkVip() {
   local vipResponse; vipResponse="$(runRedisCmd --ip $REDIS_VIP ROLE | sed -n '1{p;q}')"
@@ -406,7 +423,7 @@ checkSentinelStarted(){
 }
 
 checkSentinelStopped() {
-  ! checkSentinelStarted
+  ! checkSentinelStarted $@
 }
 
 checkRedisStarted(){
@@ -454,17 +471,17 @@ configureForRedis() {
   log --debug "exec configureForRedis"
   local runtimeConfigFile=/data/redis/redis.conf defaultConfigFile=$rootConfDir/redis.default.conf \
         slaveofFile=$rootConfDir/redis.slaveof.conf
-  local masterIp; masterIp="$(findMasterIp)" 
+  local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
+  sudo -u redis touch $runtimeConfigFile && rotate $runtimeConfigFile
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
   [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
-
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+    $changedConfigFile $slaveofFile $defaultConfigFile $runtimeConfigFile.1 > $runtimeConfigFile
 }
 
 swapIpAndName() {
-  local runtimeConfigFile=/data/redis/redis.conf 
+  local runtimeConfigFile=/data/redis/redis.conf
   local configFiles=$runtimeConfigFile
   if isSvcEnabled redis-sentinel; then
     configFiles="$configFiles $runtimeSentinelFile"
@@ -485,9 +502,9 @@ configureForSentinel() {
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
   echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT 2" > $monitorFile
-
   if isSvcEnabled redis-sentinel; then
     # 处理升级过程中监控名称的改变
+    sudo -u redis touch $runtimeSentinelFile && rotate $runtimeSentinelFile
     sed -i 's/master/'"$SENTINEL_MONITOR_CLUSTER_NAME"'/g' $runtimeSentinelFile.1
     # 防止莫名的单个$0 出现
     awk '(NF>1 && $0~/^[^ #$]/) ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
@@ -507,7 +524,7 @@ configureForRestore(){
 configure() {
   swapIpAndName --reverse
   configureForSentinel
-  configureForRedis  
+  configureForRedis
   local masterIp; masterIp="$(findMasterIp)"
   configureForRestore
   setUpVip $masterIp
@@ -564,6 +581,18 @@ restoreByCustomRdb(){
   rm -rf $uploadedRDBFile
 }
 
+checkSentinelMasterHost() {
+  local masterHost masterRole retCode
+  isSvcEnabled  redis-sentinel || return 0
+  masterHost="$(runRedisCmd --port $SENTINEL_PORT SENTINEL get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME | sed -n "1p" || retCode=$?)"
+  [[ -z $masterHost ]] && return 1
+  log --debug "result: masterHost"
+  if nc -z $masterHost $REDIS_PORT;then
+    masterRole=$(runRedisCmd --ip $masterHost role | sed -n "1p")
+    [[ "$masterRole"  =~ "master" ]]
+  fi
+}
+
 check(){
   local ignoreCommand="(restoreByCustomRdb)"
   ps -ef |grep -E "$ignoreCommand" |grep -vq grep && {
@@ -573,9 +602,10 @@ check(){
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   _check
   checkVip
+  retry 60 1 0 checkSentinelMasterHost
 }
 
-getRedisRoles(){ 
+getRedisRoles(){
   local stableNodesCount=$(findStableNodesCount)
   local node nodeIp myRole allow_deletion counter=0; for node in $(echo "$STABLE_REDIS_NODES" |sort -n -t"/" -k1); do
     counter=$(($counter+1))

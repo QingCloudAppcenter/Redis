@@ -1,0 +1,13 @@
+- name: redis tasks
+  hosts: redis-test
+  vars:
+    target_env: "{{ lookup('env', 'target') }}"
+  roles:
+  #- role: set-timezone-1.0.0
+    #vars:
+      #timezone: "Asia/Shanghai"
+  - role: zabbix-agent2-1.0.0
+    vars:
+      zabbix_agent2_version: "5.4.4"
+      zabbix_version: "5.4"
+      os_version: "18.04"

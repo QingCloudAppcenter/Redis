@@ -7,6 +7,7 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
+     "appv-e97gz6wz",
      "appv-vedszzfk",
      "appv-21ddkc5h",
      "appv-315vkrx9",
@@ -14,6 +15,8 @@
      "appv-7nnl5m03",
      "appv-yjt6jcur",
      "appv-htdfkqlo",
+     "appv-m2kn3sl6",
+     "appv-p313cfew",
      "appv-2koqx590",
      "appv-tse5x72c"
    ],
@@ -21,7 +24,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3",
-      "image": "img-xcg2q1p9"
+      "image": "img-1uxz16rd"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -115,6 +118,9 @@
     "zset-max-ziplist-value": {{env.zset-max-ziplist-value}},
     "sentinel.failover-timeout":{{env.sentinel.failover-timeout}},
     "sentinel.down-after-milliseconds":{{env.sentinel.down-after-milliseconds}},
+    "zabbix-agint2-enable": {{env.zabbix-agint2-enable}},
+    "zabbix-server": {{env.zabbix-server}},
+    "zabbix-named-sessions": {{env.zabbix-named-sessions}},
     "web.console.enabled": {{env.web.console.enabled}},
     "web.console.username": {{env.web.console.username}},
     "web.console.password": {{env.web.console.password}}
@@ -317,6 +323,10 @@
       "vip": {
         "value": ""
       }
+    },
+    "Zabbix-Agent2": {
+      "port": 10050,
+      "protocol": "tcp"
     }
   },
   "display_tabs" : {

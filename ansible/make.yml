@@ -10,13 +10,21 @@
   - app-agent-1.0.6
   - arping-1.0.0
   - appctl
+  - jq-1.0.9
+  - role: set-timezone-1.0.0
+    vars:
+      timezone: "Asia/Shanghai"
   - role: redis-server-1.1.0
     vars:
       version: "{{ redis_version }}"
   - role: caddy-1.0.6
     vars:
       caddy_plugins: upload
-  - jq-1.0.9
+  - role: zabbix-agent2-1.0.0
+    vars:
+      zabbix_agent2_version: "5.4.4"
+      zabbix_version: "5.4"
+      os_version: "18.04"
 
 - name: redis standalone
   hosts: redis-standalone
