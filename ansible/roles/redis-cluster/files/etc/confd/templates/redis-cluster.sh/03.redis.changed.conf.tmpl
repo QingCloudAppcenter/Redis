@@ -1,3 +1,8 @@
+encodeCmd() {
+  echo -n "{{ getv "/cluster/cluster_id" }}{{ getv "/host/node_id" }}$1" | md5sum | cut -f 1 -d " "
+}
+
+
 renameCommands() {
   local disabledCommands="
     BGREWRITEAOF
@@ -18,7 +23,7 @@ renameCommands() {
   local cmd; for cmd in $disabledCommands; do
     local renamed=$cmd
     {{- if eq (getv "/env/enable-config" "0") "0" }}
-    renamed="${CLUSTER_ID}${NODE_ID}${cmd}"
+    renamed="$(encodeCmd $cmd)"
     {{- end }}
     echo rename-command $cmd $renamed
   done
@@ -58,7 +63,7 @@ zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
 masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
 requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
 $(renameCommands)
-rename-command acl $(echo -n "{{ getv "/cluster/cluster_id" }}{{ getv "/host/node_id" }}acl" | md5sum | cut -f 1 -d " ")
+rename-command acl $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
 {{- if (eq (getv "/host/cpu") 8) }}
 io-threads-do-reads yes
 io-threads 6

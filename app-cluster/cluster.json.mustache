@@ -20,7 +20,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-3rzfggws"
+            "image": "img-pafm0gwy"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -65,6 +65,18 @@
                     "timeout": {{service_params.timeout}}
                 }
             },
+            "add_user": {
+                "type": "custom",
+                "cmd": "appctl addUser",
+                "timeout": 120,
+                "service_params": {
+                    "user": {{service_params.user}},
+                    "passwd": {{service_params.passwd}},
+                    "switch": {{service_params.switch}},
+                    "rules": {{service_params.rules}},
+                    "note": {{service_params.note}}
+                }
+            },
             "get_nodes_order": {
                 "event": ["upgrade", "rollback", "scale_vertical"],
                 "cmd": "appctl getNodesOrder"
@@ -74,6 +86,7 @@
     "env": {
         "disabled-commands": {{env.disabled-commands}},
         "enable-config": {{env.enable-config}},
+        "enable-acl": {{env.enable-acl}},
         "appcenterignore-requirepass": {{env.requirepass}},
         "port": {{env.port}},
         "appctl.maxmemory.percent": {{env.appctl.maxmemory.percent}},
@@ -437,7 +450,9 @@
     "display_tabs" : {
         "roles" : {
         "cmd" : "appctl getRedisRoles"
+        },
+        "user_list" : {
+        "cmd" : "appctl getUserList"
         }
-
     }
 }

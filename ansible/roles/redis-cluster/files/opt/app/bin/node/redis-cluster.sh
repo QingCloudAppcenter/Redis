@@ -12,6 +12,9 @@ GROUP_MATCHED_ERR=221
 CLUSTER_MATCHED_ERR=222
 CLUSTER_STATE_NOT_OK=223
 LOAD_ACLFILE_ERR=224
+ACL_SWITCH_ERR=225
+ACL_ADDUSER_ERR=226
+
 
 ROOT_CONF_DIR=/opt/app/conf/redis-cluster
 CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
@@ -22,6 +25,7 @@ REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
 NODE_CONF_FILE=$REDIS_DIR/nodes-6379.conf
+ACL_NODE_FILE=$REDIS_DIR/aclnote.txt
 
 execute() {
   local cmd=$1; log --debug "Executing command ..."
@@ -38,6 +42,7 @@ execute() {
 initNode() {
   mkdir -p /data/redis/{logs,tls}
   touch /data/redis/tls/{ca.crt,redis.crt,redis.dh,redis.key}
+  touch $ACL_NODE_FILE
   touch /data/redis/aclfile.conf
   chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
@@ -387,6 +392,7 @@ reload() {
       startSvc "redis-server"
     elif checkFileChanged $CHANGED_ACL_FILE; then
       configure
+      local ACL_CMD=$(getRuntimeNameOfCmd ACL)
       runRedisCmd $ACL_CMD LOAD || {
         log "load aclfile ERROR."
         return $LOAD_ACLFILE_ERR
@@ -467,10 +473,11 @@ redisCli() {
 }
 
 runRedisCmd() {
+  local not_error=' getUserList addUser measure '
   local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
   local result retCode=0
   result="$(timeout --preserve-status ${timeout}s $(redisCli) $@  2>&1)" || retCode=$?
-  if [ "$retCode" != 0 ] || [[ "$cmd" != *measure* && "$result" == *ERR* ]]; then
+  if [ "$retCode" != 0 ] || [[ "$not_err" != *" $cmd "* && "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
     retCode=$REDIS_COMMAND_EXECUTE_FAIL
   else
@@ -488,7 +495,7 @@ getRuntimeNameOfCmd() {
 }
 
 encodeCmd() {
-  echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}"
+  echo -n "${CLUSTER_ID}${NODE_ID}${1?command is required}" | md5sum | cut -f 1 -d " "
 }
 
 
@@ -670,3 +677,41 @@ getNodesOrder() {
   echo $result
 }
 
+getUserList() {
+  log "log getUserList"
+  [[ "$ENABLE_ACL" == "no" ]] && return $ACL_SWITCH_ERR
+  local ACL_CMD=$(getRuntimeNameOfCmd ACL)
+  awk -v notefile=$ACL_NODE_FILE '
+    { if (notefile==FILENAME){
+          note[$1] = gensub(/^[^ ]*/, "", 1);
+      } else if ($2!="default") {
+        for (i=1;i<=NF;i++){
+          if ($i ~ /^[+\-~&]|^(allchannels|resetchannels|allcommands|nocommands)/) {
+            a=a$i" "
+          }
+        }
+        print $2"\t"$3"\t"a"\t"note[$2]
+      }
+    }' $ACL_NODE_FILE <(runRedisCmd $ACL_CMD list) \
+  | jq -Rc 'split("\t") | [ . ]' | jq -s add | jq -c '{"labels":["user","switch","rules","note"],"data":.}'
+}
+
+addUser() {
+  local args=$@
+  [[ "$ENABLE_ACL" == "no" ]] && {
+    log "Add User Error Not ENABLE_ACL."
+    return $ACL_SWITCH_ERR
+  }
+  local user="$(echo $args |jq -r .user)" passwd="$(echo $args |jq -r .passwd)"
+  local switch="$(echo $args |jq -r .switch)" rules="$(echo $args |jq -r .rules)"
+  local note="$(echo $args |jq -r .note)"
+  local ACL_CMD="$(getRuntimeNameOfCmd ACL)"
+	local acl_users="$(runRedisCmd $ACL_CMD USERS|xargs echo -n)"
+  passwd=$(echo -n "$passwd" | openssl sha256 | awk '{print "#"$NF}')
+	[[ " $acl_users " =~ " $user " ]] || return $ACL_ADDUSER_ERR
+  runRedisCmd $ACL_CMD SETUSER $user $switch $passwd $rules || {
+    log "Add User Error ($?)"
+    return $ACL_ADDUSER_ERR
+  }
+  echo "$user $note" >> $ACL_NODE_FILE
+}
