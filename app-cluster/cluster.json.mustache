@@ -4,13 +4,12 @@
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
     "upgrade_policy": [
+     "appv-79rlu7jt",
      "appv-1pbmp78g",
      "appv-tqzrokkb",
      "appv-9yvinzz0",
      "appv-okxhok17",
-     "appv-0l56bsk6",
-     "appv-pjxqcdm1",
-     "appv-79rlu7jt"
+     "appv-pjxqcdm1"
     ],    
     "upgrading_policy": "parallel",
     "nodes": [{
@@ -20,14 +19,15 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-pafm0gwy"
+            "image": "img-3iyyqck5"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
         "cpu": {{cluster.master.cpu}},
         "memory": {{cluster.master.memory}},
         "volume": {
-            "size": {{cluster.master.volume_size}},
+            "size": {{cluster.master.memory}} * 3 / 1024,
+            "skip_check_size": true,
             "mount_point": "/data",
             "filesystem": "xfs"
         },
@@ -67,14 +67,48 @@
             },
             "add_user": {
                 "type": "custom",
-                "cmd": "appctl addUser",
+                "cmd": "appctl aclManage addUser",
                 "timeout": 120,
                 "service_params": {
-                    "user": {{service_params.user}},
+                    "username": {{service_params.username}},
                     "passwd": {{service_params.passwd}},
                     "switch": {{service_params.switch}},
-                    "rules": {{service_params.rules}},
-                    "note": {{service_params.note}}
+                    "rules": {{service_params.rules}}
+                }
+            },
+            "set_user_rules": {
+                "type": "custom",
+                "cmd": "appctl aclManage setUserRules",
+                "timeout": 120,
+                "service_params": {
+                    "username": {{service_params.username}},
+                    "rules": {{service_params.rules}}
+                }
+            },
+            "del_user": {
+                "type": "custom",
+                "cmd": "appctl aclManage delUser",
+                "timeout": 120,
+                "service_params": {
+                    "username": {{service_params.username}}
+                }
+            },
+            "set_switch": {
+                "type": "custom",
+                "cmd": "appctl aclManage setSwitch",
+                "timeout": 120,
+                "service_params": {
+                    "username": {{service_params.username}},
+                    "switch": {{service_params.switch}}
+                }
+            },
+            "reset_passwd": {
+                "type": "custom",
+                "cmd": "appctl aclManage resetPasswd",
+                "timeout": 120,
+                "service_params": {
+                    "username": {{service_params.username}},
+                    "passwd": {{service_params.passwd}}
                 }
             },
             "get_nodes_order": {
@@ -136,7 +170,8 @@
         "tls-ca-cert": {{env.tls-ca-cert}},
         "tls-dh-params": {{env.tls-dh-params}}
     },
-    "advanced_actions": ["change_vxnet","scale_horizontal"],
+    "advanced_actions": ["change_vxnet","scale_horizontal","resize_on_upgrade"],
+    "custom_tags": ["default_deploy_method_sz", "divide_adding_nodes_btn", "hide_modify_instance_type_btn"],
     "endpoints": {
         "client": {
             "port": {{env.port}},
@@ -451,7 +486,7 @@
         "roles" : {
         "cmd" : "appctl getRedisRoles"
         },
-        "user_list" : {
+        "ACL_List" : {
         "cmd" : "appctl getUserList"
         }
     }

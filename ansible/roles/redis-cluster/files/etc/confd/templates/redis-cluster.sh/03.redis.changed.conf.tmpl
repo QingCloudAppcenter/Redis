@@ -29,6 +29,18 @@ renameCommands() {
   done
 }
 
+ioThreads() {
+  local hypervisor="{{ getv "/host/hypervisor" "kvm" }}"
+  local cpu={{ getv "/host/cpu" "2" }}
+  if [[ $cpu -ge 4 ]];then
+    [[ "$hypervisor" != "lxc" ]] && ((cpu-=2))
+    echo "io-threads-do-reads yes"
+    echo "io-threads $cpu"
+  else
+    echo "io-threads-do-reads no"
+    echo "io-threads 1"
+  fi
+}
 
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 port {{ getv "/env/port" "6379" }}
@@ -63,14 +75,8 @@ zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
 masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
 requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
 $(renameCommands)
-rename-command acl $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
-{{- if (eq (getv "/host/cpu") 8) }}
-io-threads-do-reads yes
-io-threads 6
-{{- else }}
-io-threads-do-reads no
-io-threads 1
-{{- end }}
+rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
+$(ioThreads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}
 tls-cluster {{ getv "/env/tls-cluster" }}
 tls-protocols "{{ getv "/env/tls-protocols" }}"
