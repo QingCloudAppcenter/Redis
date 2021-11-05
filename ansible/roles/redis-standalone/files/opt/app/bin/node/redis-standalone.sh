@@ -17,11 +17,24 @@ SENTINEL_START_ERR=230
 REDIS_START_ERR=231
 REDIS_STOP_ERR=232
 
+ROOT_CONF_DIR=/opt/app/conf/redis-cluster
+CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
+DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
+CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
+
+REDIS_DIR=/data/redis
+RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
+RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
+ACL_CLEAR=$REDIS_DIR/acl.clear
+
 
 initNode() {
   local redisPath="/data/redis"
   local caddyPath="/data/caddy"
-  mkdir -p $redisPath/logs $caddyPath/upload
+  mkdir -p $REDIS_DIR/logs $caddyPath/upload
+  mkdir -p $REDIS_DIR/{logs,tls}
+  touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
+  touch $RUNTIME_ACL_FILE
   chown -R redis.svc $redisPath
   chown -R caddy.svc $caddyPath
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
@@ -74,18 +87,7 @@ measure() {
   else
     replicaDelay=0
   fi
-  runRedisCmd info all | awk -F: 'BEGIN {
-    g["hash_based_count"] = "^h"
-    g["list_based_count"] = "^(bl|br|l|rp)"
-    g["set_based_count"] = "^s[^e]"
-    g["sorted_set_based_count"] = "^(bz|z)"
-    g["stream_based_count"] = "^x"
-    g["key_based_count"] = "^(del|dump|exists|expire|expireat|keys|migrate|move|object|persist|pexpire|pexpireat|pttl|randomkey|rename|renamenx|restore|sort|touch|ttl|type|unlink|wait|scan)"
-    g["string_based_count"] = "^(append|bitcount|bitfield|bitop|bitpos|decr|decrby|get|getbit|getrange|getset|incr|incrby|incrbyfloat|mget|mset|msetnx|psetex|set|setbit|setex|setnx|setrange|strlen)"
-    g["set_count"] = "^(getset|hmset|hset|hsetnx|lset|mset|msetnx|psetex|set|setbit|setex|setnx|setrange)"
-    g["get_count"] = "^(get|getbit|getrange|getset|hget|hgetall|hmget|mget)"
-  }
-  {
+  runRedisCmd info all | awk -F: '{
     if($1~/^(cmdstat_|connected_c|db|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
     }
@@ -94,11 +96,7 @@ measure() {
     for(k in r) {
       if(k~/^cmdstat_/) {
         cmd = gensub(/^cmdstat_/, "", 1, k)
-        for(regexp in g) {
-          if(cmd ~ g[regexp]) {
-            m[regexp] += r[k]
-          }
-        }
+        m[cmd] += r[k]
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
       } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
@@ -111,7 +109,9 @@ measure() {
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
     m["replica_delay"] = "'$replicaDelay'"
-    for(k in m) print k FS m[k]
+    for(k in m) {
+      print k FS m[k]
+    }
   }' | jq -R 'split(":")|{(.[0]):.[1]}' | jq -sc add || ( local rc=$?; log "Failed to measure Redis: $metrics" && return $rc )
 }
 
@@ -217,7 +217,7 @@ destroy() {
 scaleIn() {
   if [[ $(findStableNodesCount) -eq 1 ]]; then
     stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
-  fi 
+  fi
 }
 
 restore() {
@@ -242,7 +242,7 @@ restore() {
     retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
     local cmd; cmd="$(getRuntimeNameOfCmd CONFIG)"
     [[ $(runRedisCmd $cmd SET appendonly $oldValue) == "OK" ]] && [[ $(runRedisCmd $cmd REWRITE) == "OK" ]] || return $EC_RESTORE_UPDATE_APPENDONLY_ERR
-  fi     
+  fi
 }
 
 checkLoadDataDone(){
@@ -356,18 +356,27 @@ findMasterNodeId() {
   echo $STABLE_REDIS_NODES | xargs -n1 | awk -F/ '$3=="'$(findMasterIp)'" {print $2}'
 }
 
+redisCli() {
+  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
+  if [[ $REDIS_TLS_CLUSTER == "yes" ]]; then
+    echo "/opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
+  else
+    echo "/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT $@"
+  fi
+}
+
 runRedisCmd() {
   local redisIp=$MY_IP maxTime=5 result retCode=0
   if [[ "$1" == "--timeout" ]]; then maxTime=$2 && shift 2;fi
-  if [ "$1" == "--ip" ]; then redisIp=$2 && shift 2; fi
-  result="$(timeout --preserve-status ${maxTime}s /opt/redis/current/redis-cli -h $redisIp --no-auth-warning -a "$REDIS_PASSWORD" -p $REDIS_PORT $@ 2>&1)" || retCode=$?
+  if [[ "$1" == "--ip" || "$1" == "-h" ]]; then redisIp=$2 && shift 2; fi
+  result="$(timeout --preserve-status ${maxTime}s $(redisCli) -h $redisIp --no-auth-warning -p $REDIS_PORT $@ 2>&1)" || retCode=$?
   if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"
   fi
   return $retCode
-} 
+}
 
 checkVip() {
   local vipResponse; vipResponse="$(runRedisCmd --ip $REDIS_VIP ROLE | sed -n '1{p;q}')"
@@ -589,3 +598,11 @@ getRedisRoles(){
     echo "$nodeIp $myRole $allow_deletion"
   done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","allow_deletion"],"data":.}'
 }
+
+getNodesOrder() {
+  local slaveIps
+  slaveIps=$(runRedisCmd -h $REDIS_VIP Info Replication | awk '/^slave[0-9]/{print $0=gensub(/^.*ip=([0-9\.]+),.*/, "\\1", "g")}')
+  awk -F/ 'NR==FNR{ip[$0]}NR>FNR{if ($NF in ip){print $2}else{masters[$2]}}END{for (i in masters){print i}}' \
+    <(echo $slaveIps | xargs -n1) <(echo $STABLE_REDIS_NODES | xargs -n1| sort -nr) | paste -sd","
+}
+

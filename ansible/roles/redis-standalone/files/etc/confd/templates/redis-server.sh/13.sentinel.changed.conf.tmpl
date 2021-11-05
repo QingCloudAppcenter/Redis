@@ -24,8 +24,8 @@ dir /tmp
 logfile /data/redis/logs/redis-sentinel.log
 port 26379
 protected-mode no
-
-
+masterauth "{{ getv "/env/sentinel.requirepass" "" }}"
+requirepass "{{ getv "/env/sentinel.requirepass" "" }}"
 {{- if (ne (getv "/env/requirepass") "") }}
 sentinel auth-pass $SENTINEL_MONITOR_CLUSTER_NAME "{{ getv "/env/requirepass" "" }}"
 {{- end }}
