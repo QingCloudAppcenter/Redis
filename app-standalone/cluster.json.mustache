@@ -4,7 +4,7 @@
   "vxnet": {{cluster.vxnet}},
   "multi_zone_policy": "round_robin",
   "advanced_actions": ["change_vxnet","scale_horizontal","resize_on_upgrade"],
-  "custom_tags": ["default_deploy_method_sz", "divide_adding_nodes_btn", "hide_modify_instance_type_btn"],
+  "custom_tags": ["default_deploy_method_sz", "hide_modify_instance_type_btn"],
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
@@ -22,7 +22,7 @@
     "container": {
       "type": "lxc",
       "zone": "pek3",
-      "image": "img-8wvp68xd"
+      "image": "img-rmyy9ci3"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -34,6 +34,7 @@
         "mount_point": "/data",
         "filesystem": "xfs"
     },
+    "vertical_scaling_policy": "sequential",
     "services": {
       "start": {
         "cmd": "appctl start"
@@ -157,6 +158,7 @@
     "no-appendfsync-on-rewrite": {{env.no-appendfsync-on-rewrite}},
     "notify-keyspace-events": {{env.notify-keyspace-events}},
     "port": {{env.port}},
+    "sentinel.port": {{env.sentinel.port}},
     "repl-backlog-size": {{env.repl-backlog-size}},
     "repl-backlog-ttl": {{env.repl-backlog-ttl}},
     "repl-timeout": {{env.repl-timeout}},
@@ -175,9 +177,10 @@
     "web.console.username": {{env.web.console.username}},
     "web.console.password": {{env.web.console.password}},
     "tls-port": {{env.tls-port}},
-    "tls-cluster": {{env.tls-cluster}},
+    "sentinel.tls-port": {{env.sentinel.tls-port}},
+    "tls-replication": {{env.tls-replication}},
+    "tls-replication": {{env.tls-replication}},
     "tls-auth-clients": {{env.tls-auth-clients}},
-    "tls-cluster": {{env.tls-cluster}},
     "tls-protocols": {{env.tls-protocols}},
     "tls-ciphers": {{env.tls-ciphers}},
     "tls-ciphersuites": {{env.tls-ciphersuites}},

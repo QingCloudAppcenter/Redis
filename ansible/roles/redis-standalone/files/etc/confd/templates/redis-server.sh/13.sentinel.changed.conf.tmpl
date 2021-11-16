@@ -15,6 +15,14 @@ sentinelRenameCommands() {
   done
 }
 
+aclEncode() {
+  if [ -z "$1" ];then
+    echo -n nopass
+  else
+    echo -n "$1" | openssl sha256 | awk '{print "#"$2}'
+  fi
+}
+
 flush /opt/app/conf/redis-standalone/sentinel.changed.conf << SENTINEL_CONF_EOF
 bind 0.0.0.0
 daemonize no
@@ -22,7 +30,8 @@ supervised systemd
 pidfile /var/run/redis/sentinel.pid
 dir /tmp
 logfile /data/redis/logs/redis-sentinel.log
-port 26379
+port "{{ getv "/env/sentinel.port" "26379" }}"
+tls-port "{{ getv "/env/sentinel.tls-port" "0" }}"
 protected-mode no
 masterauth "{{ getv "/env/sentinel.requirepass" "" }}"
 requirepass "{{ getv "/env/sentinel.requirepass" "" }}"
@@ -34,4 +43,18 @@ sentinel down-after-milliseconds $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/se
 sentinel failover-timeout $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/sentinel.failover-timeout" "60000" }}
 sentinel parallel-syncs $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/parallel-syncs" "4" }}
 $(sentinelRenameCommands)
+user default on $(aclEncode '{{ getv "/env/sentinel.requirepass" "" }}') ~* &* +@all
+
+tls-auth-clients {{ getv "/env/tls-auth-clients" }}
+tls-protocols "{{ getv "/env/tls-protocols" }}"
+tls-ciphers "{{ getv "/env/tls-ciphers" }}"
+tls-ciphersuites "{{ getv "/env/tls-ciphersuites" }}"
+tls-prefer-server-ciphers {{ getv "/env/tls-prefer-server-ciphers" }}
+tls-session-caching {{ getv "/env/tls-session-caching" }}
+tls-session-cache-size {{ getv "/env/tls-session-cache-size" }}
+tls-session-cache-timeout {{ getv "/env/tls-session-cache-timeout" }}
+tls-cert-file /data/redis/tls/redis.crt
+tls-key-file /data/redis/tls/redis.key
+tls-ca-cert-file /data/redis/tls/ca.crt
+tls-dh-params-file /data/redis/tls/redis.dh
 SENTINEL_CONF_EOF

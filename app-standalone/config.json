@@ -168,6 +168,24 @@
       "changeable": false,
       "range": [ "yes", "no" ]
     }, {
+      "key": "port",
+      "label": "Port",
+      "description": "port_description",
+      "default": 6379,
+      "required": "no",
+      "type": "integer",
+      "min": 1,
+      "max": 65536
+    }, {
+      "key": "sentinel.port",
+      "label": "Sentinel.Port",
+      "description": "Sentinel Listening Port",
+      "default": 26379,
+      "required": "no",
+      "type": "integer",
+      "min": 1,
+      "max": 65536
+    }, {
       "description": "maxmemory_portion_description",
       "required": "no",
       "label": "maxmemory_portion_label",
@@ -204,11 +222,11 @@
       "max": 180000,
       "type": "integer"
     }, {
+      "key": "sentinel.requirepass",
+      "label": "sentinel.requirepass",
       "description": "sentinel.requirepass_description",
       "default": "",
       "required": "no",
-      "label": "sentinel.requirepass_label",
-      "key": "sentinel.requirepass",
       "type": "password",
       "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
     }, {
@@ -448,32 +466,6 @@
       "type": "integer",
       "min": 0
     }, {
-      "key": "port",
-      "description": "port_description",
-      "default": 6379,
-      "required": "no",
-      "label": "port_label",
-      "type": "integer",
-      "min": 1,
-      "max": 65536
-    }, {
-      "key": "tls-port",
-      "label": "TLS-Port",
-      "description": "TLS Listening Port",
-      "type": "integer",
-      "default": 0,
-      "max": 55535,
-      "min": 0,
-      "required": "no"
-    }, {
-      "key": "tls-cluster",
-      "label": "TLS-Cluster",
-      "description": "To enable TLS for the bus protocol.",
-      "type": "string",
-      "required": "no",
-      "default": "no",
-      "range": ["yes", "no"]
-    }, {
       "key": "enable-acl",
       "label": "enable-console-acl",
       "description": "Enable the console management ACL.",
@@ -505,6 +497,32 @@
       "key": "lua-time-limit",
       "type": "integer",
       "min": -1
+    }, {
+      "key": "tls-port",
+      "label": "TLS-Port",
+      "description": "TLS Listening Port",
+      "type": "integer",
+      "default": 0,
+      "max": 65535,
+      "min": 0,
+      "required": "no"
+    }, {
+      "key": "sentinel.tls-port",
+      "label": "Sentinel.TLS-Port",
+      "description": "Sentinel TLS Listening Port",
+      "type": "integer",
+      "default": 0,
+      "max": 65535,
+      "min": 0,
+      "required": "no"
+    }, {
+      "key": "tls-replication",
+      "label": "Tls-Replication",
+      "description": "the following directive to enable TLS on replication links,",
+      "type": "string",
+      "required": "no",
+      "default": "no",
+      "range": ["yes", "no"]
     }, {
       "key": "tls-auth-clients",
       "label": "TLS-Auth-Clients",

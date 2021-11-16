@@ -1,3 +1,7 @@
+encodeCmd() {
+  echo -n ${1}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1
+}
+
 renameCommands() {
   local unsafeCommands="
     BGREWRITEAOF
@@ -19,7 +23,7 @@ renameCommands() {
   local cmd; for cmd in $unsafeCommands; do
     local renamed=$cmd
     if [[ " $allowedCommands " != *" $cmd "* ]]; then
-      renamed=$(echo -n ${cmd}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1)
+      renamed=$(encodeCmd ${cmd})
     fi
     echo rename-command $cmd $renamed
   done
@@ -67,13 +71,14 @@ timeout {{ getv "/env/timeout" "0" }}
 zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
 zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
 port {{ getv "/env/port" "6379" }}
+tls-port {{ getv "/env/tls-port" "0" }}
+tls-replication {{ getv "/env/tls-replication" "no" }}
 masterauth "{{ getv "/env/requirepass" "" }}"
 requirepass "{{ getv "/env/requirepass" "" }}"
 $(renameCommands)
 rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
 $(ioThreads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}
-tls-cluster {{ getv "/env/tls-cluster" }}
 tls-protocols "{{ getv "/env/tls-protocols" }}"
 tls-ciphers "{{ getv "/env/tls-ciphers" }}"
 tls-ciphersuites "{{ getv "/env/tls-ciphersuites" }}"

@@ -17,13 +17,16 @@ SENTINEL_START_ERR=230
 REDIS_START_ERR=231
 REDIS_STOP_ERR=232
 
-ROOT_CONF_DIR=/opt/app/conf/redis-cluster
+ROOT_CONF_DIR=/opt/app/conf/redis-standalone
 CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
 DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
 CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
+CHANGED_SENTINEL_FILE=$ROOT_CONF_DIR/sentinel.changed.conf
+
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
+RUNTIME_SENTINEL_FILE=$REDIS_DIR/sentinel.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
 ACL_CLEAR=$REDIS_DIR/acl.clear
 
@@ -41,13 +44,33 @@ initNode() {
   _initNode
 }
 
+getLoadStatus() {
+  log "getLoadStatus"
+  runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
+}
+
 start() {
   isNodeInitialized || execute initNode
   configure && _start
+
+  if [ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" ]; then
+    log "retry 86400 1 0 getLoadStatus"
+    retry 86400 1 0 getLoadStatus
+  fi
 }
 
 stop() {
-  if [ -z "$LEAVING_REDIS_NODES" ] && isSvcEnabled redis-sentinel; then
+  if [[ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" && $(getRedisRole) == "master" ]] ; then
+    local slaveIP
+    slaveIP="$(echo -n "$STABLE_REDIS_NODES" | awk -F"/" -v ip="$MY_IP" 'BEGIN{RS=" "}$NF!=ip{print $3;exit}')"
+    [ -n "$slaveIP" ] && {
+      log "runRedisCmd -h $slaveIP -P $SENTINEL_PORT -a \"$SENTINEL_PASSWORD\" SENTINEL failover $CLUSTER_ID"
+      runRedisCmd -h $slaveIP -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL failover $CLUSTER_ID
+      log "retry 120 1 0 checkMyRoleSlave"
+      retry 120 1 0 checkMyRoleSlave
+      setUpVip
+    }
+  elif [ -z "$LEAVING_REDIS_NODES" ] && isSvcEnabled redis-sentinel; then
     stopSvc redis-sentinel
     local sentinelHost; for sentinelHost in $STABLE_REDIS_NODES; do
       if [[ "${sentinelHost##*/}" != "$MY_IP" ]]; then
@@ -204,8 +227,8 @@ destroy() {
       log --debug "sentinelNodes: $sentinelNodes"
       local sentinelNode; for sentinelNode in $sentinelNodes; do
         log "${sentinelNode##*/} reset?"
-        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
-        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
+        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
+        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
         log "${sentinelNode##*/} reset"
       done
 
@@ -216,16 +239,13 @@ destroy() {
 
 scaleIn() {
   if [[ $(findStableNodesCount) -eq 1 ]]; then
-    stopSvc redis-sentinel && rm -f $runtimeSentinelFile*
+    stopSvc redis-sentinel && rm -f $RUNTIME_SENTINEL_FILE*
   fi
 }
 
 restore() {
-  local scopeForRedis logsDirForRedis runtimeConfigFile
-  scopeForRedis=/data/redis
-  logsDirForRedis=$scopeForRedis/logs
-  runtimeConfigFile=$scopeForRedis/redis.conf
-  local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $runtimeConfigFile)"
+  local logsDirForRedis=$REDIS_DIR/logs
+  local oldValue; oldValue="$(awk '$1=="appendonly" {print $2}' $RUNTIME_CONFIG_FILE)"
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
@@ -261,7 +281,6 @@ getRuntimeNameOfCmd() {
   fi
 }
 
-runtimeSentinelFile=/data/redis/sentinel.conf
 
 getmasterIpFromSentinelNodes(){
   log "getmasterIpFromSentinelNodes"
@@ -281,9 +300,9 @@ getmasterIpFromSentinelNodes(){
   done
   firstSentinelNode="$(echo "$sentinelNodes" |cut -d" " -f1)"
   log --debug "firstSentinelNode: $firstSentinelNode"
-  log --debug "result: $(runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME)"
+  log --debug "result: $(runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME)"
   local rc=0
-  runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
+  runRedisCmd --ip ${firstSentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
         |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
         log "get master ip from ${firstSentinelNode##*/} fail! rc=$rc"
   return $rc
@@ -303,7 +322,7 @@ getMasterIpForRevive() {
     local rc=0
     if isSvcEnabled redis-sentinel;then
       local otherFirstNodeIp="$(echo $STABLE_REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
-      runRedisCmd --ip ${otherFirstNodeIp} -p $SENTINEL_PORT sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
+      runRedisCmd --ip ${otherFirstNodeIp} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
         |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
           log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
       return $rc
@@ -321,8 +340,8 @@ getMasterIpByConf() {
   log --debug "sentinelNodes: $sentinelNodes"
   log --debug "MY_IP: $MY_IP"
   if [[ "$sentinelNodes " == *"/$MY_IP "* ]]; then
-    isSvcEnabled redis-sentinel && [ -f "$runtimeSentinelFile" ] \
-      && awk 'BEGIN {rc=1} $0~/^sentinel monitor (master|'$SENTINEL_MONITOR_CLUSTER_NAME') / {print $4; rc=0} END {exit rc}' $runtimeSentinelFile \
+    isSvcEnabled redis-sentinel && [ -f "$RUNTIME_SENTINEL_FILE" ] \
+      && awk 'BEGIN {rc=1} $0~/^sentinel monitor (master|'$SENTINEL_MONITOR_CLUSTER_NAME') / {print $4; rc=0} END {exit rc}' $RUNTIME_SENTINEL_FILE \
       || getInitMasterIp
   else
     getmasterIpFromSentinelNodes
@@ -356,21 +375,32 @@ findMasterNodeId() {
   echo $STABLE_REDIS_NODES | xargs -n1 | awk -F/ '$3=="'$(findMasterIp)'" {print $2}'
 }
 
-redisCli() {
-  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
-  if [[ $REDIS_TLS_CLUSTER == "yes" ]]; then
-    echo "/opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
-  else
-    echo "/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT $@"
-  fi
-}
 
 runRedisCmd() {
-  local redisIp=$MY_IP maxTime=5 result retCode=0
-  if [[ "$1" == "--timeout" ]]; then maxTime=$2 && shift 2;fi
-  if [[ "$1" == "--ip" || "$1" == "-h" ]]; then redisIp=$2 && shift 2; fi
-  result="$(timeout --preserve-status ${maxTime}s $(redisCli) -h $redisIp --no-auth-warning -p $REDIS_PORT $@ 2>&1)" || retCode=$?
-  if [ "$retCode" != 0 ] || [[ "$result" == *ERR* ]]; then
+  local not_error="getUserList aclManage measure runRedisCmd"
+  local redisIp=$MY_IP redisPort=$REDIS_PORT maxTime=5 retCode=0 passwd=$REDIS_PASSWORD authOpt="" result redisCli
+  while :
+    do
+    if [[ "$1" == "--timeout" ]]; then
+      maxTime=$2 && shift 2
+    elif [[ "$1" == "--ip" || "$1" == "-h" ]]; then
+      redisIp=$2 && shift 2
+    elif [[ "$1" == "--port" || "$1" == "-p" ]]; then
+      redisPort=$2 && shift 2
+    elif [[ "$1" == "--password" || "$1" == "-a" ]]; then
+      passwd=$2 && shift 2
+    else
+      break
+    fi
+  done
+  [ -n "$passwd" ] && authOpt="--no-auth-warning -a $passwd"
+  if [[ $REDIS_TLS_CLUSTER == "yes" ]]; then
+    redisCli="/opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT"
+  else
+    redisCli="/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT"
+  fi
+  result="$(timeout --preserve-status ${maxTime}s $redisCli -h $redisIp -p $redisPort $@ 2>&1)" || retCode=$?
+  if [ "$retCode" != 0 ] || [[ " $not_error " != *" $cmd "* && "$result" == *ERR* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"
@@ -415,7 +445,7 @@ checkSentinelStarted(){
 }
 
 checkSentinelStopped() {
-  ! checkSentinelStarted
+  ! checkSentinelStarted $@
 }
 
 checkRedisStarted(){
@@ -423,16 +453,13 @@ checkRedisStarted(){
 }
 
 checkRedisStopped() {
-  ! checkRedisStarted
+  ! checkRedisStarted $@
 }
 
 encodeCmd() {
   echo -n ${1?command is required}${CLUSTER_ID} | sha256sum | cut -d' ' -f1
 }
 
-rootConfDir=/opt/app/conf/redis-standalone
-changedConfigFile=$rootConfDir/redis.changed.conf
-changedSentinelFile=$rootConfDir/sentinel.changed.conf
 reload() {
   isNodeInitialized || return 0
 
@@ -445,9 +472,13 @@ reload() {
       fi
     elif [ -n "${LEAVING_REDIS_NODES}" ]; then
       log --debug "scaling in ..."
-    elif checkFileChanged $changedConfigFile; then
+    elif [ -n "${VERTICAL_SCALING_ROLES}" ]; then
+      log "Vertical Scaling Roles ing..."
+    elif [ -n "${REBUILD_AUDIT}" ]; then
+      log "Rebuild Audit ..."
+    elif checkFileChanged "$CHANGED_CONFIG_FILE $CHANGED_ACL_FILE $(echo $TLS_CONF_LIST | awk -F ":" 'BEGIN{ORS=RS=" "}{print $1}')"; then
       execute restart
-    elif checkFileChanged $changedSentinelFile; then
+    elif checkFileChanged $CHANGED_SENTINEL_FILE; then
       configureForSentinel && _reload redis-sentinel
     fi
   else
@@ -456,27 +487,30 @@ reload() {
 }
 
 checkFileChanged() {
-  ! ([ -f "$1.1" ] && cmp -s $1 $1.1)
+  local configFile retCode=1
+  for configFile in $@ ; do
+    [ -f "$configFile.1" ] && cmp -s $configFile $configFile.1 || retCode=0
+  done
+  return $retCode
 }
 
 configureForRedis() {
   log --debug "exec configureForRedis"
-  local runtimeConfigFile=/data/redis/redis.conf defaultConfigFile=$rootConfDir/redis.default.conf \
-        slaveofFile=$rootConfDir/redis.slaveof.conf
-  local masterIp; masterIp="$(findMasterIp)" 
+  local slaveofFile=$ROOT_CONF_DIR/redis.slaveof.conf
+  local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
+  rotate $RUNTIME_CONFIG_FILE
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
   [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
 
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $changedConfigFile $slaveofFile $runtimeConfigFile.1 $defaultConfigFile > $runtimeConfigFile
+    $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE.1 > $RUNTIME_CONFIG_FILE
 }
 
 swapIpAndName() {
-  local runtimeConfigFile=/data/redis/redis.conf 
-  local configFiles=$runtimeConfigFile
+  local configFiles=$RUNTIME_CONFIG_FILE
   if isSvcEnabled redis-sentinel; then
-    configFiles="$configFiles $runtimeSentinelFile"
+    configFiles="$configFiles $RUNTIME_SENTINEL_FILE"
   fi
   sudo -u redis touch $configFiles && rotate $configFiles
   local fields='$3"/"$2'
@@ -489,34 +523,79 @@ swapIpAndName() {
 
 configureForSentinel() {
   log --debug "exec configureForSentinel"
-  local monitorFile=$rootConfDir/sentinel.monitor.conf
+  local monitorFile=$ROOT_CONF_DIR/sentinel.monitor.conf
   local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
+  rotate $RUNTIME_SENTINEL_FILE
   echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT 2" > $monitorFile
 
   if isSvcEnabled redis-sentinel; then
     # 处理升级过程中监控名称的改变
-    sed -i 's/master/'"$SENTINEL_MONITOR_CLUSTER_NAME"'/g' $runtimeSentinelFile.1
+    sed -i 's/ master /'" $SENTINEL_MONITOR_CLUSTER_NAME "'/g' $RUNTIME_SENTINEL_FILE.1
     # 防止莫名的单个$0 出现
-    awk '(NF>1 && $0~/^[^ #$]/) ? $1~/^sentinel/ ? $2~/^rename-/ ? !a[$1$2$3$4]++ : $2~/^(anno|deny-scr)/ ? !a[$1$2]++ : !a[$1$2$3]++ : !a[$1]++ : 0' \
-      $monitorFile $changedSentinelFile <(sed -r '/^sentinel (auth-pass '"$SENTINEL_MONITOR_CLUSTER_NAME"'|rename-slaveof|rename-config|known-replica|known-slave)/d' $runtimeSentinelFile.1) > $runtimeSentinelFile
+    awk 'NF>1 && $0~/^[^ #$]/{
+            key = $1
+            if ($1~/^sentinel/) {
+              if ($2~/^rename-/ ){
+                key = $1$2$3$4
+              } else  if ($2~/^(anno|deny-scr)/){
+                key = $1$2
+              } else {
+                key = $1$2$3
+              }
+            } else if ( $1 == "user"){
+              key = $1$2
+            }
+            if (!a[key]++){
+              print
+            }
+          }' $monitorFile $CHANGED_SENTINEL_FILE <(sed -r '/^sentinel (auth-pass '"$SENTINEL_MONITOR_CLUSTER_NAME"'|rename-slaveof|rename-config|known-replica|known-slave)/d' $RUNTIME_SENTINEL_FILE.1) > $RUNTIME_SENTINEL_FILE
+          #}' $monitorFile $CHANGED_SENTINEL_FILE <(sed -r '/^sentinel (auth-pass '"$SENTINEL_MONITOR_CLUSTER_NAME"'|rename-slaveof|rename-config|known-replica|known-slave)/d' $RUNTIME_SENTINEL_FILE.1)
   else
-    rm -f $runtimeSentinelFile*
+    rm -f $RUNTIME_SENTINEL_FILE*
   fi
 }
 
 configureForRestore(){
   if [[ "$command" =~ ^(restore|restoreByCustomRdb)$ ]]; then
-    local runtimeConfigFile=/data/redis/redis.conf
-    sed -i 's/^appendonly.*/appendonly no/g ' $runtimeConfigFile
+    sed -i 's/^appendonly.*/appendonly no/g ' $RUNTIME_CONFIG_FILE
   fi
+}
+
+rotateTLS() {
+  local tlsConf changedConf runtimeConf
+  for tlsConf in $TLS_CONF_LIST; do
+    changedConf="${tlsConf%:*}"
+    runtimeConf="${tlsConf#*:}"
+    rotate $runtimeConf
+    cat $changedConf > $runtimeConf
+  done
+}
+
+configureForACL() {
+  log "configureForACL Start"
+  if [[ "$ENABLE_ACL" == "no" && -e "$ACL_CLEAR" ]] ; then
+    rm $ACL_CLEAR -f
+  elif [[ "$ENABLE_ACL" == "yes" ]]; then
+    if [[ -e "$ACL_CLEAR" ]];then
+      rotate $RUNTIME_ACL_FILE
+      awk 'NR==FNR{user[$2]=$0}NR>FNR{if (user[$2]){print user[$2]}else{print}}' \
+        $CHANGED_ACL_FILE $RUNTIME_ACL_FILE.1 > $RUNTIME_ACL_FILE
+    else
+      cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
+      sudo -u redis touch $ACL_CLEAR
+    fi
+  fi
+  log "configureForACL End"
 }
 
 configure() {
   swapIpAndName --reverse
   configureForSentinel
-  configureForRedis  
+  configureForRedis
+  configureForACL
+  rotateTLS
   local masterIp; masterIp="$(findMasterIp)"
   configureForRestore
   setUpVip $masterIp
@@ -584,7 +663,15 @@ check(){
   checkVip
 }
 
-getRedisRoles(){ 
+getRedisRole(){
+  runRedisCmd -h ${1-$MY_IP} role | sed -n "1p"
+}
+
+checkMyRoleSlave() {
+  [[ $(getRedisRole "$MY_IP") == "slave" ]]
+}
+
+getRedisRoles(){
   local stableNodesCount=$(findStableNodesCount)
   local node nodeIp myRole allow_deletion counter=0; for node in $(echo "$STABLE_REDIS_NODES" |sort -n -t"/" -k1); do
     counter=$(($counter+1))
@@ -604,5 +691,89 @@ getNodesOrder() {
   slaveIps=$(runRedisCmd -h $REDIS_VIP Info Replication | awk '/^slave[0-9]/{print $0=gensub(/^.*ip=([0-9\.]+),.*/, "\\1", "g")}')
   awk -F/ 'NR==FNR{ip[$0]}NR>FNR{if ($NF in ip){print $2}else{masters[$2]}}END{for (i in masters){print i}}' \
     <(echo $slaveIps | xargs -n1) <(echo $STABLE_REDIS_NODES | xargs -n1| sort -nr) | paste -sd","
+}
+
+getUserList() {
+  log "log getUserList"
+  [[ "$ENABLE_ACL" == "no" ]] && return $ACL_SWITCH_ERR
+  local ACL_CMD=$(getRuntimeNameOfCmd ACL)
+  awk '{ a=""
+      if ($2!="default") {
+        for (i=1;i<=NF;i++){
+          if ($i ~ /^[+\-~&]|^(allchannels|resetchannels|allcommands|nocommands)/) {
+            a=a$i" "
+          }
+        }
+        print $2"\t"$3"\t"a
+      }
+    }' <(runRedisCmd $ACL_CMD list) \
+  | jq -Rc 'split("\t") | [ . ]' | jq -s add | jq -c '{"labels":["user","switch","rules"],"data":.}'
+}
+
+aclList(){
+  local ACL_CMD="$(getRuntimeNameOfCmd ACL)"
+  runRedisCmd $ACL_CMD list
+}
+
+aclManage() {
+  local command="$1"; shift 1
+  local args=$@
+  log "$command start"
+  [[ "$ENABLE_ACL" == "no" ]] && {
+    log "Add User Error Not ENABLE_ACL."
+    return $ACL_SWITCH_ERR
+  }
+  local user="$(echo $args |jq -r .username)"
+  [[ "$user" == "default" ]] && return $ACL_MANAGE_ERR
+  local ACL_CMD="$(getRuntimeNameOfCmd ACL)"
+  local acl_users="$(runRedisCmd $ACL_CMD USERS|awk 'BEGIN{ORS=" "}$0!="default"')"
+  if [[ "$command" == "addUser" ]];then
+    local passwd="$(echo -n "$(echo $args |jq -r .passwd)" | openssl sha256 | awk '{print "#"$NF}')"
+    local switch="$(echo $args |jq -r .switch)" rules="$(echo $args |jq -j .rules|sed 's/\r//g'| xargs)"
+    [[ " $acl_users " =~ " $user " ]] && return $ACL_MANAGE_ERR
+    runRedisCmd $ACL_CMD SETUSER $user $switch $passwd $rules || {
+      log "Add User Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+  elif [[ "$command" == "setUserRules" ]];then
+    local sre_info=$(runRedisCmd $ACL_CMD LIST | awk -v user="$user" '$2==user{txt=$3; for (i=4;i<=NF;i++){if ($i~/^#/){txt=txt" "$i }};print txt}')
+    local rules="$(echo $args |jq -j .rules|sed 's/\r//g'| xargs)"
+    runRedisCmd $ACL_CMD DELUSER $user || {
+      log "DELUSER User Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+    runRedisCmd $ACL_CMD SETUSER $user $sre_info $rules || {
+      log "Set User Rules Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+  elif [[ "$command" == "delUser" ]];then
+    [[ " $acl_users " =~ " $user " ]] || return $ACL_MANAGE_ERR
+    runRedisCmd $ACL_CMD DELUSER $user || {
+      log "DELUSER User Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+  elif [[ "$command" == "setSwitch" ]];then
+    [[ " $acl_users " =~ " $user " ]] || return $ACL_MANAGE_ERR
+    local switch="$(echo $args |jq -r .switch)"
+    runRedisCmd $ACL_CMD SETUSER $user $switch || {
+      log "Setuser switch User Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+  elif [[ "$command" == "resetPasswd" ]];then
+    [[ " $acl_users " =~ " $user " ]] || return $ACL_MANAGE_ERR
+    local passwd="$(echo -n "$(echo $args |jq -r .passwd)" | openssl sha256 | awk '{print "#"$NF}')"
+    runRedisCmd $ACL_CMD SETUSER $user resetpass || {
+      log "$ACL_CMD SETUSER $user resetpass Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+    runRedisCmd $ACL_CMD SETUSER $user $passwd || {
+      log "$ACL_CMD SETUSER $user $passwd  Error ($?)"
+      return $ACL_MANAGE_ERR
+    }
+  fi
+
+  log "acl $command SAVE"
+  runRedisCmd $ACL_CMD SAVE
+  log "acl $command end"
 }
 
