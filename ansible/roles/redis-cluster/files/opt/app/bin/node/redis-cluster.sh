@@ -484,15 +484,16 @@ getRuntimeNameOfCmd() {
 
 
 swapIpAndName() {
-  local fields replaceCmd  port=$REDIS_PLAIN_PORT
+  local fields replaceCmd  port=$REDIS_PLAIN_PORT nodes=$REDIS_NODES
   [ "$REDIS_TLS_CLUSTER" == "yes" ] && port=$REDIS_TLS_PORT
   sudo -u redis touch $NODE_CONF_FILE && rotate $NODE_CONF_FILE
   if [ -n "$1" ];then
-    fields='{print "s/ "$4":\\([0-9]\\+\\)@/ "$5":\1@/g"}'
+    nodes="$UPDATE_CHANGE_VXNET $nodes"
+    fields='{print "s/ "$4":\\([0-9]\\+\\)@/ "$5":\\1@/g"}'
   else
     fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
   fi
-  replaceCmd="$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
+  replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
   sed -i "$replaceCmd" $NODE_CONF_FILE
 }
 
