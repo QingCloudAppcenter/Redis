@@ -51,15 +51,12 @@ getLoadStatus() {
 start() {
   isNodeInitialized || execute initNode
 
-  log "enable acl:$ENABLE_ACL JOINING_REDIS_NODES:$JOINING_REDIS_NODES"
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then
     log "enable acl:$ENABLE_ACL $JOINING_REDIS_NODES"
     sudo -u redis touch $ACL_CLEAR
     local ACL_CMD node_ip=$(echo ${STABLE_REDIS_NODES%% *} | cut -d "/" -f3)
     ACL_CMD="$(getRuntimeNameOfCmd ACL)"
-    log "IN: $(paste -sd ";" $RUNTIME_ACL_FILE)"
     runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
-    log "OUT: $(paste -sd ";" $RUNTIME_ACL_FILE)"
   fi
 
   configure && _start
