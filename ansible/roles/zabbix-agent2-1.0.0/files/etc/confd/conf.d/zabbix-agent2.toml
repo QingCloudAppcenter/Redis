@@ -1,0 +1,9 @@
+[template]
+src = "zabbix-agent2.sh.tmpl"
+dest = "/opt/app/bin/tmpl/zabbix_agent2.conf.sh"
+mode = "0700"
+keys = [
+  "/",
+]
+reload_cmd = "/opt/app/bin/tmpl/zabbix_agent2.conf.sh; appctl reload zabbix-agent2"
+
