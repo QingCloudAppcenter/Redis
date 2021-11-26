@@ -1,0 +1,23 @@
+{
+  "patch_policy": ["", "appp-v39jl573"],
+  "patch_nodes": [{
+    "container": {
+        "snapshot": "ss-a0qr7bdl",
+        "zone": "pek3"
+    },
+    "patch": [{
+      "mount_role": "master",
+      "mount_point": "/upgrade",
+      "mount_options": "defaults,noatime",
+      "filesystem": "ext4",
+      "cmd": "echo"
+    }],
+    "rollback": [{
+      "mount_role": "master",
+      "mount_point": "/upgrade",
+      "mount_options": "defaults,noatime",
+      "filesystem": "ext4",
+      "cmd": "echo"
+    }]
+  }]
+}
