@@ -30,9 +30,23 @@ initNode() {
   _initNode
 }
 
+checkMyRoleSlave() {
+  getRedisRole "$MY_IP" | grep -qE "^slave$"
+}
+
 stop(){
+  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
+    local slaveIP
+    slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
+    echo $slaveIP
+    [ -n "$slaveIP" ] && {
+      runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
+      retry 120 1 0 checkMyRoleSlave
+    }
+  fi
   echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
+
 }
 
 initCluster() {
@@ -50,10 +64,26 @@ init() {
   initCluster
 }
 
+getLoadStatus() {
+  local gid
+  gid=$(echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip="$MY_IP" '$5==ip{print $1}')
+  if echo "$REDIS_NODES" | xargs -n1 | awk -F/ -v ip="$MY_IP" -v gid=$gid '$5!=ip && $1==gid {exit 1}'; then
+    runRedisCmd Info Persistence | awk -F"[: ]+" 'BEGIN{f=1}$1=="loading"{f=$2} END{exit f}'
+  else
+    runRedisCmd info Replication | grep -Eq '^(slave[0-9]|master_host):'
+  fi
+}
+
 start() {
   isNodeInitialized || execute initNode
   configure
   _start
+  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
+    local waitTime
+    waitTime=$(du -m /data/redis/appendonly.aof | awk '{printf("%d", $1/50+10)}')
+    log "retry $waitTime 1 0 getLoadStatus"
+    retry $waitTime 1 0 getLoadStatus
+  fi
 }
 
 checkRedisStateIsOkByInfo(){
@@ -604,4 +634,16 @@ checkGroupMatchedCommand(){
     checkGroupMatched "$stableNodesIps"
     checkClusterMatched "$stableNodesIps"
   fi
+}
+
+getNodesOrder() {
+  local nodesStatus nodesList failInfo
+  nodesStatus="$(runRedisCmd CLUSTER NODES | awk -F "[ :]+" '{sub(/^myself,/,"",$4);{print $2"/"$4}}')"
+  failInfo="$(echo "$nodesStatus"| xargs -n1 | awk -F "/" '$2 !~ /^(master|slave)$/{print}')"
+  if [ "$failInfo" != "" ];then
+    log "node fail: $(echo "$failInfo" | xargs -n1 | paste -sd ";" )"
+    return $CLUSTER_NODE_ERR
+  fi
+  nodesList="$(join -1 5 -2 1 -t/ -o 1.1,2.2,1.6 <(echo "$REDIS_NODES" | xargs -n1 | sort -t "/" -k 5 ) <(echo "$nodesStatus" | xargs -n1 | sort))"
+  echo "$nodesList" | xargs -n1 | sort -t"/" -k 2r,2 -k 1rn | cut -f3 -d/ | paste -sd ","
 }
