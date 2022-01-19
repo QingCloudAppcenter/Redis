@@ -8,6 +8,8 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
+     "appv-r89epe6m",
+     "appv-e97gz6wz",
      "appv-vedszzfk",
      "appv-21ddkc5h",
      "appv-315vkrx9",
@@ -21,9 +23,10 @@
   "nodes": [{
     "container": {
       "type": "lxc",
+      "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-smjvh0v6"
+      "image": "img-bx7d5uw1"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},

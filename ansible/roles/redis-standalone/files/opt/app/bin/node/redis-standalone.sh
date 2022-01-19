@@ -119,7 +119,7 @@ measure() {
     replicaDelay=0
   fi
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
     }
   }
@@ -264,7 +264,7 @@ restore() {
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no (该操作位于 configForRestore) -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
   execute start
-  retry 240 1 $EC_RESTORE_LOAD_ERR checkLoadDataDone
+  retry 86400 1 0 getLoadStatus
   if [[ "$oldValue" == "yes" ]]; then
     runRedisCmd $(getRuntimeNameOfCmd BGREWRITEAOF)
     retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
@@ -273,9 +273,6 @@ restore() {
   fi
 }
 
-checkLoadDataDone(){
-  [[ "$(runRedisCmd PING)" == *"loading the dataset in memory"* ]]
-}
 
 checkReWriteAofDone(){
   [[ "$(runRedisCmd info Persistence)" == *"aof_rewrite_in_progress:0"* ]]

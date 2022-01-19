@@ -204,6 +204,7 @@
   "set_user_rules":"修改控制字符串",
   "reset_passwd":"重置用户密码",
   "enable-console-acl": "控制台管理ACL",
+  "Require clients to issue \"AUTH <USERNAME> <PASSWORD>\" before processing any other commands.": "ACL用户密码，密码可由数字、字母或 !@#$%^&*()./; 组成，且最少6位，不预留密码可设为空", 
   "Enable the console management ACL.": "由控制台管理ACL服务.<br>注意!!开启此服务,会删除之前ACL用户.",
   "Multithreaded Prod: 380000QPS":"独享CPU模式，性能稳定，使用多线程操作读写I/O，QPS参考: 380000次/秒",
   "Single Threaded Prod: 180000QPS":"独享CPU模式，性能稳定，使用单线程操作读写I/O，QPS参考: 180000次/秒",

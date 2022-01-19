@@ -631,7 +631,7 @@
       "range": [true, false]
     }, {
       "key": "redis-exporter-enable",
-      "label": "Enable redis-Exporter",
+      "label": "Enable Redis-Exporter",
       "description": "Enable Redis-Exporter, Port:9121",
       "type": "boolean",
       "default": false,
