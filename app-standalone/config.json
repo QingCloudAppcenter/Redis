@@ -28,7 +28,8 @@
     }, {
       "key": "resource_group",
       "label": "Resource Configuration",
-      "description": ["Multithreaded Prod: 380000QPS", "Single Threaded Prod: 180000QPS", "Multithreaded Test: 180000QPS", "Single Threaded Test: 60000QPS"],
+      "description": ["Multithreaded Prod: 500000QPS", "Single Threaded Prod: 300000QPS", "Multithreaded Test: 150000QPS", "Single Threaded Test: 80000QPS"],
+
       "type": "string",
       "customizable": false,
       "is_node": true,

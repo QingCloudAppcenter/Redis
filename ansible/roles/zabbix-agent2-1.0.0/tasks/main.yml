@@ -33,16 +33,16 @@
     deb: "/tmp/zabbix-agent2_{{ zabbix_agent2_version }}-1+Bubuntu{{ os_version }}_amd64.deb"
     state: present
 
-- name: disable apt auto upgrade
+- name: disable zabbix-agent2
   systemd:
-    name: "{{ svc_name }}"
+    name: zabbix-agent2
     enabled: no
-    masked: yes
     state: stopped
-  loop:
-  - zabbix-agent2
-  loop_control:
-    loop_var: svc_name
+
+- name: maske zabbix-agent2
+  systemd:
+    name: zabbix-agent2
+    masked: yes
 
 - name: install confd files
   include_tasks: ../../utils/tasks/process-confd-files.yml
