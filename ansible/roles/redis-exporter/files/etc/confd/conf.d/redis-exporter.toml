@@ -1,0 +1,9 @@
+[template]
+src = "redis-exporter.sh.tmpl"
+dest = "/opt/app/bin/tmpl/redis-exporter.sh"
+mode = "0700"
+keys = [
+  "/",
+]
+reload_cmd = "/opt/app/bin/tmpl/redis-exporter.sh; appctl reload redis_exporter"
+ 
