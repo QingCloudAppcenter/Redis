@@ -1,52 +1,20 @@
-flush /opt/prometheus/redis_exporter/redis_exporter.sh << REDIS_EXPORTER_EOF
-#!/bin/bash
-REDIS_EXPORTER="/data/redis_exporter"
-REDIS_EXPORTER_PID_FILE="/data/redis_exporter/redis_exporter.pid"
-LOGS_DIR="\$REDIS_EXPORTER/logs"
+flush /etc/systemd/system/redis_exporter.service << REDIS_EXPORTER_CONF_EOF
+[Unit]
+Description=redis_exporter
+After=network.target
 
-start() {
-  local config=CONFIG
-  if ! echo "{{ join (getvs "/env/enable-commands") "" }}" | grep -Ei "^CONFIG"; then
-        config=\$(echo -n CONFIG{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1)
-  fi
-  if [[ -n '{{ getv "/env/requirepass" "" }}' ]];then
-    /opt/prometheus/redis_exporter/redis_exporter \\
-      -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" \\
-      -redis.password '{{ getv "/env/requirepass" "" }}' \\
-      -web.listen-address 0.0.0.0:9121 \\
-      -config-command "\$config" &>> \$LOGS_DIR/redis_exporter.log &
-  else
-    /opt/prometheus/redis_exporter/redis_exporter \\
-      -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" \\
-      -web.listen-address 0.0.0.0:9121 \\
-      -config-command "\$config" &>> \$LOGS_DIR/redis_exporter.log &
-  fi
-  echo "\$!" > \$REDIS_EXPORTER_PID_FILE
-}
+[Service]
+Type=simple
+User=prometheus
+{{ if eq (getv "/env/requirepass") "0" -}}
+ExecStart=/opt/prometheus/redis_exporter/redis_exporter -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" -web.listen-address 0.0.0.0:9121 -redis.password "{{ getv "/env/requirepass" "" }}"
+{{- else -}}
+ExecStart=/opt/prometheus/redis_exporter/redis_exporter -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" -web.listen-address 0.0.0.0:9121
+{{- end }}
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+REDIS_EXPORTER_CONF_EOF
 
-stop() {
-  local pid
-  if [ ! -e  \$REDIS_EXPORTER_PID_FILE ];then
-    return
-  fi
-  pid=\$(cat \$REDIS_EXPORTER_PID_FILE)
-  /usr/bin/kill \$pid
-}
+systemctl daemon-reload
 
-case \$1 in
-  stop)
-    stop
-  ;;
-  start)
-    start
-  ;;
-  restart)
-    stop
-    start
-  ;;
-  reload)
-    stop
-    start
-  ;;
-esac
-REDIS_EXPORTER_EOF

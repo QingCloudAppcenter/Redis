@@ -7,7 +7,6 @@
   - update-apt-sources-1.0.0
   - disable-apt-jobs-1.0.0
   - disable-motd-1.0.0
-  - disable-ipv6-1.0.0
   - app-agent-1.0.6
   - role: arping-1.0.5
     vars:
