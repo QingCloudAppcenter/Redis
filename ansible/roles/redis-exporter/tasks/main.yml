@@ -64,17 +64,17 @@
   with_items:
     - "redis_exporter-{{redis_exporter_version}}"
 
-- name: disable apt auto upgrade
+- name: disable redis_exporter
   systemd:
-    daemon_reload: yes
     name: redis_exporter
     enabled: no
-    masked: yes
     state: stopped
-  loop:
-  - redis_exporter
-  loop_control:
-    loop_var: svc_name
+
+- name: maske redis_exporter
+  systemd:
+    name: redis_exporter
+    masked: yes
+
 
 - name: install confd files
   include_tasks: ../../utils/tasks/process-confd-files.yml

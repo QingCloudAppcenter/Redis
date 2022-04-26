@@ -1,19 +1,19 @@
 {
-  "patch_policy": [""],
+  "patch_policy": ["", "appp-mw2m1pu7", "appp-8m8hgjd6"],
   "patch_nodes": [{
     "container": {
-        "snapshot": "ss-a0qr7bdl",
+        "snapshot": "ss-ytwhal6w",
         "zone": "pek3"
     },
     "patch": [{
-      "mount_role": "node",
+      "mount_role": "",
       "mount_point": "/upgrade",
       "mount_options": "defaults,noatime",
       "filesystem": "ext4",
-      "cmd": "systemctl disable zabbix-agent2.service"
+      "cmd": "/upgrade/opt/app/bin/node/upgrade.sh"
     }],
     "rollback": [{
-      "mount_role": "node",
+      "mount_role": "",
       "mount_point": "/upgrade",
       "mount_options": "defaults,noatime",
       "filesystem": "ext4",

@@ -1,11 +1,14 @@
 [Unit]
 Description=redis_exporter
+Wants=network-online.target
 After=network.target
 
 [Service]
-Type=simple
+Type=forking
 User=prometheus
-ExecStart=/opt/prometheus/redis_exporter/redis_exporter -redis.addr 127.0.0.1:6379  -web.listen-address 0.0.0.0:9121
+PIDFile=/data/redis_exporter/redis_exporter.pid
+ExecStart=/usr/bin/bash /opt/prometheus/redis_exporter/redis_exporter.sh start
+ExecStop=/usr/bin/bash /opt/prometheus/redis_exporter/redis_exporter.sh stop
 Restart=on-failure
 
 [Install]
