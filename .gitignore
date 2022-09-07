@@ -1,5 +1,12 @@
 app/*.zip
-app-standalone/redis.zip
 ansible/roles/*/files/tmp
-app-cluster/redis.zip
+ansible/file/tmp/*
+ansible/test*.yml
+ansible/hosts
+app-standalone/*.zip
+app-standalone/*.tar.gz
+app-standalone/*.tgz
+app-cluster/*.zip
+app-cluster/*.tar.gz
+app-cluster/*.tgz
 custom.env
