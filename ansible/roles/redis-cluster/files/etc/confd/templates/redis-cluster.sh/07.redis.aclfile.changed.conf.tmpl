@@ -1,0 +1,11 @@
+sha256sum() {
+  if [ -z "$1" ];then
+    echo -n nopass
+  else
+    echo -n "$1" | openssl sha256 | awk '{print "#"$2}'
+  fi
+}
+flush /opt/app/conf/redis-cluster/aclfile.conf << NODES_CONF_EOF
+user default on $(sha256sum '{{ getv "/env/appcenterignore-requirepass" "" }}') ~* &* +@all
+NODES_CONF_EOF
+

@@ -1,0 +1,49 @@
+---
+- name: set vars
+  set_fact:
+    os_version: "{{ os_version | d(default_os_version) }}"
+    zabbix_agent2_version: "{{ zabbix_agent2_version | d(default_zabbix_agent2_version) }}"
+    zabbix_version: "{{ zabbix_version | d(default_zabbix_version) }}"
+
+- name: check if package file exists
+  stat:
+    path: "{{ role_path }}/files/tmp/zabbix-agent2_{{ zabbix_agent2_version }}-1+Bubuntu{{ os_version }}_amd64.deb"
+  register: cached_file
+  run_once: True
+  delegate_to: localhost
+
+- name: download zabbix deb
+  get_url:
+    url: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu/pool/main/z/zabbix/zabbix-agent2_{{ zabbix_agent2_version }}-1%2Bubuntu{{ os_version }}_amd64.deb"
+    dest: "{{ role_path }}/files/tmp/zabbix-agent2_{{ zabbix_agent2_version }}-1+Bubuntu{{ os_version }}_amd64.deb"
+  delegate_to: localhost
+  run_once: True
+  when:
+  - cached_file.stat.exists == False
+
+- name: scp dest deb
+  copy:
+    src: "{{ role_path }}/files/tmp/zabbix-agent2_{{ zabbix_agent2_version }}-1+Bubuntu{{ os_version }}_amd64.deb"
+    dest: /tmp/
+    mode: preserve
+  run_once: True
+
+- name: install zabbix agent2
+  apt: 
+    deb: "/tmp/zabbix-agent2_{{ zabbix_agent2_version }}-1+Bubuntu{{ os_version }}_amd64.deb"
+    state: present
+
+- name: disable zabbix-agent2
+  systemd:
+    name: zabbix-agent2
+    enabled: no
+    state: stopped
+
+- name: maske zabbix-agent2
+  systemd:
+    name: zabbix-agent2
+    masked: yes
+
+- name: install confd files
+  include_tasks: ../../utils/tasks/process-confd-files.yml
+
