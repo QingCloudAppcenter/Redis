@@ -1,5 +1,5 @@
 {
-  "patch_policy": ["", "appp-v39jl573"],
+  "patch_policy": [""],
   "patch_nodes": [{
     "container": {
         "snapshot": "ss-a0qr7bdl",
