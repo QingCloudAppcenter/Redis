@@ -1,8 +1,4 @@
 ---
-- name: source bashrc
-  blockinfile: 
-    path: /etc/bash.bashrc
-    block: "[ -e /opt/app/bin/envs/node.env ] && alias redis-cli=\"$(appctl redisCli)\""
 
 - name: prepare tmp path
   include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
@@ -18,4 +14,3 @@
 
 - name: install confd files
   include_tasks: ../../utils/tasks/process-confd-files.yml
-

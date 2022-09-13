@@ -11,20 +11,6 @@ CHANGE_VXNET_ERR=220
 GROUP_MATCHED_ERR=221
 CLUSTER_MATCHED_ERR=222
 CLUSTER_STATE_NOT_OK=223
-LOAD_ACLFILE_ERR=224
-ACL_SWITCH_ERR=225
-ACL_MANAGE_ERR=226
-
-ROOT_CONF_DIR=/opt/app/conf/redis-cluster
-CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
-DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
-CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
-
-REDIS_DIR=/data/redis
-RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
-RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
-NODE_CONF_FILE=$REDIS_DIR/nodes-6379.conf
-ACL_CLEAR=$REDIS_DIR/acl.clear
 
 execute() {
   local cmd=$1; log --debug "Executing command ..."
@@ -33,15 +19,13 @@ execute() {
   [[ "$(type -t $checkGroupMatchedCommandFunction)" == "function" ]] && $checkGroupMatchedCommandFunction $cmd
   [ "$(type -t $cmd)" = "function" ] || cmd=_$cmd
   [[ "$cmd" == *measure* ]] || { log --debug "cat nodes-6379.conf:
-  $(cat $NODE_CONF_FILE 2>&1 ||true)"
+  $(cat /data/redis/nodes-6379.conf 2>&1 ||true)"
   }
   $cmd ${@:2}
 }
 
 initNode() {
-  mkdir -p /data/redis/{logs,tls}
-  touch /data/redis/tls/{ca.crt,redis.crt,redis.dh,redis.key}
-  touch $RUNTIME_ACL_FILE
+  mkdir -p /data/redis/logs
   chown -R redis.svc /data/redis
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
@@ -52,27 +36,27 @@ checkMyRoleSlave() {
 }
 
 stop(){
-  if [ -n "${REBUILD_AUDIT}${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
+  if [ -n "${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ] && getRedisRole "$MY_IP" | grep -qE "^master$"; then
     local slaveIP
     slaveIP="$(echo -n "$REDIS_NODES" | xargs -n1 | awk -F"/" -v ip="$MY_IP" '{if($5==ip){gid=$1} else{gids[$1]=$5}}END{print gids[gid]}')"
     echo $slaveIP
     [ -n "$slaveIP" ] && {
-      log "runRedisCmd -h $slaveIP CLUSTER FAILOVER TAKEOVER"
       runRedisCmd -h "$slaveIP" CLUSTER FAILOVER TAKEOVER
-      log "retry 120 1 0 checkMyRoleSlave"
       retry 120 1 0 checkMyRoleSlave
     }
   fi
+  echo $REDIS_NODES | xargs -n1 > $nodesFile
   _stop
-  swapIpAndName
+
 }
 
 initCluster() {
   # 防止新增节点执行
   if [ -n "$JOINING_REDIS_NODES" ]; then return 0; fi
-  [ -e "$NODE_CONF_FILE" ] || {
+  local nodesConf=/data/redis/nodes-6379.conf
+  [ -e "$nodesConf" ] || {
     local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
-    sudo -u redis cp $tmplConf $NODE_CONF_FILE
+    sudo -u redis cp $tmplConf $nodesConf
   }
 }
 
@@ -94,7 +78,6 @@ getLoadStatus() {
 start() {
   isNodeInitialized || execute initNode
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then 
-    sudo -u redis touch $ACL_CLEAR
     local ACL_CMD node_ip=$(echo ${REDIS_NODES%% *} | cut -d "/" -f5)
     ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(echo ${REDIS_NODES%% *} | cut -d "/" -f4)" ACL)"
     runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
@@ -485,14 +468,14 @@ getRuntimeNameOfCmd() {
 
 
 swapIpAndName() {
-  local fields replaceCmd  port=$REDIS_PLAIN_PORT nodes=$REDIS_NODES
+  local fields replaceCmd  port=$REDIS_PLAIN_PORT
   [ "$REDIS_TLS_CLUSTER" == "yes" ] && port=$REDIS_TLS_PORT
   sudo -u redis touch $NODE_CONF_FILE && rotate $NODE_CONF_FILE
   if [ -n "$1" ];then
     nodes="$UPDATE_CHANGE_VXNET $nodes"
     fields='{print "s/ "$4":\\([0-9]\\+\\)@/ "$5":\\1@/g"}'
   else
-    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
+    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":"port"@/ "$4":"port"@/g"}}'
   fi
   replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
   sed -i "$replaceCmd" $NODE_CONF_FILE
@@ -762,4 +745,3 @@ aclManage() {
   runRedisCmd $ACL_CMD SAVE
   log "acl $command end"
 }
-
