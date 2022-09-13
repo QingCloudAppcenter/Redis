@@ -1,7 +1,3 @@
-encodeCmd() {
-  echo -n ${1}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1
-}
-
 renameCommands() {
   local unsafeCommands="
     BGREWRITEAOF
@@ -23,24 +19,12 @@ renameCommands() {
   local cmd; for cmd in $unsafeCommands; do
     local renamed=$cmd
     if [[ " $allowedCommands " != *" $cmd "* ]]; then
-      renamed=$(encodeCmd ${cmd})
+      renamed=$(echo -n ${cmd}{{ getv "/cluster/cluster_id" }} | sha256sum | cut -d' ' -f1)
     fi
     echo rename-command $cmd $renamed
   done
 }
 
-ioThreads() {
-  local hypervisor="{{ getv "/host/hypervisor" "kvm" }}"
-  local cpu={{ getv "/host/cpu" "2" }}
-  if [[ $cpu -ge 4 ]];then
-    [[ "$hypervisor" != "lxc" ]] && ((cpu-=2))
-    echo "io-threads-do-reads yes"
-    echo "io-threads $cpu"
-  else
-    echo "io-threads-do-reads no"
-    echo "io-threads 1"
-  fi
-}
 
 flush /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 slave-priority $(if isVotingNode "{{ getv "/host/sid" }}";then echo 100 ;else echo 0;fi)
@@ -71,19 +55,7 @@ timeout {{ getv "/env/timeout" "0" }}
 zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
 zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
 port {{ getv "/env/port" "6379" }}
-tls-port {{ getv "/env/tls-port" "0" }}
-tls-replication {{ getv "/env/tls-replication" "no" }}
 masterauth "{{ getv "/env/requirepass" "" }}"
 requirepass "{{ getv "/env/requirepass" "" }}"
 $(renameCommands)
-rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
-$(ioThreads)
-tls-auth-clients {{ getv "/env/tls-auth-clients" }}
-tls-protocols "{{ getv "/env/tls-protocols" }}"
-tls-ciphers "{{ getv "/env/tls-ciphers" }}"
-tls-ciphersuites "{{ getv "/env/tls-ciphersuites" }}"
-tls-prefer-server-ciphers {{ getv "/env/tls-prefer-server-ciphers" }}
-tls-session-caching {{ getv "/env/tls-session-caching" }}
-tls-session-cache-size {{ getv "/env/tls-session-cache-size" }}
-tls-session-cache-timeout {{ getv "/env/tls-session-cache-timeout" }}
 REDIS_CHANGED_CONF_EOF

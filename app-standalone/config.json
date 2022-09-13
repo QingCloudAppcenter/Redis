@@ -26,16 +26,6 @@
       "default": "",
       "required": "yes"
     }, {
-      "key": "resource_group",
-      "label": "Resource Configuration",
-      "description": ["Multithreaded Prod: 500000QPS", "Single Threaded Prod: 300000QPS", "Multithreaded Test: 150000QPS", "Single Threaded Test: 80000QPS"],
-
-      "type": "string",
-      "customizable": false,
-      "is_node": true,
-      "default": "MultithreadedProd",
-      "range": ["MultithreadedProd", "SingleThreadedProd","MultithreadedTest", "SingleThreadedTest"]
-    }, {
       "key": "node",
       "label": "node_label",
       "description": "node_description",
@@ -46,26 +36,49 @@
         "description": "",
         "type": "integer",
         "default": 202,
-        "resource_group": [203, 203, 101, 101],
-        "range": [101, 202, 203, 301],
+        "range": [
+          101,
+          202,
+          301
+        ],
         "required": "yes"
       }, {
         "key": "cpu",
         "label": "cpu_label",
         "description": "cpu_description",
         "type": "integer",
-        "default": 8,
-        "resource_group": [8,2,8,2],
-        "range": [2, 8],
+        "default": 1,
+        "range": [
+          1,
+          2
+        ],
         "required": "yes"
       }, {
         "key": "memory",
         "label": "memory_label",
         "description": "memory_description",
         "type": "integer",
-        "default": 8192,
-        "resource_group": [8192, 4096, 8192, 2048],
-        "range": [1024, 2048, 4096, 8192, 16384, 32768, 49152, 65536],
+        "default": 2048,
+        "range": [
+          1024,
+          2048,
+          4096,
+          8192,
+          16384,
+          32768,
+          49152,
+          65536
+        ],
+        "required": "yes"
+      }, {
+        "key": "volume_size",
+        "label": "volume_size_label",
+        "description": "volume_size_description",
+        "type": "integer",
+        "default": 10,
+        "min": 10,
+        "max": 1000,
+        "step": 10,
         "required": "yes"
       }, {
         "key": "count",
@@ -73,7 +86,16 @@
         "description": "count_description",
         "type": "integer",
         "default": 1,
-        "range": [1, 3, 4, 5, 6, 7, 8, 9],
+        "range": [
+          1,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
         "required": "yes"
       }]
     }]
@@ -87,7 +109,11 @@
       "description": "The common for master node",
       "type": "string",
       "default": "FLUSHDB",
-      "range": ["FLUSHDB", "FLUSHALL", "BGSAVE"],
+      "range": [
+        "FLUSHDB",
+        "FLUSHALL",
+        "BGSAVE"
+      ],
       "required": "yes"
     }, {
       "key": "params",
@@ -95,7 +121,10 @@
       "description": "The params for flush commands",
       "type": "string",
       "default": "ASYNC", 
-      "range": [ "", "ASYNC" ],
+      "range": [
+        "",
+        "ASYNC"
+      ],
       "required": "no"
     }, {
       "key": "db",
@@ -120,40 +149,10 @@
       "type": "string",
       "default": "no",
       "required": "yes",
-      "range": ["yes", "no"]
-    }, {
-      "key": "username",
-      "label": "username",
-      "description": "ACL User Name",
-      "type": "string",
-      "default": "", 
-      "pattern": "^(?!default$)([a-zA-Z0-9.-_]{2,26}|)$",
-      "required": "yes"
-    }, {
-      "key": "passwd",
-      "label": "passwd",
-      "description": "Require clients to issue \"AUTH <USERNAME> <PASSWORD>\" before processing any other commands.",  
-      "default": "",
-      "type": "password",
-      "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
-      "required": "yes"
-    }, {
-      "key": "switch",
-      "label": "switch",
-      "description": "Enable the user: it is possible to authenticate as this user.",
-      "type": "string",
-      "range": ["on", "off"],
-      "default": "on", 
-      "required": "no"
-    }, {
-      "key": "rules",
-      "label": "rules",
-      "description": "For example:",
-      "type": "string",
-      "default": "+@all", 
-      "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
-      "multiline": true,
-      "required": "yes"
+      "range": [
+        "yes",
+        "no"
+      ]
     }]
   }, {
     "key": "env",
@@ -167,25 +166,10 @@
       "key": "disabled-commands",
       "type": "string",
       "changeable": false,
-      "range": [ "yes", "no" ]
-    }, {
-      "key": "port",
-      "label": "Port",
-      "description": "port_description",
-      "default": 6379,
-      "required": "no",
-      "type": "integer",
-      "min": 1,
-      "max": 65536
-    }, {
-      "key": "sentinel.port",
-      "label": "Sentinel.Port",
-      "description": "Sentinel Listening Port",
-      "default": 26379,
-      "required": "no",
-      "type": "integer",
-      "min": 1,
-      "max": 65536
+      "range": [
+        "yes",
+        "no"
+      ]
     }, {
       "description": "maxmemory_portion_description",
       "required": "no",
@@ -222,14 +206,6 @@
       "min": 30000,
       "max": 180000,
       "type": "integer"
-    }, {
-      "key": "sentinel.requirepass",
-      "label": "sentinel.requirepass",
-      "description": "sentinel.requirepass_description",
-      "default": "",
-      "required": "no",
-      "type": "password",
-      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
     }, {
       "description": "enable-commands_description",
       "required": "no",
@@ -467,13 +443,14 @@
       "type": "integer",
       "min": 0
     }, {
-      "key": "enable-acl",
-      "label": "enable-console-acl",
-      "description": "Enable the console management ACL.",
-      "type": "string",
-      "required": "yes",
-      "default": "yes",
-      "range": ["yes", "no"]
+      "description": "port_description",
+      "default": 6379,
+      "required": "no",
+      "label": "port_label",
+      "key": "port",
+      "type": "integer",
+      "min": 1,
+      "max": 65536
     }, {
       "description": "zset-max-ziplist-entries_description",
       "default": 128,
@@ -499,177 +476,16 @@
       "type": "integer",
       "min": -1
     }, {
-      "key": "tls-port",
-      "label": "TLS-Port",
-      "description": "TLS Listening Port",
-      "type": "integer",
-      "default": 0,
-      "max": 65535,
-      "min": 0,
-      "required": "no"
-    }, {
-      "key": "sentinel.tls-port",
-      "label": "Sentinel.TLS-Port",
-      "description": "Sentinel TLS Listening Port",
-      "type": "integer",
-      "default": 0,
-      "max": 65535,
-      "min": 0,
-      "required": "no"
-    }, {
-      "key": "tls-replication",
-      "label": "Tls-Replication",
-      "description": "the following directive to enable TLS on replication links,",
-      "type": "string",
-      "required": "no",
-      "default": "no",
-      "range": ["yes", "no"]
-    }, {
-      "key": "tls-auth-clients",
-      "label": "TLS-Auth-Clients",
-      "description": "tls-auth-clients-description",
-      "type": "string",
-      "required": "no",
-      "default": "no",
-      "range": ["no", "optional", "yes"]
-    }, {
-      "key": "tls-protocols",
-      "label": "TLS-Protocols",
-      "description": "tls-protocols-description",
-      "type": "string",
-      "pattern": "TLSv1(\\.[1-3])(\\s+TLSv1(\\.[1-3]))*|",
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "tls-ciphers",
-      "label": "TLS-Ciphers",
-      "description": "tls-ciphers-description",
-      "type": "string",
-      "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "tls-ciphersuites",
-      "label": "TLS-Ciphersuites",
-      "description": "tls-ciphersuites-description",
-      "type": "string",
-      "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "tls-prefer-server-ciphers",
-      "label": "TLS-Prefer-Server-Ciphers",
-      "description": "tls-prefer-server-ciphers-description",
-      "type": "string",
-      "required": "no",
-      "default": "no",
-      "range": ["no", "yes"]
-    }, {
-      "key": "tls-session-caching",
-      "label": "tls-session-caching",
-      "description": "tls-session-caching-description",
-      "type": "string",
-      "required": "no",
-      "default": "yes",
-      "range": ["yes", "no"]
-    }, {
-      "key": "tls-session-cache-size",
-      "label": "TLS-Session-Cache-Size",
-      "description": "tls-session-cache-size-description",
-      "type": "integer",
-      "default": 20480,
-      "required": "no"
-    }, {
-      "key": "tls-session-cache-timeout",
-      "label": "TLS-Session-Cache-Timeout",
-      "description": "tls-session-cache-timeout-description",
-      "type": "integer",
-      "default": 300,
-      "required": "no"
-    }, {
-      "key": "tls-cert",
-      "label": "TLS-Cert",
-      "description": "X.509 certificate",
-      "type": "string",
-      "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
-      "multiline" : true,
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "tls-key",
-      "label": "TLS-Key",
-      "description": "X.509 private",
-      "type": "string",
-      "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
-      "multiline" : true,
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "tls-ca-cert",
-      "label": "TLS-CA-Cert",
-      "description": "Configure a CA certificate(s) bundle or directory to authenticate TLS/SSL clients and peers.",
-      "type": "string",
-      "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
-      "multiline" : true,
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "tls-dh-params",
-      "label": "TLS-DH-Params",
-      "description": "Configure a DH parameters file to enable Diffie-Hellman (DH) key exchange",
-      "type": "string",
-      "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
-      "multiline" : true,
-      "default": "",
-      "required": "no"
-    }, {
-      "key": "node-exporter-enable",
-      "label": "Enable Node-Exporter",
-      "description": "Enable Node-Exporter Port:9100",
-      "type": "boolean",
-      "default": false,
-      "required": "no",
-      "range": [true, false]
-    }, {
-      "key": "redis-exporter-enable",
-      "label": "Enable Redis-Exporter",
-      "description": "Enable Redis-Exporter, Port:9121",
-      "type": "boolean",
-      "default": false,
-      "required": "no",
-      "range": [true, false]
-    }, {
-      "key": "zabbix-agint2-enable",
-      "label": "Enable zabbix",
-      "description": "Enable zabbix-agint2, Port:10050",
-      "type": "boolean",
-      "default": false,
-      "required": "no",
-      "range": [true, false]
-    }, {
-      "key": "zabbix-server",
-      "label": "zabbix server",
-      "description": "Zabbix server host",
-      "type": "string",
-      "pattern": "^([a-z0-9.-\/]+)$",
-      "default": "127.0.0.1",
-      "required": "no"
-    }, {
-      "key": "zabbix-named-sessions",
-      "label": "named-sessions",
-      "description": "Zabbix NAMED SESSIONS",
-      "type": "string",
-      "pattern": "^([a-z0-9]+)?$",
-      "default": "redis",
-      "required": "no"
-    }, {
       "key": "web.console.enabled",
       "label": "Enable web console",
       "description": "enable or not for web console",
       "type": "boolean",
       "default": false,
       "required": "no",
-      "range": [ true, false ]
+      "range": [
+        true,
+        false
+      ]
     }, {
       "key": "web.console.username",
       "label": "Admin Username",
