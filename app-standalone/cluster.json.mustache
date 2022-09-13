@@ -3,13 +3,10 @@
   "description": {{cluster.description}},
   "vxnet": {{cluster.vxnet}},
   "multi_zone_policy": "round_robin",
-  "advanced_actions": ["change_vxnet","scale_horizontal","resize_on_upgrade"],
-  "custom_tags": ["default_deploy_method_sz", "hide_modify_instance_type_btn"],
+  "advanced_actions": ["change_vxnet", "scale_horizontal"],
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-     "appv-r89epe6m",
-     "appv-e97gz6wz",
      "appv-vedszzfk",
      "appv-21ddkc5h",
      "appv-315vkrx9",
@@ -23,22 +20,16 @@
   "nodes": [{
     "container": {
       "type": "lxc",
-      "prefer_type": "lxc",
-      "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-rwbjkve6"
+      "image": "img-xcg2q1p9"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
     "cpu": {{cluster.node.cpu}},
     "memory": {{cluster.node.memory}},
     "volume": {
-        "size": {{cluster.node.memory}} * 3 / 1024,
-        "skip_check_size": true,
-        "mount_point": "/data",
-        "filesystem": "xfs"
+      "size": {{cluster.node.volume_size}}
     },
-    "vertical_scaling_policy": "sequential",
     "services": {
       "start": {
         "cmd": "appctl start"
@@ -79,69 +70,18 @@
           "timeout": {{service_params.timeout}}
         }
       },
-      "add_user": {
-          "type": "custom",
-          "cmd": "appctl aclManage addUser",
-          "timeout": 120,
-          "service_params": {
-              "username": {{service_params.username}},
-              "passwd": {{service_params.passwd}},
-              "switch": {{service_params.switch}},
-              "rules": {{service_params.rules}}
-          }
-      },
-      "set_user_rules": {
-          "type": "custom",
-          "cmd": "appctl aclManage setUserRules",
-          "timeout": 120,
-          "service_params": {
-              "username": {{service_params.username}},
-              "rules": {{service_params.rules}}
-          }
-      },
-      "del_user": {
-          "type": "custom",
-          "cmd": "appctl aclManage delUser",
-          "timeout": 120,
-          "service_params": {
-              "username": {{service_params.username}}
-          }
-      },
-      "set_switch": {
-          "type": "custom",
-          "cmd": "appctl aclManage setSwitch",
-          "timeout": 120,
-          "service_params": {
-              "username": {{service_params.username}},
-              "switch": {{service_params.switch}}
-          }
-      },
-      "reset_passwd": {
-          "type": "custom",
-          "cmd": "appctl aclManage resetPasswd",
-          "timeout": 120,
-          "service_params": {
-              "username": {{service_params.username}},
-              "passwd": {{service_params.passwd}}
-          }
-      },
-      "get_nodes_order": {
-          "event": ["upgrade", "rollback", "scale_vertical"],
-          "cmd": "appctl getNodesOrder"
-      },
       "restore_data_from_rdb": {
-          "type": "custom",
-          "cmd": "appctl restoreByCustomRdb",
-          "timeout": 1200,
-          "service_params": {
-                "confirm": {{service_params.confirm}}
-          }
+        "type": "custom",
+        "cmd": "appctl restoreByCustomRdb",
+        "timeout": 1200,
+        "service_params": {
+          "confirm": {{service_params.confirm}}
+        }
       }
     }
   }],
   "env": {
     "disabled-commands": {{env.disabled-commands}},
-    "enable-acl": {{env.enable-acl}},
     "activerehashing": {{env.activerehashing}},
     "appendonly": {{env.appendonly}},
     "appendfsync": {{env.appendfsync}},
@@ -162,7 +102,6 @@
     "no-appendfsync-on-rewrite": {{env.no-appendfsync-on-rewrite}},
     "notify-keyspace-events": {{env.notify-keyspace-events}},
     "port": {{env.port}},
-    "sentinel.port": {{env.sentinel.port}},
     "repl-backlog-size": {{env.repl-backlog-size}},
     "repl-backlog-ttl": {{env.repl-backlog-ttl}},
     "repl-timeout": {{env.repl-timeout}},
@@ -176,31 +115,9 @@
     "zset-max-ziplist-value": {{env.zset-max-ziplist-value}},
     "sentinel.failover-timeout":{{env.sentinel.failover-timeout}},
     "sentinel.down-after-milliseconds":{{env.sentinel.down-after-milliseconds}},
-    "sentinel.requirepass":{{env.sentinel.requirepass}},
-    "zabbix-agint2-enable": {{env.zabbix-agint2-enable}},
-    "zabbix-server": {{env.zabbix-server}},
-    "zabbix-named-sessions": {{env.zabbix-named-sessions}},
-    "node-exporter-enable": {{env.node-exporter-enable}},
-    "redis-exporter-enable": {{env.redis-exporter-enable}},
     "web.console.enabled": {{env.web.console.enabled}},
     "web.console.username": {{env.web.console.username}},
-    "web.console.password": {{env.web.console.password}},
-    "tls-port": {{env.tls-port}},
-    "sentinel.tls-port": {{env.sentinel.tls-port}},
-    "tls-replication": {{env.tls-replication}},
-    "tls-replication": {{env.tls-replication}},
-    "tls-auth-clients": {{env.tls-auth-clients}},
-    "tls-protocols": {{env.tls-protocols}},
-    "tls-ciphers": {{env.tls-ciphers}},
-    "tls-ciphersuites": {{env.tls-ciphersuites}},
-    "tls-prefer-server-ciphers": {{env.tls-prefer-server-ciphers}},
-    "tls-session-caching": {{env.tls-session-caching}},
-    "tls-session-cache-size": {{env.tls-session-cache-size}},
-    "tls-session-cache-timeout": {{env.tls-session-cache-timeout}},
-    "tls-cert": {{env.tls-cert}},
-    "tls-key": {{env.tls-key}},
-    "tls-ca-cert": {{env.tls-ca-cert}},
-    "tls-dh-params": {{env.tls-dh-params}}
+    "web.console.password": {{env.web.console.password}}
   },
   "monitor": {
     "enable": true,
@@ -212,16 +129,58 @@
         "statistics_type": "latest",
         "enums": ["master", "slave"]
       },
-      "instantaneous_ops_per_sec" : {
-        "unit" : "COUNTS/S",
-        "value_type" : "int",
-        "statistics_type" : "max",
-        "scale_factor_when_display" : 1
-      },
       "key_count": {
         "unit": "Times",
         "value_type": "int",
         "statistics_type": "latest",
+        "scale_factor_when_display": 1
+      },
+      "get_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "set_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "key_based_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "string_based_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "set_based_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "sorted_set_based_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "list_based_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
+        "scale_factor_when_display": 1
+      },
+      "hash_based_count": {
+        "unit": "Times",
+        "value_type": "int",
+        "statistics_type": "delta",
         "scale_factor_when_display": 1
       },
       "hit_rate_max": {
@@ -319,162 +278,12 @@
         "value_type" : "int",
         "statistics_type" : "latest",
         "scale_factor_when_display" : 1
-      },
-      "del" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "dump" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "exists" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "expire" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "expireat" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "move" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "persist" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pexpire" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pexpireat" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pttl" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "randomkey" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "rename" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "renamenx" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "restore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sort" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "ttl" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "type" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "scan" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "append" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "bitcount" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "bitop" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "decr" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "decrby" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "get" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "getbit" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "getrange" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "getset" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "incr" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "incrby" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "incrbyfloat" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "mget" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "mset" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "msetnx" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "psetex" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "set" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "setbit" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "setex" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "setnx" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "setrange" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "strlen" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hdel" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hexists" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hget" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hgetall" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hincrby" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hincrbyfloat" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hkeys" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hlen" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hmget" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hmset" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hset" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hsetnx" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hvals" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "hscan" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "blpop" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "brpop" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "brpoplpush" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lindex" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "linsert" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "llen" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lpop" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lpush" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lpushx" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lrange" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lrem" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "lset" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "ltrim" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "rpop" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "rpoplpush" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "rpush" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "rpushx" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sadd" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "scard" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sdiff" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sdiffstore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sinter" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sinterstore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sismember" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "smembers" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "smove" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "spop" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "srandmember" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "srem" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sunion" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sunionstore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "sscan" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zadd" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zcard" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zcount" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zincrby" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrange" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrangebyscore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrank" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrem" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zremrangebyrank" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zremrangebyscore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrevrange" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrevrangebyscore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrevrank" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zscore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zunionstore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zinterstore" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zscan" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zrangebylex" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zlexcount" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "zremrangebylex" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pfadd" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pfcount" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pfmerge" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "psubscribe" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "publish" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "pubsub" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "punsubscribe" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "subscribe" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "unsubscribe" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "discard" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "exec" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "multi" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "unwatch" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "watch" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "eval" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "evalsha" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
-      "script" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 }
+      }
     },
     "groups": {
-      "QPS": ["instantaneous_ops_per_sec"],
       "replicaDelay": ["replica_delay"],
-      "Keys1_count" : ["del","dump","exists","expire","expireat"],
-      "Keys2_count" : ["move","persist","pexpire","pexpireat","pttl"],
-      "Keys3_count" : ["randomkey","rename","renamenx","restore","sort"],
-      "Keys4_count" : ["ttl","type","scan"],
-      "Strings1_count" : ["append","bitcount","bitop","decr","decrby"],
-      "Strings2_count" : ["get","getbit","getrange","getset","incr"],
-      "Strings3_count" : ["incrby","incrbyfloat","mget","mset","msetnx"],
-      "Strings4_count" : ["psetex","set","setbit","setex","setnx"],
-      "Strings5_count" : ["setrange","strlen"],
-      "Hashes1_count" : ["hdel","hexists","hget","hgetall","hincrby"],
-      "Hashes2_count" : ["hincrbyfloat","hkeys","hlen","hmget","hmset"],
-      "Hashes3_count" : ["hset","hsetnx","hvals","hscan"],
-      "Lists1_count" : ["blpop","brpop","brpoplpush","lindex","linsert"],
-      "Lists2_count" : ["llen","lpop","lpush","lpushx","lrange"],
-      "Lists3_count" : ["lrem","lset","ltrim","rpop","rpoplpush"],
-      "Lists4_count" : ["rpush","rpushx"],
-      "Set1_count" : ["sadd","scard","sdiff","sdiffstore","sinter"],
-      "Set2_count" : ["sinterstore","sismember","smembers","smove","spop"],
-      "Set3_count" : ["srandmember","srem","sunion","sunionstore","sscan"],
-      "Zset1_count" : ["zadd","zcard","zcount","zincrby","zrange"],
-      "Zset2_count" : ["zrangebyscore","zrank","zrem","zremrangebyrank","zremrangebyscore"],
-      "Zset3_count" : ["zrevrange","zrevrangebyscore","zrevrank","zscore","zunionstore"],
-      "Zset4_count" : ["zinterstore","zscan","zrangebylex","zlexcount","zremrangebylex"],
-      "Hyperlog_count" : ["pfadd","pfcount","pfmerge"],
-      "Pubsub1_count" : ["psubscribe","publish","pubsub","punsubscribe","subscribe"],
-      "Pubsub2_count" : ["unsubscribe"],
-      "Transaction_count" : ["discard","exec","multi","unwatch","watch"],
-      "Script_count" : ["eval","evalsha","script"],
+      "Operations": ["get_count", "set_count", "key_based_count", "string_based_count"],
+      "Operations2": ["set_based_count", "sorted_set_based_count", "list_based_count", "hash_based_count"],
       "Connections": ["total_connections_received"],
       "Connected_clients": ["connected_clients_min", "connected_clients_max", "connected_clients_avg"],
       "Keys": ["evicted_keys", "expired_keys", "key_count"],
@@ -482,7 +291,7 @@
       "Memory_usage": ["memory_usage_min", "memory_usage_avg", "memory_usage_max"],
       "Hit_rate": ["hit_rate_min", "hit_rate_avg", "hit_rate_max"]
     },
-    "display" : ["node_role", "QPS", "replicaDelay", "Memory_usage", "Connected_clients", "Connections", "Keys", "Key_hits", "Hit_rate","Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
+    "display": ["node_role", "Memory_usage", "replicaDelay", "Operations", "Operations2", "Connected_clients", "Connections", "Keys", "Key_hits", "Hit_rate"],
     "alarm": ["node_role","memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max"]
   },
   "health_check": {
@@ -500,42 +309,19 @@
       "port": {{env.port}},
       "protocol": "tcp"
     },
-    "tls-client": {
-        "port": {{env.tls-port}},
-        "protocol": "tcp"
-    },
     "sentinel": {
       "port": 26379,
       "protocol": "tcp"
-    },
-    "tls-sentinel": {
-        "port": {{env.sentinel.tls-port}},
-        "protocol": "tcp"
     },
     "reserved_ips": {
       "vip": {
         "value": ""
       }
-    },
-    "Node-Exporter": {
-      "port": 9100,
-      "protocol": "tcp"
-    },
-    "Redis-Exporter": {
-      "port": 9121,
-      "protocol": "tcp"
-    },
-    "Zabbix-Agent2": {
-      "port": 10050,
-      "protocol": "tcp"
     }
   },
   "display_tabs" : {
     "roles" : {
     "cmd" : "appctl getRedisRoles"
-    },
-    "ACL_List" : {
-        "cmd" : "appctl getUserList"
     }
   }
 }
