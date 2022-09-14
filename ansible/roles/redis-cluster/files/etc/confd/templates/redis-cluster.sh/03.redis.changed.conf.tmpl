@@ -1,3 +1,8 @@
+encodeCmd() {
+  echo -n "{{ getv "/cluster/cluster_id" }}{{ getv "/host/node_id" }}$1" | md5sum | cut -f 1 -d " "
+}
+
+
 renameCommands() {
   local disabledCommands="
     BGREWRITEAOF
@@ -18,13 +23,29 @@ renameCommands() {
   local cmd; for cmd in $disabledCommands; do
     local renamed=$cmd
     {{- if eq (getv "/env/enable-config" "0") "0" }}
-    renamed="${CLUSTER_ID}${NODE_ID}${cmd}"
+    renamed="$(encodeCmd $cmd)"
     {{- end }}
     echo rename-command $cmd $renamed
   done
 }
 
+ioThreads() {
+  local hypervisor="{{ getv "/host/hypervisor" "kvm" }}"
+  local cpu={{ getv "/host/cpu" "2" }}
+  if [[ $cpu -ge 4 ]];then
+    [[ "$hypervisor" != "lxc" ]] && ((cpu-=2))
+    echo "io-threads-do-reads yes"
+    echo "io-threads $cpu"
+  else
+    echo "io-threads-do-reads no"
+    echo "io-threads 1"
+  fi
+}
+
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
+port {{ getv "/env/port" "6379" }}
+tls-port {{ getv "/env/tls-port" "0" }}
+tls-cluster {{ getv "/env/tls-cluster" "no" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
@@ -51,8 +72,18 @@ tcp-keepalive {{ getv "/env/tcp-keepalive" "0" }}
 timeout {{ getv "/env/timeout" "0" }}
 zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
 zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
-port {{ getv "/env/port" "6379" }}
 masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
 requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
 $(renameCommands)
+rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
+$(ioThreads)
+tls-auth-clients {{ getv "/env/tls-auth-clients" }}
+tls-cluster {{ getv "/env/tls-cluster" }}
+tls-protocols "{{ getv "/env/tls-protocols" }}"
+tls-ciphers "{{ getv "/env/tls-ciphers" }}"
+tls-ciphersuites "{{ getv "/env/tls-ciphersuites" }}"
+tls-prefer-server-ciphers {{ getv "/env/tls-prefer-server-ciphers" }}
+tls-session-caching {{ getv "/env/tls-session-caching" }}
+tls-session-cache-size {{ getv "/env/tls-session-cache-size" }}
+tls-session-cache-timeout {{ getv "/env/tls-session-cache-timeout" }}
 REDIS_CHANGED_CONF_EOF

@@ -26,6 +26,15 @@
             "default": "",
             "required": "yes"
         }, {
+            "key": "resource_group",
+            "label": "Resource Configuration",
+            "description": ["Multithreaded Prod: 380000QPS", "Single Threaded Prod: 180000QPS", "Multithreaded Test: 180000QPS", "Single Threaded Test: 60000QPS"],
+            "type": "string",
+            "customizable": false,
+            "is_node": true,
+            "default": "MultithreadedProd",
+            "range": ["MultithreadedProd", "SingleThreadedProd","MultithreadedTest", "SingleThreadedTest"]
+        }, {
             "key": "master",
             "label": "Master",
             "description": "Redis master node",
@@ -36,6 +45,7 @@
                 "description": "",
                 "type": "integer",
                 "default": 202,
+                "resource_group": [202, 202, 101, 101],
                 "range": [101, 202, 301],
                 "required": "yes"
             }, {
@@ -43,16 +53,18 @@
                 "label": "CPU",
                 "description": "Cpus of each node",
                 "type": "integer",
-                "default": 1,
-                "range": [1,2],
+                "default": 8,
+                "range": [2, 8, 16, 32, 64],
+                "resource_group": [8,2,8,2],
                 "required": "yes"
             }, {
                 "key": "memory",
                 "label": "Memory",
-                "description": "Memory of each node (in MiB)",
+                "description": "Memory of each node.",
                 "type": "integer",
-                "default": 2048,
-                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536],
+                "default": 8192,
+                "resource_group": [8192, 4096, 8192, 2048],
+                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536, 131072],
                 "required": "yes"
             }, {
                 "key": "count",
@@ -60,7 +72,7 @@
                 "description": "Number of master nodes (shards) for the cluster to create",
                 "type": "integer",
                 "default": 3,
-                "min": 3,
+                "min": 1,
                 "max": 127,
                 "required": "yes"
             }, {
@@ -69,14 +81,8 @@
                 "description": "The replica number for each master",
                 "type": "integer",
                 "default": 1,
-                "required": "yes"
-            }, {
-                "key": "volume_size",
-                "label": "Volume Size",
-                "description": "The volume size for each instance",
-                "type": "integer",
-                "default": 10,
-                "min":10,
+                "min": 0,
+                "max": 5,
                 "required": "yes"
             }]
         }]
@@ -119,7 +125,42 @@
                 "default": 5, 
                 "min":5,
                 "required": "yes"
+              },
+              {
+                "key": "username",
+                "label": "username",
+                "description": "ACL User Name",
+                "type": "string",
+                "default": "", 
+                "pattern": "^(?!default$)([a-zA-Z0-9.-_]{2,26}|)$",
+                "required": "yes"
+              }, {
+                "key": "passwd",
+                "label": "passwd",
+                "description": "Require clients to issue \"AUTH <USERNAME> <PASSWORD>\" before processing any other commands.",  
+                "default": "",
+                "type": "password",
+                "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+                "required": "yes"
+              }, {
+                "key": "switch",
+                "label": "switch",
+                "description": "Enable the user: it is possible to authenticate as this user.",
+                "type": "string",
+                "range": ["on", "off"],
+                "default": "on", 
+                "required": "no"
+              }, {
+                "key": "rules",
+                "label": "rules",
+                "description": "For example:",
+                "type": "string",
+                "default": "+@all", 
+                "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
+                "multiline": true,
+                "required": "yes"
               }
+
         ]
       }, 
     {
@@ -127,14 +168,39 @@
         "description": "Redis service properties",
         "type": "array",
         "properties": [{
-            "key": "appctl.maxmemory.percent",
-            "label": "maxmemory-percent",
-            "description": "Max memory percent Redis can make use of.",
+            "key": "port",
+            "label": "Port",
+            "description": "port",
             "type": "integer",
-            "default": 80,
-            "max": 95,
+            "default": 6379,
+            "max": 55535,
             "min": 0,
             "required": "no"
+        }, {
+            "key": "tls-port",
+            "label": "TLS-Port",
+            "description": "TLS Listening Port",
+            "type": "integer",
+            "default": 0,
+            "max": 55535,
+            "min": 0,
+            "required": "no"
+        }, {
+            "key": "tls-cluster",
+            "label": "TLS-Cluster",
+            "description": "To enable TLS for the bus protocol.",
+            "type": "string",
+            "required": "no",
+            "default": "no",
+            "range": ["yes", "no"]
+        }, {
+            "key": "enable-acl",
+            "label": "enable-console-acl",
+            "description": "Enable the console management ACL.",
+            "type": "string",
+            "required": "yes",
+            "default": "yes",
+            "range": ["yes", "no"]
         }, {
             "key": "enable-config",
             "label": "enable-config",
@@ -143,6 +209,15 @@
             "default": 0,
             "required": "no",
             "range": [0,1]
+        }, {
+            "key": "appctl.maxmemory.percent",
+            "label": "maxmemory-percent",
+            "description": "Max memory percent Redis can make use of.",
+            "type": "integer",
+            "default": 80,
+            "max": 95,
+            "min": 0,
+            "required": "no"
         }, {
             "key": "disabled-commands",
             "label": "disabled-commands_label",
@@ -335,6 +410,125 @@
             "default": 0,
             "required": "no"
         }, {
+            "key": "zset-max-ziplist-entries",
+            "label": "zset-max-ziplist-entries",
+            "description": "Sorted sets are specially encoded in order to save a lot of space.",
+            "type": "integer",
+            "default": 128,
+            "required": "no"
+        }, {
+            "key": "zset-max-ziplist-value",
+            "label": "zset-max-ziplist-value",
+            "description": "Sorted sets are specially encoded in order to save a lot of space.",
+            "type": "integer",
+            "default": 64,
+            "required": "no"
+        }, {
+            "key": "lua-time-limit",
+            "label": "lua-time-limit",
+            "description": "Max execution time of a Lua script in milliseconds.",
+            "type": "integer",
+            "default": 5000,
+            "required": "no"
+        }, {
+            "key": "tls-auth-clients",
+            "label": "TLS-Auth-Clients",
+            "description": "tls-auth-clients-description",
+            "type": "string",
+            "required": "no",
+            "default": "no",
+            "range": ["no", "optional", "yes"]
+        }, {
+            "key": "tls-protocols",
+            "label": "TLS-Protocols",
+            "description": "tls-protocols-description",
+            "type": "string",
+            "pattern": "TLSv1(\\.[1-3])(\\s+TLSv1(\\.[1-3]))*|",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-ciphers",
+            "label": "TLS-Ciphers",
+            "description": "tls-ciphers-description",
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-ciphersuites",
+            "label": "TLS-Ciphersuites",
+            "description": "tls-ciphersuites-description",
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-prefer-server-ciphers",
+            "label": "TLS-Prefer-Server-Ciphers",
+            "description": "tls-prefer-server-ciphers-description",
+            "type": "string",
+            "required": "no",
+            "default": "no",
+            "range": ["no", "yes"]
+        }, {
+            "key": "tls-session-caching",
+            "label": "tls-session-caching",
+            "description": "tls-session-caching-description",
+            "type": "string",
+            "required": "no",
+            "default": "yes",
+            "range": ["yes", "no"]
+        }, {
+            "key": "tls-session-cache-size",
+            "label": "TLS-Session-Cache-Size",
+            "description": "tls-session-cache-size-description",
+            "type": "integer",
+            "default": 20480,
+            "required": "no"
+        }, {
+            "key": "tls-session-cache-timeout",
+            "label": "TLS-Session-Cache-Timeout",
+            "description": "tls-session-cache-timeout-description",
+            "type": "integer",
+            "default": 300,
+            "required": "no"
+        }, {
+            "key": "tls-cert",
+            "label": "TLS-Cert",
+            "description": "X.509 certificate",
+            "type": "string",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
+            "multiline" : true,
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-key",
+            "label": "TLS-Key",
+            "description": "X.509 private",
+            "type": "string",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
+            "multiline" : true,
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-ca-cert",
+            "label": "TLS-CA-Cert",
+            "description": "Configure a CA certificate(s) bundle or directory to authenticate TLS/SSL clients and peers.",
+            "type": "string",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
+            "multiline" : true,
+            "default": "",
+            "required": "no"
+        }, {
+            "key": "tls-dh-params",
+            "label": "TLS-DH-Params",
+            "description": "Configure a DH parameters file to enable Diffie-Hellman (DH) key exchange",
+            "type": "string",
+            "pattern": "[0-9a-zA-Z\r\n +-\/=]*",
+            "multiline" : true,
+            "default": "",
+            "required": "no"
+        }, {
             "key": "web.console.enabled",
             "label": "Enable web console",
             "description": "enable or not for web console",
@@ -356,27 +550,6 @@
             "type": "password",
             "pattern": "^\\w{0,24}$",
             "default": "",
-            "required": "no"
-        }, {
-            "key": "zset-max-ziplist-entries",
-            "label": "zset-max-ziplist-entries",
-            "description": "Sorted sets are specially encoded in order to save a lot of space.",
-            "type": "integer",
-            "default": 128,
-            "required": "no"
-        }, {
-            "key": "zset-max-ziplist-value",
-            "label": "zset-max-ziplist-value",
-            "description": "Sorted sets are specially encoded in order to save a lot of space.",
-            "type": "integer",
-            "default": 64,
-            "required": "no"
-        }, {
-            "key": "lua-time-limit",
-            "label": "lua-time-limit",
-            "description": "Max execution time of a Lua script in milliseconds.",
-            "type": "integer",
-            "default": 5000,
             "required": "no"
         }]
     }]
