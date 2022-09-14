@@ -1,0 +1,13 @@
+galaxy_info:
+  role_name: zabbix-agent2
+  role_version: 1.0.0
+  author: Shubo An
+  description: installs zabbix-agent2
+
+  license: Apache
+
+  min_ansible_version: 2.4
+
+  galaxy_tags: []
+
+dependencies: []
