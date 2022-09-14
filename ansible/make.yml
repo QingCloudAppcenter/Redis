@@ -10,6 +10,10 @@
   - app-agent-1.0.6
   - arping-1.0.0
   - appctl
+  - role: set-timezone-1.0.0
+    vars:
+      timezone: "Asia/Shanghai"
+
   - role: redis-server-1.1.1
     vars:
       version: "{{ redis_version }}"
