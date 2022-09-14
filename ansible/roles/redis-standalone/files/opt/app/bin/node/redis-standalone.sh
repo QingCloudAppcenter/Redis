@@ -32,13 +32,12 @@ ACL_CLEAR=$REDIS_DIR/acl.clear
 
 
 initNode() {
-  local redisPath="/data/redis"
   local caddyPath="/data/caddy"
   mkdir -p $REDIS_DIR/logs $caddyPath/upload
   mkdir -p $REDIS_DIR/{logs,tls}
   touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   touch $RUNTIME_ACL_FILE
-  chown -R redis.svc $redisPath
+  chown -R redis.svc $REDIS_DIR
   chown -R caddy.svc $caddyPath
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
@@ -51,6 +50,15 @@ getLoadStatus() {
 
 start() {
   isNodeInitialized || execute initNode
+
+  if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then
+    log "enable acl:$ENABLE_ACL $JOINING_REDIS_NODES"
+    sudo -u redis touch $ACL_CLEAR
+    local ACL_CMD node_ip=$(echo ${STABLE_REDIS_NODES%% *} | cut -d "/" -f3)
+    ACL_CMD="$(getRuntimeNameOfCmd ACL)"
+    runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
+  fi
+
   configure && _start
 
   if [ -n "${VERTICAL_SCALING_ROLES}${REBUILD_AUDIT}" ]; then
@@ -111,7 +119,7 @@ measure() {
     replicaDelay=0
   fi
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
     }
   }
@@ -158,7 +166,7 @@ preScaleIn() {
     log "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
     log "sentinel nodes: $firstToThirdNode"
     local node;for node in $firstToThirdNode;do
-      echo "$LEAVING_REDIS_NODES" |grep -vq "$node" || {
+      [[ "$LEAVING_REDIS_NODES" == *"$node"* ]] && {
         log "leaving nodes include sentinel node: $node"
         return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
       }
@@ -218,7 +226,7 @@ destroy() {
       log --debug "replicaResultOnline: $replicaResultOnline"
       local stableNodeIp; for stableNodeIp in $stableNodesIps; do
         log "$stableNodeIp is ok?"
-        [[ "$stableNodeIp" == "$masterIp" ]] || echo "$replicaResultOnline" |grep -q "ip=${stableNodeIp//\./\\.}," || return $CLUSTER_STATS_ERR
+        [[ "$stableNodeIp" == "$masterIp" ]] || [[ "$replicaResultOnline" == *"ip=${stableNodeIp},"*  ]] || return $CLUSTER_STATS_ERR
         log "$stableNodeIp is ok"
       done
       # 对所有的 sentinel 节点执行 sentinel reset
@@ -249,14 +257,14 @@ restore() {
   log "Old Value is $oldValue for appendonly before restore"
   log "Start restore"
   # 仅保留 dump.rdb 文件
-  find /data/redis -mindepth 1 ! -name dump.rdb -delete
+  find /data/redis -mindepth 1 ! -regex "/data/redis/\(dump.rdb\|acl.clear\|aclfile.conf\|tls/?.*\)" -delete
   mkdir -p $logsDirForRedis
   chown -R redis.svc $logsDirForRedis
 
   # restore 方案可参考：https://community.pivotal.io/s/article/How-to-Backup-and-Restore-Open-Source-Redis
   # 修改 appendonly 为no (该操作位于 configForRestore) -- > 启动 redis-server --> 等待数据加载进内存 --> 生成新的 aof 文件 -->将 appendonly 属性改回
   execute start
-  retry 240 1 $EC_RESTORE_LOAD_ERR checkLoadDataDone
+  retry 86400 1 0 getLoadStatus
   if [[ "$oldValue" == "yes" ]]; then
     runRedisCmd $(getRuntimeNameOfCmd BGREWRITEAOF)
     retry 80 3 $EC_RESTORE_BGREWRITEAOF_ERR checkReWriteAofDone
@@ -265,16 +273,13 @@ restore() {
   fi
 }
 
-checkLoadDataDone(){
-  runRedisCmd PING |grep -vq "loading the dataset in memory"
-}
 
 checkReWriteAofDone(){
-  runRedisCmd info Persistence|grep -q "aof_rewrite_in_progress:0"
+  [[ "$(runRedisCmd info Persistence)" == *"aof_rewrite_in_progress:0"* ]]
 }
 
 getRuntimeNameOfCmd() {
-  if echo -e $DISABLED_COMMANDS | grep -oq $1;then
+  if [[ " $DISABLED_COMMANDS " == *" $1 "* ]];then
     encodeCmd $1
   else
     echo $1
@@ -653,8 +658,8 @@ restoreByCustomRdb(){
 }
 
 check(){
-  local ignoreCommand="(restoreByCustomRdb)"
-  ps -ef |grep -E "$ignoreCommand" |grep -vq grep && {
+  local ignoreCommand="appctl restoreByCustomRdb"
+  [[ $(ps -ef) == *"appctl restoreByCustomRdb"* ]] && {
     log "[Warning]Detected process $ignoreCommand，skip check"
     return 0
   }

@@ -8,7 +8,9 @@
   - disable-apt-jobs-1.0.0
   - disable-motd-1.0.0
   - app-agent-1.0.6
-  - arping-1.0.0
+  - role: arping-1.0.5
+    vars:
+      arping_version: "20161105-1ubuntu3"
   - appctl
   - role: set-timezone-1.0.0
     vars:
@@ -29,6 +31,9 @@
       name: "{{ name }}"
     loop:
     - redis-standalone
+    - zabbix-agent2-1.0.0
+    - node-exporter-0.18.1
+    - redis-exporter
     loop_control:
       loop_var: name
 

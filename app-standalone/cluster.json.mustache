@@ -8,6 +8,8 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
+     "appv-r89epe6m",
+     "appv-e97gz6wz",
      "appv-vedszzfk",
      "appv-21ddkc5h",
      "appv-315vkrx9",
@@ -21,8 +23,10 @@
   "nodes": [{
     "container": {
       "type": "lxc",
+      "prefer_type": "lxc",
+      "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-rmyy9ci3"
+      "image": "img-bx7d5uw1"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -173,6 +177,11 @@
     "sentinel.failover-timeout":{{env.sentinel.failover-timeout}},
     "sentinel.down-after-milliseconds":{{env.sentinel.down-after-milliseconds}},
     "sentinel.requirepass":{{env.sentinel.requirepass}},
+    "zabbix-agint2-enable": {{env.zabbix-agint2-enable}},
+    "zabbix-server": {{env.zabbix-server}},
+    "zabbix-named-sessions": {{env.zabbix-named-sessions}},
+    "node-exporter-enable": {{env.node-exporter-enable}},
+    "redis-exporter-enable": {{env.redis-exporter-enable}},
     "web.console.enabled": {{env.web.console.enabled}},
     "web.console.username": {{env.web.console.username}},
     "web.console.password": {{env.web.console.password}},
@@ -499,10 +508,26 @@
       "port": 26379,
       "protocol": "tcp"
     },
+    "tls-sentinel": {
+        "port": {{env.sentinel.tls-port}},
+        "protocol": "tcp"
+    },
     "reserved_ips": {
       "vip": {
         "value": ""
       }
+    },
+    "Node-Exporter": {
+      "port": 9100,
+      "protocol": "tcp"
+    },
+    "Redis-Exporter": {
+      "port": 9121,
+      "protocol": "tcp"
+    },
+    "Zabbix-Agent2": {
+      "port": 10050,
+      "protocol": "tcp"
     }
   },
   "display_tabs" : {
