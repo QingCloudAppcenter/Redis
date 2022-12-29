@@ -42,7 +42,7 @@
   "maxclients_label": "maxclients",
   "maxclients_description": "同一时间允许最大的客户端连接数。默认为0，表示无限制，此时最大的客户端连接数为Redis进程可以打开的最大文件描述符的数量",
   "requirepass_label": "requirepass",
-  "requirepass_description": "Redis服务的密码，如果不希望有验证则此项留空，密码可由数字、字母、下划线或 !@#$%^&*()./; 组成，最低 6 位",
+  "requirepass_description": "Redis服务的密码，如果不希望有验证则此项留空，密码可由数字、字母、下划线或 !@#%^&*()./; 组成，最低 6 位",
   "maxmemory-policy_label": "maxmemory-policy",
   "maxmemory-policy_description": "当Redis内存占用达到最大的时候，使用何种策略来应对（删除）keys",
   "maxmemory-samples_label": "maxmemory-samples",

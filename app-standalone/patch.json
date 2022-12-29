@@ -1,0 +1,24 @@
+{
+  "patch_policy": [""],
+  "patch_nodes": [{
+    "container": {
+        "snapshot": "ss-ytwhal6w",
+        "zone": "pek3"
+    },
+    "patch": [{
+      "mount_role": "",
+      "mount_point": "/upgrade",
+      "mount_options": "defaults,noatime",
+      "filesystem": "ext4",
+      "cmd": "echo"
+    }],
+    "rollback": [{
+      "mount_role": "",
+      "mount_point": "/upgrade",
+      "mount_options": "defaults,noatime",
+      "filesystem": "ext4",
+      "cmd": "echo"
+    }]
+  }]
+}
+
