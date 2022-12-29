@@ -1,5 +1,5 @@
 {
-  "patch_policy": ["", "appp-0os99bi8", "appp-v97d1dlf", "appp-hcmre1oo"],
+  "patch_policy": ["appp-hcmre1oo"],
   "patch_nodes": [{
     "container": {
         "snapshot": "ss-a0qr7bdl",
@@ -10,7 +10,7 @@
       "mount_point": "/upgrade",
       "mount_options": "defaults,noatime",
       "filesystem": "ext4",
-      "cmd": "/upgrade/opt/app/bin/node/upgrade.sh"
+      "cmd": "echo"
     }],
     "rollback": [{
       "mount_role": "master",

@@ -43,7 +43,7 @@
   "Max memory percent Redis can make use of.": "Redis 最大可用内存占主机内存的比例(%)",
   "Enable config and save commands(strongly not recommended to enable this)": "打开config和save命令（还会打开其他一些命令，见使用说明），强烈不建议这样做，错误地使用可能会导致服务不可用，默认为0表示禁用这些命令",
   "Max execution time of a Lua script in milliseconds.": "Lua脚本的执行超时时间(单位ms)，0或负值表示没有限制",
-  "Require clients to issue AUTH <PASSWORD> before processing any other commands.": "需要客户端使用密码才能执行命令，密码可由数字、字母或 !@#$%^&*()./; 组成，且最少6位，不预留密码可设为空",
+  "Require clients to issue AUTH <PASSWORD> before processing any other commands.": "需要客户端使用密码才能执行命令，密码可由数字、字母或 !@#%^&*()./; 组成，且最少6位，不预留密码可设为空",
   "The name of the service": "服务名称",
   "The description of the service": "服务描述",
   "CPUs of each node": "每个节点的 CPU 数量",

@@ -17,7 +17,7 @@
             "type": "lxc",
             "prefer_type": "lxc",
             "zone": "pek3",
-            "image": "img-t6etbjsx"
+            "image": "img-bnkqvksc"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -29,7 +29,6 @@
             "filesystem": "ext4"
         },
         "replica": {{cluster.master.replica}},
-        "vertical_scaling_policy": "sequential",
         "services": {
             "init": {
                 "cmd": "appctl init"
@@ -61,10 +60,6 @@
                     "params": {{service_params.params}},
                     "timeout": {{service_params.timeout}}
                 }
-            },
-            "get_nodes_order": {
-                "event": ["rollback", "scale_vertical"],
-                "cmd": "appctl getNodesOrder"
             }
         }
     }],
