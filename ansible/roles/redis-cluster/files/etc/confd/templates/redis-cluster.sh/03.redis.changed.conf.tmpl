@@ -56,6 +56,7 @@ maxclients {{ getv "/env/maxclients" "65000" }}
 maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/appctl.maxmemory.percent" "80") }}
 maxmemory-policy {{ getv "/env/maxmemory-policy" "volatile-lru" }}
 maxmemory-samples {{ getv "/env/maxmemory-samples" "3" }}
+maxmemory-clients {{ getv "/env/maxmemory-clients" "0" }}
 min-slaves-max-lag {{ getv "/env/min-slaves-max-lag" "10" }}
 min-slaves-to-write {{ getv "/env/min-slaves-to-write" "0" }}
 no-appendfsync-on-rewrite {{ getv "/env/no-appendfsync-on-rewrite" "yes" }}

@@ -28,6 +28,7 @@
   "Replica": "副本（从节点）数量",
   "Volume Size": "磁盘大小",
   "maxmemory-percent": "最大内存比例",
+  "A memory value can be used for the client eviction threshold": "可以限定所有客户端使用的内存总和的最大值。\n支持单位:k/m/g/t/kb/mb/gb/tb/%",
   "Cpus of each node": "每个节点的核数，一般作为缓存，单核就足够了，在数据量较大，数据写入速度很快的情况下，可以视情况使用双核",
   "enable-config": "打开config和save命令",
   "The replica number for each master": "每个分片（主节点）的副本点数量<br>输入每个分片的副本数量, 推荐1,（范围0-5）",

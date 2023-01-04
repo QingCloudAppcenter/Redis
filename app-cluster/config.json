@@ -297,6 +297,14 @@
             "default": 3,
             "required": "no"
         }, {
+            "key": "maxmemory-clients",
+            "label": "maxmemory-clients",
+            "description": "A memory value can be used for the client eviction threshold",
+            "type": "string",
+            "default": "0",
+            "pattern": "^(\\d+(.\\d)?(k|m|g|t|kb|mb|gb|tb|K|M|G|T|KB|MB|GB|TB|)|(100%|\\d\\d?%))$",
+            "required": "no"
+        }, {
             "key": "min-slaves-max-lag",
             "label": "min-slaves-max-lag",
             "description": "A master stops accepting writes if there are less than N slaves connected, having a lag less or equal than M seconds.",
