@@ -268,39 +268,11 @@
             "default": 15000,
             "required": "no"
         }, {
-            "key": "hash-max-ziplist-entries",
-            "label": "hash-max-ziplist-entries",
-            "description": "Hashes are encoded using a memory efficient data structure when they have a small number of entries",
-            "type": "integer",
-            "default": 512,
-            "required": "no"
-        }, {
-            "key": "hash-max-ziplist-value",
-            "label": "hash-max-ziplist-value",
-            "description": "Hashes are encoded using a memory efficient data structure when they have a small number of entries, and the biggest entry does not exceed a given threshold",
-            "type": "integer",
-            "default": 64,
-            "required": "no"
-        }, {
             "key": "latency-monitor-threshold",
             "label": "latency-monitor-threshold",
             "description": "It samples different operations at runtime in order to collect data related to possible sources of latency of a Redis instance.",
             "type": "integer",
             "default": 0,
-            "required": "no"
-        }, {
-            "key": "list-max-ziplist-entries",
-            "label": "list-max-ziplist-entries",
-            "description": "Small lists are encoded in a special way in order to save a lot of space.",
-            "type": "integer",
-            "default": 512,
-            "required": "no"
-        }, {
-            "key": "list-max-ziplist-value",
-            "label": "list-max-ziplist-value",
-            "description": "Small lists are encoded in a special way in order to save a lot of space.",
-            "type": "integer",
-            "default": 64,
             "required": "no"
         }, {
             "key": "maxclients",
@@ -375,13 +347,6 @@
             "default": 60,
             "required": "no"
         }, {
-            "key": "set-max-intset-entries",
-            "label": "set-max-intset-entries",
-            "description": "It sets the limit in the size of the set in order to use this special memory saving encoding.",
-            "type": "integer",
-            "default": 512,
-            "required": "no"
-        }, {
             "key": "slowlog-log-slower-than",
             "label": "slowlog-log-slower-than",
             "description": "It logs queries that exceeded a specified execution time.",
@@ -410,15 +375,43 @@
             "default": 0,
             "required": "no"
         }, {
-            "key": "zset-max-ziplist-entries",
-            "label": "zset-max-ziplist-entries",
+            "key": "set-max-intset-entries",
+            "label": "set-max-intset-entries",
+            "description": "It sets the limit in the size of the set in order to use this special memory saving encoding.",
+            "type": "integer",
+            "default": 512,
+            "required": "no"
+        }, {
+            "key": "list-max-listpack-size",
+            "label": "list-max-listpack-size",
+            "description": "Small lists are encoded in a special way in order to save a lot of space.",
+            "type": "integer",
+            "default": -2,
+            "required": "no"
+        }, {
+            "key": "hash-max-listpack-entries",
+            "label": "hash-max-listpack-entries",
+            "description": "Hashes are encoded using a memory efficient data structure when they have a small number of entries",
+            "type": "integer",
+            "default": 512,
+            "required": "no"
+        }, {
+            "key": "hash-max-listpack-value",
+            "label": "hash-max-listpack-value",
+            "description": "Hashes are encoded using a memory efficient data structure when they have a small number of entries, and the biggest entry does not exceed a given threshold",
+            "type": "integer",
+            "default": 64,
+            "required": "no"
+        }, {
+            "key": "zset-max-listpack-entries",
+            "label": "zset-max-listpack-entries",
             "description": "Sorted sets are specially encoded in order to save a lot of space.",
             "type": "integer",
             "default": 128,
             "required": "no"
         }, {
-            "key": "zset-max-ziplist-value",
-            "label": "zset-max-ziplist-value",
+            "key": "zset-max-listpack-value",
+            "label": "zset-max-listpack-value",
             "description": "Sorted sets are specially encoded in order to save a lot of space.",
             "type": "integer",
             "default": 64,
