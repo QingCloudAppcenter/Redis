@@ -123,6 +123,7 @@
   "command": "命令",
   "The common for master node": "在主节点执行的命令",
   "Cluster node timeout is the amount of milliseconds a node must be unreachable for it to be considered in failure state": "集群节点被确认为故障状态的最大毫秒数，即该节点在配置时间内均不可达",
+"This option, when set to yes, allows nodes to serve pubsub shard traffic while the cluster is in a down state, as long as it believes it owns the slots.": "当集群因主节点数量达不到最小值或者哈希槽没有完全分配而被标记为失效时，pub/sub 是否可以正常运行。",
   "Enable web console": "开启文件查看控制台",
   "enable or not for web console": "是否开启 WebConsole，true：开启；false：关闭，不会重启 redis",
   "Admin Username": "文件查看用户名",

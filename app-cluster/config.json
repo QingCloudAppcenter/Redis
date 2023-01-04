@@ -260,6 +260,14 @@
             "range": ["everysec", "no", "always"],
             "required": "no"
         }, {
+            "key": "cluster-allow-pubsubshard-when-down",
+            "label": "cluster-allow-pubsubshard-when-down",
+            "description": "This option, when set to yes, allows nodes to serve pubsub shard traffic while the cluster is in a down state, as long as it believes it owns the slots.",
+            "default": "yes",
+            "range": ["yes", "no"],
+            "type": "string",
+            "required": "no"
+        }, {
             "key": "cluster-node-timeout",
             "label": "cluster-node-timeout",
             "description": "Cluster node timeout is the amount of milliseconds a node must be unreachable for it to be considered in failure state",

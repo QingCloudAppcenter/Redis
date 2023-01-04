@@ -19,7 +19,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-o2wb053c"
+            "image": "img-ukwc2vqz"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -128,6 +128,7 @@
         "appendonly": {{env.appendonly}},
         "appendfsync": {{env.appendfsync}},
         "cluster-node-timeout": {{env.cluster-node-timeout}},
+        "cluster-allow-pubsubshard-when-down": {{env.cluster-allow-pubsubshard-when-down}},
         "latency-monitor-threshold": {{env.latency-monitor-threshold}},
         "maxclients": {{env.maxclients}},
         "maxmemory-policy": {{env.maxmemory-policy}},
