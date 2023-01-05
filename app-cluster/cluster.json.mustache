@@ -19,7 +19,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-03touf7b"
+            "image": "img-7fjthbq5"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -121,7 +121,7 @@
         "disabled-commands": {{env.disabled-commands}},
         "enable-config": {{env.enable-config}},
         "enable-acl": {{env.enable-acl}},
-        "appcenterignore-requirepass": {{env.requirepass}},
+        "requirepass": {{env.requirepass}},
         "port": {{env.port}},
         "cluster-port": {{env.cluster-port}},
         "appctl.maxmemory.percent": {{env.appctl.maxmemory.percent}},
@@ -148,6 +148,11 @@
         "tcp-keepalive": {{env.tcp-keepalive}},
         "timeout": {{env.timeout}},
         "shutdown-timeout": {{env.shutdown-timeout}},
+        "zabbix-agint2-enable": {{env.zabbix-agint2-enable}},
+        "zabbix-server": {{env.zabbix-server}},
+        "zabbix-named-sessions": {{env.zabbix-named-sessions}},
+        "node-exporter-enable": {{env.node-exporter-enable}},
+        "redis-exporter-enable": {{env.redis-exporter-enable}},
         "web.console.enabled": {{env.web.console.enabled}},
         "web.console.username": {{env.web.console.username}},
         "web.console.password": {{env.web.console.password}},
@@ -184,6 +189,18 @@
         "tls-client": {
             "port": {{env.tls-port}},
             "protocol": "tcp"
+        },
+        "Node-Exporter": {
+          "port": 9100,
+          "protocol": "tcp"
+        },
+        "Redis-Exporter": {
+          "port": 9121,
+          "protocol": "tcp"
+        },
+        "Zabbix-Agent2": {
+          "port": 10050,
+          "protocol": "tcp"
         }
     },
     "health_check": {

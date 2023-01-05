@@ -78,8 +78,8 @@ hash-max-listpack-entries {{ getv "/env/hash-max-listpack-entries" "512" }}
 hash-max-listpack-value {{ getv "/env/hash-max-listpack-value" "64" }}
 zset-max-listpack-entries {{ getv "/env/zset-max-listpack-entries" "128" }}
 zset-max-listpack-value {{ getv "/env/zset-max-listpack-value" "64" }}
-masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
-requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
+masterauth "{{ getv "/env/requirepass" "" }}"
+requirepass "{{ getv "/env/requirepass" "" }}"
 $(renameCommands)
 rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
 $(ioThreads)

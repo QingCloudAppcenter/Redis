@@ -20,6 +20,10 @@ CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
 DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
 CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
 
+REDIS_EXPORTER="/data/redis_exporter"
+REDIS_EXPORTER_LOGS_DIR="$REDIS_EXPORTER/logs"
+REDIS_EXPORTER_PID_FILE="$REDIS_EXPORTER/redis_exporter.pid"
+
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
@@ -39,10 +43,13 @@ execute() {
 }
 
 initNode() {
-  mkdir -p /data/redis/{logs,tls}
-  touch /data/redis/tls/{ca.crt,redis.crt,redis.dh,redis.key}
+  mkdir -p $REDIS_DIR/{logs,tls}
+  mkdir -p $REDIS_EXPORTER $REDIS_EXPORTER_LOGS_DIR
+  touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   touch $RUNTIME_ACL_FILE
-  chown -R redis.svc /data/redis
+  touch $REDIS_EXPORTER_PID_FILE
+  chown -R redis.svc $REDIS_DIR
+  chown -R prometheus.svc $REDIS_EXPORTER
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
 }

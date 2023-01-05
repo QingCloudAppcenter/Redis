@@ -196,5 +196,8 @@
   "Multithreaded Prod: 380000QPS":"独享CPU模式，性能稳定，使用多线程操作读写I/O，QPS参考: 380000次/秒",
   "Single Threaded Prod: 180000QPS":"独享CPU模式，性能稳定，使用单线程操作读写I/O，QPS参考: 180000次/秒",
   "Multithreaded Test: 180000QPS":"CPU共享，性价比高，Redis引进多线程，提升性能的同时保证安全性，适合测试研发使用，QPS参考: 180000次/秒",
-  "Single Threaded Test: 60000QPS":"CPU共享，性价比高，使用单线程操作读写I/O，适合测试研发使用，QPS参考: 60000次/秒"
+  "Single Threaded Test: 60000QPS":"CPU共享，性价比高，使用单线程操作读写I/O，适合测试研发使用，QPS参考: 60000次/秒",
+  "Enable Node-Exporter Port:9100": "开启 Node-Exporter 端口:9100",
+  "Enable Redis-Exporter, Port:9121": "开启 Redis-Exporter 端口:9121",
+  "Enable zabbix-agint2, Port:10050": "开启 zabbix-agint2 端口:10050"
 }

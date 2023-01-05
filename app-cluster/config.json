@@ -563,6 +563,46 @@
             "default": "",
             "required": "no"
         }, {
+          "key": "node-exporter-enable",
+          "label": "Enable Node-Exporter",
+          "description": "Enable Node-Exporter Port:9100",
+          "type": "boolean",
+          "default": false,
+          "required": "no",
+          "range": [true, false]
+        }, {
+          "key": "redis-exporter-enable",
+          "label": "Enable Redis-Exporter",
+          "description": "Enable Redis-Exporter, Port:9121",
+          "type": "boolean",
+          "default": false,
+          "required": "no",
+          "range": [true, false]
+        }, {
+          "key": "zabbix-agint2-enable",
+          "label": "Enable zabbix",
+          "description": "Enable zabbix-agint2, Port:10050",
+          "type": "boolean",
+          "default": false,
+          "required": "no",
+          "range": [true, false]
+        }, {
+          "key": "zabbix-server",
+          "label": "zabbix server",
+          "description": "Zabbix server host",
+          "type": "string",
+          "pattern": "^([a-z0-9.-\/]+)$",
+          "default": "127.0.0.1",
+          "required": "no"
+        }, {
+          "key": "zabbix-named-sessions",
+          "label": "named-sessions",
+          "description": "Zabbix NAMED SESSIONS",
+          "type": "string",
+          "pattern": "^([a-z0-9]+)?$",
+          "default": "redis",
+          "required": "no"
+        }, {
             "key": "web.console.enabled",
             "label": "Enable web console",
             "description": "enable or not for web console",
