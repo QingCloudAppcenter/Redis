@@ -177,6 +177,15 @@
             "min": 0,
             "required": "no"
         }, {
+            "key": "cluster-port",
+            "label": "cluster-port",
+            "description": "the port that the cluster bus will listen for inbound connections on.",
+            "type": "integer",
+            "default": 0,
+            "max": 65535,
+            "min": 0,
+            "required": "no"
+        }, {
             "key": "tls-port",
             "label": "TLS-Port",
             "description": "TLS Listening Port",
@@ -274,6 +283,14 @@
             "type": "integer",
             "min": 1000,
             "default": 15000,
+            "required": "no"
+        }, {
+            "key": "cluster-link-sendbuf-limit",
+            "label": "cluster-link-sendbuf-limit",
+            "description": "Cluster link send buffer limit is the limit on the memory usage of an individual cluster bus link%27s send buffer in bytes.",
+            "type": "integer",
+            "min": 0,
+            "default": 0,
             "required": "no"
         }, {
             "key": "latency-monitor-threshold",
@@ -389,6 +406,14 @@
             "description": "Close the connection after a client is idle for N seconds (0 to disable).",
             "type": "integer",
             "default": 0,
+            "required": "no"
+        }, {
+            "key": "shutdown-timeout",
+            "label": "shutdown-timeout",
+            "description": "Maximum time to wait for replicas when shutting down, in seconds.",
+            "type": "integer",
+            "min": 0,
+            "default": 10,
             "required": "no"
         }, {
             "key": "set-max-intset-entries",

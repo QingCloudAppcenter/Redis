@@ -494,7 +494,7 @@ swapIpAndName() {
   else
     fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
   fi
-  replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
+  replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@${CLUSTER_PORT} /g"
   sed -i "$replaceCmd" $NODE_CONF_FILE
 }
 

@@ -44,6 +44,7 @@ ioThreads() {
 
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 port {{ getv "/env/port" "6379" }}
+cluster-port {{ getv "/env/cluster-port" "0" }}
 tls-port {{ getv "/env/tls-port" "0" }}
 tls-cluster {{ getv "/env/tls-cluster" "no" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
@@ -51,6 +52,7 @@ appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
 cluster-node-timeout {{ getv "/env/cluster-node-timeout" "15000" }}
 cluster-allow-pubsubshard-when-down {{ getv "/env/cluster-allow-pubsubshard-when-down" "yes" }}
+cluster-link-sendbuf-limit {{ getv "/env/cluster-link-sendbuf-limit" "0" }}
 latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
 lua-time-limit {{ getv "/env/lua-time-limit" "5000" }}
 maxclients {{ getv "/env/maxclients" "65000" }}
@@ -69,6 +71,7 @@ slowlog-log-slower-than {{ getv "/env/slowlog-log-slower-than" "-1" }}
 slowlog-max-len {{ getv "/env/slowlog-max-len" "128" }}
 tcp-keepalive {{ getv "/env/tcp-keepalive" "0" }}
 timeout {{ getv "/env/timeout" "0" }}
+shutdown-timeout {{ getv "/env/shutdown-timeout" "10" }}
 set-max-intset-entries {{ getv "/env/set-max-intset-entries" "512" }}
 list-max-listpack-size {{ getv "/env/list-max-listpack-size" "-2" }}
 hash-max-listpack-entries {{ getv "/env/hash-max-listpack-entries" "512" }}
