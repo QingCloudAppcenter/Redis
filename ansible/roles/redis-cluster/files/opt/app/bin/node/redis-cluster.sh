@@ -431,8 +431,10 @@ measure() {
   fi
 
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|aof_buffer_length$|repl_backlog_size$|repl_backlog_histlen$|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    if($1~/^(cmdstat_|connected_c|db|evicted_|keyspace_|total_conn)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
+    }else if($1~/^(mem_fragmentation_ratio|instantaneous_ops_per_sec|aof_buffer_length|repl_backlog_size|repl_backlog_histlen|maxmemory|role|used_memory)$/) {
+      r[$1] = gensub(/\r$/, "", 1, $2)
     }
   }
   END {
@@ -453,6 +455,7 @@ measure() {
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
     m["repl_backlog_avg"] = m["repl_backlog_max"] = m["repl_backlog_min"] = r["repl_backlog_histlen"] / r["repl_backlog_size"] * 10000
     m["aof_buffer_avg"] = m["aof_buffer_max"] = m["aof_buffer_min"] = r["aof_buffer_length"] ? r["aof_buffer_length"] : 0
+    m["mem_fragmentation_ratio_avg"] = m["mem_fragmentation_ratio_max"] = m["mem_fragmentation_ratio_min"] = r["mem_fragmentation_ratio"] ? r["mem_fragmentation_ratio"] * 100 : 100
     m["group_matched"] = "'$groupMatched'"
     m["replica_delay"] = "'$replicaDelay'"
     for(k in m) {
