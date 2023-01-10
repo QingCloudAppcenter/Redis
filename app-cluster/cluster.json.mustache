@@ -19,7 +19,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-7fjthbq5"
+            "image": "img-cqmpt23l"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -331,10 +331,46 @@
                 "statistics_type" : "avg",
                 "scale_factor_when_display" : 0.01
             },
+            "repl_backlog_min" : {
+                "unit" : "%",
+                "value_type" : "int",
+                "statistics_type" : "min",
+                "scale_factor_when_display" : 0.01
+            },
+            "repl_backlog_avg" : {
+                "unit" : "%",
+                "value_type" : "int",
+                "statistics_type" : "avg",
+                "scale_factor_when_display" : 0.01
+            },
+            "repl_backlog_max" : {
+                "unit" : "%",
+                "value_type" : "int",
+                "statistics_type" : "max",
+                "scale_factor_when_display" : 0.01
+            },
             "replica_delay" : {
                 "unit" : "Bytes",
                 "value_type" : "int",
                 "statistics_type" : "latest",
+                "scale_factor_when_display" : 1
+            },
+            "aof_buffer_min" : {
+                "unit" : "Bytes",
+                "value_type" : "int",
+                "statistics_type" : "min",
+                "scale_factor_when_display" : 1
+            },
+            "aof_buffer_avg" : {
+                "unit" : "Bytes",
+                "value_type" : "int",
+                "statistics_type" : "avg",
+                "scale_factor_when_display" : 1
+            },
+            "aof_buffer_max" : {
+                "unit" : "Bytes",
+                "value_type" : "int",
+                "statistics_type" : "max",
                 "scale_factor_when_display" : 1
             },
             "del" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
@@ -465,6 +501,8 @@
             "QPS": ["instantaneous_ops_per_sec"],
             "is_group_matched": ["group_matched"],
             "replicaDelay": ["replica_delay"],
+            "aof_buffer": ["aof_buffer_min","aof_buffer_avg","aof_buffer_max"],
+            "repl_backlog": ["repl_backlog_min", "repl_backlog_avg", "repl_backlog_max"],
             "Keys1_count" : ["del","dump","exists","expire","expireat"],
             "Keys2_count" : ["move","persist","pexpire","pexpireat","pttl"],
             "Keys3_count" : ["randomkey","rename","renamenx","restore","sort"],
@@ -500,8 +538,8 @@
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
-        "display" : ["node_role", "is_group_matched", "QPS", "replicaDelay", "memory_usage", "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate","Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
-        "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched","node_role"]
+        "display" : ["node_role", "is_group_matched", "QPS", "memory_usage", "replicaDelay", "repl_backlog", "aof_buffer",  "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate",  "Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
+        "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched", "node_role", "repl_backlog_max"]
     },
     "display_tabs" : {
         "roles" : {

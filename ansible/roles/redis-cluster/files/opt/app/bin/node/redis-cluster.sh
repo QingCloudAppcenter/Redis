@@ -406,8 +406,8 @@ revive(){
 }
 
 findMasterIpByNodeIp(){
-  local myRoleResult myRole nodeIp=${1:-$MY_IP}
-  myRoleResult="$(runRedisCmd -h $nodeIp role)"
+  local myRoleResult myRole nodeIp=${MY_IP}
+  myRoleResult="$(runRedisCmd -h "$nodeIp" role)"
   myRole="$(echo "$myRoleResult" |head -n1)"
   if [[ "$myRole" == "master" ]]; then
     echo "$nodeIp"
@@ -418,18 +418,20 @@ findMasterIpByNodeIp(){
 
 measure() {
   local groupMatched; groupMatched="$(getGroupMatched)"
-  local masterIp replicaDelay; masterIp="$(findMasterIpByNodeIp)"
+  local masterIp replicaDelay
+  masterIp="$(findMasterIpByNodeIp)"
   if [[ "$masterIp" != "$MY_IP" ]]; then
-    local masterReplication="$(runRedisCmd -h $masterIp info replication)"
-    local masterOffset=$(echo "$masterReplication"|grep "master_repl_offset" |cut -d: -f2 |tr -d '\n\r')
-    local myOffset=$(echo "$masterReplication" |grep -E "ip=${MY_IP//\./\\.}\,"| cut -d, -f4 |cut -d= -f2|tr -d '\n\r')
-    replicaDelay=$(($masterOffset-$myOffset))
+    local masterReplication masterOffset myOffset
+    masterReplication="$(runRedisCmd -h "${masterIp}" info replication)"
+    masterOffset="$(echo "$masterReplication"|grep "master_repl_offset" |cut -d: -f2 |tr -d '\n\r')"
+    myOffset=$(echo "$masterReplication" |grep -E "ip=${MY_IP//\./\\.}\,"| cut -d, -f4 |cut -d= -f2|tr -d '\n\r')
+    replicaDelay="$((masterOffset-myOffset))"
   else
     replicaDelay=0
   fi
 
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|aof_buffer_length$|repl_backlog_size$|repl_backlog_histlen$|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
     }
   }
@@ -449,6 +451,8 @@ measure() {
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
+    m["repl_backlog_avg"] = m["repl_backlog_max"] = m["repl_backlog_min"] = r["repl_backlog_histlen"] / r["repl_backlog_size"] * 10000
+    m["aof_buffer_avg"] = m["aof_buffer_max"] = m["aof_buffer_min"] = r["aof_buffer_length"] ? r["aof_buffer_length"] : 0
     m["group_matched"] = "'$groupMatched'"
     m["replica_delay"] = "'$replicaDelay'"
     for(k in m) {
