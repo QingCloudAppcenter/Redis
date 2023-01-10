@@ -19,7 +19,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-00o6h9x0"
+            "image": "img-xw8uay7c"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -229,10 +229,22 @@
                 "statistics_type": "latest",
                 "enums": ["true", "false"]
             },
-            "instantaneous_ops_per_sec" : {
+            "instantaneous_ops_per_sec_max" : {
                 "unit" : "COUNTS/S",
                 "value_type" : "int",
                 "statistics_type" : "max",
+                "scale_factor_when_display" : 1
+            },
+            "instantaneous_ops_per_sec_avg" : {
+                "unit" : "COUNTS/S",
+                "value_type" : "int",
+                "statistics_type" : "avg",
+                "scale_factor_when_display" : 1
+            },
+            "instantaneous_ops_per_sec_min" : {
+                "unit" : "COUNTS/S",
+                "value_type" : "int",
+                "statistics_type" : "min",
                 "scale_factor_when_display" : 1
             },
             "key_count" : {
@@ -522,7 +534,7 @@
             "script" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 }
         },
         "groups" : {
-            "QPS": ["instantaneous_ops_per_sec"],
+            "QPS": ["instantaneous_ops_per_sec_min", "instantaneous_ops_per_sec_avg", "instantaneous_ops_per_sec_max"],
             "is_group_matched": ["group_matched"],
             "replicaDelay": ["replica_delay"],
             "aof_buffer": ["aof_buffer_min","aof_buffer_avg","aof_buffer_max"],

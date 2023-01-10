@@ -456,6 +456,7 @@ measure() {
     m["repl_backlog_avg"] = m["repl_backlog_max"] = m["repl_backlog_min"] = r["repl_backlog_histlen"] / r["repl_backlog_size"] * 10000
     m["aof_buffer_avg"] = m["aof_buffer_max"] = m["aof_buffer_min"] = r["aof_buffer_length"] ? r["aof_buffer_length"] : 0
     m["mem_fragmentation_ratio_avg"] = m["mem_fragmentation_ratio_max"] = m["mem_fragmentation_ratio_min"] = r["mem_fragmentation_ratio"] ? r["mem_fragmentation_ratio"] * 100 : 100
+    m["instantaneous_ops_per_sec_avg"] = m["instantaneous_ops_per_sec_max"] = m["instantaneous_ops_per_sec_min"] = r["instantaneous_ops_per_sec"]
     m["group_matched"] = "'$groupMatched'"
     m["replica_delay"] = "'$replicaDelay'"
     for(k in m) {
