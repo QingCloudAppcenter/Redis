@@ -289,6 +289,12 @@
                 "statistics_type" : "latest",
                 "scale_factor_when_display" : 1
             },
+            "evicted_clients" : {
+                "unit" : "Times",
+                "value_type" : "int",
+                "statistics_type" : "delta",
+                "scale_factor_when_display" : 1
+            },
             "connected_clients_min" : {
                 "unit" : "Times",
                 "value_type" : "int",
@@ -551,14 +557,14 @@
             "Transaction_count" : ["discard","exec","multi","unwatch","watch"],
             "Script_count" : ["eval","evalsha","script"],
             "Connections" : ["total_connections_received"],
-            "connected_clients" : ["connected_clients_min", "connected_clients_max", "connected_clients_avg"],
+            "connected_clients" : ["connected_clients_min", "connected_clients_max", "connected_clients_avg", "evicted_clients"],
             "Keys" : ["evicted_keys", "expired_keys", "key_count"],
             "Key_hits" : [ "keyspace_hits", "keyspace_misses" ],
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
         "display" : ["node_role", "is_group_matched", "QPS", "memory_usage", "mem_fragmentation_ratio",  "replicaDelay", "repl_backlog", "aof_buffer",  "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate",  "Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
-        "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched", "node_role", "repl_backlog_max", "mem_fragmentation_ratio_min", "mem_fragmentation_ratio_max"]
+        "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched", "node_role", "repl_backlog_max", "mem_fragmentation_ratio_min", "mem_fragmentation_ratio_max", "evicted_clients"]
     },
     "display_tabs" : {
         "roles" : {
