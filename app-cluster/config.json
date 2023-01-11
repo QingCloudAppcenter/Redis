@@ -26,45 +26,25 @@
             "default": "",
             "required": "yes"
         }, {
-            "key": "resource_group",
-            "label": "Resource Configuration",
-            "description": ["Multithreaded Prod: 380000QPS", "Single Threaded Prod: 180000QPS", "Multithreaded Test: 180000QPS", "Single Threaded Test: 60000QPS"],
-            "type": "string",
-            "customizable": false,
-            "is_node": true,
-            "default": "MultithreadedProd",
-            "range": ["MultithreadedProd", "SingleThreadedProd","MultithreadedTest", "SingleThreadedTest"]
-        }, {
             "key": "master",
             "label": "Master",
             "description": "Redis master node",
             "type": "array",
             "properties": [{
-                "key": "instance_class",
-                "label": "Instance Class",
-                "description": "",
-                "type": "integer",
-                "default": 202,
-                "resource_group": [202, 202, 101, 101],
-                "range": [101, 202, 301],
-                "required": "yes"
-            }, {
                 "key": "cpu",
                 "label": "CPU",
                 "description": "Cpus of each node",
                 "type": "integer",
-                "default": 8,
-                "range": [2, 8, 16, 32, 64],
-                "resource_group": [8,2,8,2],
+                "default": 2,
+                "range": [1, 2, 4, 8, 16],
                 "required": "yes"
             }, {
                 "key": "memory",
                 "label": "Memory",
                 "description": "Memory of each node.",
                 "type": "integer",
-                "default": 8192,
-                "resource_group": [8192, 4096, 8192, 2048],
-                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536, 131072],
+                "default": 2048,
+                "range": [1024, 2048, 4096, 6144, 8192, 16384, 32768, 65536],
                 "required": "yes"
             }, {
                 "key": "count",
@@ -76,6 +56,14 @@
                 "max": 127,
                 "required": "yes"
             }, {
+                "key": "instance_class",
+                "label": "Instance Class",
+                "description": "The instance type for the cluster to run, such as high performance, high performance plus",
+                "type": "integer",
+                "default": 202,
+                "range": [101, 202, 301],
+                "required": "yes"
+            }, {
                 "key": "replica",
                 "label": "Replica",
                 "description": "The replica number for each master",
@@ -83,6 +71,14 @@
                 "default": 1,
                 "min": 0,
                 "max": 5,
+                "required": "yes"
+            }, {
+                "key": "volume_size",
+                "label": "Volume Size",
+                "description": "The volume size for each instance",
+                "type": "integer",
+                "default": 10,
+                "min":10,
                 "required": "yes"
             }]
         }]

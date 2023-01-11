@@ -4,13 +4,13 @@
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
     "upgrade_policy": [
+     "appv-3x5sw2u0",
      "appv-79rlu7jt",
      "appv-1pbmp78g",
      "appv-tqzrokkb",
      "appv-9yvinzz0",
      "appv-okxhok17",
-     "appv-pjxqcdm1",
-     "appv-3x5sw2u"
+     "appv-pjxqcdm1"
     ],    
     "upgrading_policy": "parallel",
     "nodes": [{
@@ -27,8 +27,7 @@
         "cpu": {{cluster.master.cpu}},
         "memory": {{cluster.master.memory}},
         "volume": {
-            "size": {{cluster.master.memory}} * 3 / 1024,
-            "skip_check_size": true,
+            "size": {{cluster.master.volume_size}},
             "mount_point": "/data",
             "filesystem": "xfs"
         },
