@@ -1,4 +1,5 @@
 app/*.zip
+.vscode/*
 ansible/roles/*/files/tmp
 ansible/file/tmp/*
 ansible/test*.yml

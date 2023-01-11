@@ -69,8 +69,6 @@
                 "description": "The replica number for each master",
                 "type": "integer",
                 "default": 1,
-                "min": 0,
-                "max": 5,
                 "required": "yes"
             }, {
                 "key": "volume_size",
@@ -82,8 +80,7 @@
                 "required": "yes"
             }]
         }]
-    },
-    {
+    }, {
         "key": "service_params",
         "description": "Custom service configuration properties",
         "type": "array",
@@ -100,8 +97,7 @@
                   "BGSAVE"
                 ],
                 "required": "yes"
-              },
-              {
+              }, {
                 "key": "params",
                 "label": "params",
                 "description": "The params for flush commands",
@@ -112,8 +108,7 @@
                   "ASYNC"
                 ],
                 "required": "no"
-              },
-              {
+              }, {
                 "key": "timeout",
                 "label": "timeout",
                 "description": "The timeout for flush commands",
@@ -121,8 +116,7 @@
                 "default": 5, 
                 "min":5,
                 "required": "yes"
-              },
-              {
+              }, {
                 "key": "username",
                 "label": "username",
                 "description": "ACL User Name",
@@ -158,8 +152,7 @@
               }
 
         ]
-      }, 
-    {
+    }, {
         "key": "env",
         "description": "Redis service properties",
         "type": "array",
@@ -214,6 +207,22 @@
             "default": 0,
             "required": "no",
             "range": [0,1]
+        }, {
+            "key": "io-threads-do-reads",
+            "label": "io-threads-do-reads",
+            "description": "swith threading of reads and protocol parsing",
+            "type": "string",
+            "default": "auto",
+            "range": ["yes", "auto", "no"],
+            "required": "no"
+        }, {
+            "key": "io-threads",
+            "label": "io-threads",
+            "description": "I/O threads",
+            "type": "integer",
+            "default": 0, 
+            "min":0,
+            "required": "no"
         }, {
             "key": "appctl.maxmemory.percent",
             "label": "maxmemory-percent",

@@ -29,19 +29,29 @@ renameCommands() {
   done
 }
 
-ioThreads() {
-  local hypervisor="{{ getv "/host/hypervisor" "kvm" }}"
-  local cpu={{ getv "/host/cpu" "2" }}
-  if [[ $cpu -ge 4 ]];then
-    [[ "$hypervisor" != "lxc" ]] && ((cpu-=2))
-    echo "io-threads-do-reads yes"
-    echo "io-threads $cpu"
-  else
-    echo "io-threads-do-reads no"
-    echo "io-threads 1"
+getIoThreadsDoReads() {
+  local ioThreadsDoReads="{{ getv "/env/io-threads-do-reads" "auto" }}"
+  if [[ "$ioThreadsDoReads"  == "auto" ]];then
+        ioThreadsDoReads=yes
+        [[ "$(getIoThreads)" == "1" ]] && ioThreadsDoReads=no
   fi
+  echo "$ioThreadsDoReads"
 }
 
+getIoThreads() {
+  local ioThreads="{{ getv "/env/io-threads" "0" }}"
+  local cpu={{ getv "/host/cpu" "2" }}
+  if [[ "$ioThreads" == "0" ]];then
+    case "$cpu" in
+      1) ioThreads="1" ;;
+      [2-8]) ioThreads="$(($cpu-1))" ;;
+      *) ioThreads="8"
+    esac
+  fi
+  echo "$ioThreads"
+}
+
+REDIS_PASSWORD='{{ getv "/env/requirepass" "" }}'
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 port {{ getv "/env/port" "6379" }}
 cluster-port {{ getv "/env/cluster-port" "0" }}
@@ -78,11 +88,12 @@ hash-max-listpack-entries {{ getv "/env/hash-max-listpack-entries" "512" }}
 hash-max-listpack-value {{ getv "/env/hash-max-listpack-value" "64" }}
 zset-max-listpack-entries {{ getv "/env/zset-max-listpack-entries" "128" }}
 zset-max-listpack-value {{ getv "/env/zset-max-listpack-value" "64" }}
-masterauth "{{ getv "/env/requirepass" "" }}"
-requirepass "{{ getv "/env/requirepass" "" }}"
+masterauth "$REDIS_PASSWORD"
+requirepass "$REDIS_PASSWORD"
 $(renameCommands)
 rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
-$(ioThreads)
+io-threads $(getIoThreads)
+io-threads-do-reads $(getIoThreadsDoReads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}
 tls-cluster {{ getv "/env/tls-cluster" }}
 tls-protocols "{{ getv "/env/tls-protocols" }}"

@@ -20,7 +20,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-xw8uay7c"
+            "image": "img-c5bukqyn"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -122,6 +122,7 @@
         "enable-config": {{env.enable-config}},
         "enable-acl": {{env.enable-acl}},
         "requirepass": {{env.requirepass}},
+        "appcenterignore-requirepass": {{env.requirepass}},
         "port": {{env.port}},
         "cluster-port": {{env.cluster-port}},
         "appctl.maxmemory.percent": {{env.appctl.maxmemory.percent}},
@@ -177,9 +178,11 @@
         "tls-cert": {{env.tls-cert}},
         "tls-key": {{env.tls-key}},
         "tls-ca-cert": {{env.tls-ca-cert}},
-        "tls-dh-params": {{env.tls-dh-params}}
+        "tls-dh-params": {{env.tls-dh-params}},
+        "io-threads-do-reads": {{env.io-threads-do-reads}},
+        "io-threads": {{env.io-threads}}
     },
-    "advanced_actions": ["change_vxnet","scale_horizontal","resize_on_upgrade"],
+    "advanced_actions": ["change_vxnet","scale_horizontal"],
     "custom_tags": ["default_deploy_method_sz", "divide_adding_nodes_btn", "hide_modify_instance_type_btn"],
     "endpoints": {
         "client": {
@@ -233,6 +236,31 @@
                 "unit" : "COUNTS/S",
                 "value_type" : "int",
                 "statistics_type" : "max",
+                "scale_factor_when_display" : 1
+                
+            },
+            "loading" : {
+                "unit" : "Times",
+                "value_type" : "int",
+                "statistics_type" : "max",
+                "scale_factor_when_display" : 1
+            },
+            "rdb_bgsave" : {
+                "unit" : "Times",
+                "value_type" : "int",
+                "statistics_type" : "max",
+                "scale_factor_when_display" : 1
+            },
+            "aof_rewrite" : {
+                "unit" : "Times",
+                "value_type" : "int",
+                "statistics_type" : "max",
+                "scale_factor_when_display" : 1
+            },
+            "master_sync" : {
+                "unit" : "Times",
+                "value_type" : "int",
+                "statistics_type" : "latest",
                 "scale_factor_when_display" : 1
             },
             "instantaneous_ops_per_sec_avg" : {
@@ -540,6 +568,7 @@
             "aof_buffer": ["aof_buffer_min","aof_buffer_avg","aof_buffer_max"],
             "mem_fragmentation_ratio": ["mem_fragmentation_ratio_min","mem_fragmentation_ratio_avg","mem_fragmentation_ratio_max"],
             "repl_backlog": ["repl_backlog_min", "repl_backlog_avg", "repl_backlog_max"],
+            "Running_Status": ["loading", "rdb_bgsave", "aof_rewrite", "master_sync"],
             "Keys1_count" : ["del","dump","exists","expire","expireat"],
             "Keys2_count" : ["move","persist","pexpire","pexpireat","pttl"],
             "Keys3_count" : ["randomkey","rename","renamenx","restore","sort"],
@@ -575,7 +604,7 @@
             "memory_usage" : [ "memory_usage_min", "memory_usage_max", "memory_usage_avg"],
             "hit_rate" : [ "hit_rate_min", "hit_rate_max", "hit_rate_avg" ]
         },
-        "display" : ["node_role", "is_group_matched", "QPS", "memory_usage", "mem_fragmentation_ratio",  "replicaDelay", "repl_backlog", "aof_buffer",  "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate",  "Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
+        "display" : ["node_role", "is_group_matched", "QPS", "memory_usage", "mem_fragmentation_ratio",  "Running_Status", "replicaDelay", "repl_backlog", "aof_buffer",  "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate",  "Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
         "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched", "node_role", "repl_backlog_max", "mem_fragmentation_ratio_min", "mem_fragmentation_ratio_max", "evicted_clients"]
     },
     "display_tabs" : {
