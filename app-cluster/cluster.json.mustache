@@ -20,7 +20,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-c5bukqyn"
+            "image": "img-rbadw8vp"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -149,9 +149,6 @@
         "tcp-keepalive": {{env.tcp-keepalive}},
         "timeout": {{env.timeout}},
         "shutdown-timeout": {{env.shutdown-timeout}},
-        "zabbix-agint2-enable": {{env.zabbix-agint2-enable}},
-        "zabbix-server": {{env.zabbix-server}},
-        "zabbix-named-sessions": {{env.zabbix-named-sessions}},
         "node-exporter-enable": {{env.node-exporter-enable}},
         "redis-exporter-enable": {{env.redis-exporter-enable}},
         "web.console.enabled": {{env.web.console.enabled}},
@@ -199,10 +196,6 @@
         },
         "Redis-Exporter": {
           "port": 9121,
-          "protocol": "tcp"
-        },
-        "Zabbix-Agent2": {
-          "port": 10050,
           "protocol": "tcp"
         }
     },

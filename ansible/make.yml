@@ -45,7 +45,6 @@
       name: "{{ name }}"
     loop:
     - redis-cluster
-    - zabbix-agent2-1.0.0
     - node-exporter-0.18.1
     - redis-exporter
     loop_control:
