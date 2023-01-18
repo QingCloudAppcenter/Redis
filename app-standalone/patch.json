@@ -1,8 +1,8 @@
 {
-  "patch_policy": [""],
+  "patch_policy": ["", "appp-d8da86od"],
   "patch_nodes": [{
     "container": {
-        "snapshot": "ss-ytwhal6w",
+        "snapshot": "ss-dukcuvin",
         "zone": "pek3"
     },
     "patch": [{
@@ -10,7 +10,7 @@
       "mount_point": "/upgrade",
       "mount_options": "defaults,noatime",
       "filesystem": "ext4",
-      "cmd": "echo"
+      "cmd": "dpkg -i /upgrade/ifupdown_0.8.17ubuntu1.1_amd64.deb"
     }],
     "rollback": [{
       "mount_role": "",

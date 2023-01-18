@@ -11,6 +11,7 @@
   - arping-1.0.0
   - appctl
   - jq-1.0.9
+  - ifupdown
   - role: set-timezone-1.0.0
     vars:
       timezone: "Asia/Shanghai"
