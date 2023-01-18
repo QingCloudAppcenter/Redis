@@ -45,3 +45,9 @@
     - redis-cluster
     loop_control:
       loop_var: name
+
+- name: online-setup 
+  hosts: online-setup 
+  tasks:
+  - include_role:
+      name: "online-setup"
