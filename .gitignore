@@ -3,3 +3,5 @@ app-standalone/redis.zip
 ansible/roles/*/files/tmp
 app-cluster/redis.zip
 custom.env
+.vscode/*
+ansible/file/tmp/*
