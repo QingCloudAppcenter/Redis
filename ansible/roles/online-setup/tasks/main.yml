@@ -1,0 +1,50 @@
+---
+- name: set systemdi Storage=none
+  shell:
+    cmd: |
+      confFile="/etc/systemd/journald.conf"
+      [ -f "$confFile" ] && /bin/echo -e "[Journal]\nStorage=none" > $confFile
+      if systemctl is-active systemd-journald ; then
+        systemctl stop systemd-journald
+        rm -f /run/log/journal/*/*
+        systemctl start systemd-journald
+      fi
+  run_once: no
+
+- name: change user passwd
+  user: name={{ item.name }} password={{ item.chpass | password_hash('sha512') }}  update_password=always
+  with_items:
+      - { name: 'root', chpass: '{{ password }}' }
+      - { name: 'ubuntu', chpass: '{{ password }}' }
+
+
+- name: sshd config
+  copy:
+    src: "{{ role_path }}/files/etc/ssh/sshd_config"
+    dest: "/etc/ssh/sshd_config"
+    mode: preserve
+    owner: root
+    group: root
+    force: true
+    mode: 0644
+
+- name: disable sshd
+  systemd:
+    name: ssh
+    state: restarted
+    enabled: false
+
+- name: clear history 
+  shell: find /root /home/ -name .bash_history -delete
+
+- name: clear history 
+  shell: find /root /home/ -name .bash_history -delete
+
+- name: clear authorized_keys
+  shell: find /root/ /home/ -name "authorized_keys" -delete
+
+- name: clear btmp
+  shell: echo ""> /var/log/btmp
+
+- name: clear wtmp
+  shell: echo ""> /var/log/wtmp

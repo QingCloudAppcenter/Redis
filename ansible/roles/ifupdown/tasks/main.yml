@@ -1,0 +1,9 @@
+---
+- name: install ifupdown
+  apt: 
+    name: ifupdown
+    state: present
+
+
+- name: clear apt check
+  shell: rm -rf /var/cache/apt/archives/*
