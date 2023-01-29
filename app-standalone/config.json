@@ -26,16 +26,6 @@
       "default": "",
       "required": "yes"
     }, {
-      "key": "resource_group",
-      "label": "Resource Configuration",
-      "description": ["Multithreaded Prod: 500000QPS", "Single Threaded Prod: 300000QPS", "Multithreaded Test: 150000QPS", "Single Threaded Test: 80000QPS"],
-
-      "type": "string",
-      "customizable": false,
-      "is_node": true,
-      "default": "MultithreadedProd",
-      "range": ["MultithreadedProd", "SingleThreadedProd","MultithreadedTest", "SingleThreadedTest"]
-    }, {
       "key": "node",
       "label": "node_label",
       "description": "node_description",
@@ -46,7 +36,6 @@
         "description": "",
         "type": "integer",
         "default": 202,
-        "resource_group": [203, 203, 101, 101],
         "range": [101, 202, 203, 301],
         "required": "yes"
       }, {
@@ -54,18 +43,26 @@
         "label": "cpu_label",
         "description": "cpu_description",
         "type": "integer",
-        "default": 8,
-        "resource_group": [8,2,8,2],
-        "range": [2, 8],
+        "default": 2,
+        "range": [1, 2, 4, 8, 16],
         "required": "yes"
       }, {
         "key": "memory",
         "label": "memory_label",
         "description": "memory_description",
         "type": "integer",
-        "default": 8192,
-        "resource_group": [8192, 4096, 8192, 2048],
+        "default": 2048,
         "range": [1024, 2048, 4096, 8192, 16384, 32768, 49152, 65536],
+        "required": "yes"
+      }, {
+        "key": "volume_size",
+        "label": "volume_size_label",
+        "description": "volume_size_description",
+        "type": "integer",
+        "default": 10,
+        "min": 10,
+        "max": 1000,
+        "step": 10,
         "required": "yes"
       }, {
         "key": "count",

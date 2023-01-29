@@ -3,8 +3,7 @@
   "description": {{cluster.description}},
   "vxnet": {{cluster.vxnet}},
   "multi_zone_policy": "round_robin",
-  "advanced_actions": ["change_vxnet","scale_horizontal","resize_on_upgrade"],
-  "custom_tags": ["default_deploy_method_sz", "hide_modify_instance_type_btn"],
+  "advanced_actions": ["change_vxnet", "scale_horizontal"],
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
@@ -26,17 +25,14 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-pigknngj"
+      "image": "img-302ckaq6"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
     "cpu": {{cluster.node.cpu}},
     "memory": {{cluster.node.memory}},
     "volume": {
-        "size": {{cluster.node.memory}} * 3 / 1024,
-        "skip_check_size": true,
-        "mount_point": "/data",
-        "filesystem": "xfs"
+      "size": {{cluster.node.volume_size}}
     },
     "vertical_scaling_policy": "sequential",
     "services": {
