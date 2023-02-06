@@ -244,6 +244,22 @@
       "multichoice": true,
       "type": "string"
     }, {
+        "key": "io-threads-do-reads",
+        "label": "io-threads-do-reads",
+        "description": "swith threading of reads and protocol parsing",
+        "type": "string",
+        "default": "auto",
+        "range": ["yes", "auto", "no"],
+        "required": "no"
+    }, {
+        "key": "io-threads",
+        "label": "io-threads",
+        "description": "I/O threads",
+        "type": "integer",
+        "default": 0, 
+        "min":0,
+        "required": "no"
+    }, {
       "description": "activerehashing_description",
       "default": "yes",
       "required": "no",

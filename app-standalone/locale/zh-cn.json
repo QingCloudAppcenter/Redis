@@ -215,5 +215,7 @@
   "following directive to enable TLS on replication links": "复制链路上启用TLS",
   "Enable Node-Exporter Port:9100": "开启 Node-Exporter 端口:9100",
   "Enable Redis-Exporter, Port:9121": "开启 Redis-Exporter 端口:9121",
-  "Enable zabbix-agint2, Port:10050": "开启 zabbix-agint2 端口:10050"
+  "Enable zabbix-agint2, Port:10050": "开启 zabbix-agint2 端口:10050",
+  "I/O threads": "I/O 线程数. 为 \"auto\"0 时, 根据 CPU 数自行调整",
+  "swith threading of reads and protocol parsing": "开/关读取线程和协议解析.\n为 \"auto\" 时, 根据 CPU 数自行调整"
 }

@@ -25,7 +25,7 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-302ckaq6"
+      "image": "img-2mxtmdgi"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -196,7 +196,9 @@
     "tls-cert": {{env.tls-cert}},
     "tls-key": {{env.tls-key}},
     "tls-ca-cert": {{env.tls-ca-cert}},
-    "tls-dh-params": {{env.tls-dh-params}}
+    "tls-dh-params": {{env.tls-dh-params}},
+    "io-threads-do-reads": {{env.io-threads-do-reads}},
+    "io-threads": {{env.io-threads}}
   },
   "monitor": {
     "enable": true,

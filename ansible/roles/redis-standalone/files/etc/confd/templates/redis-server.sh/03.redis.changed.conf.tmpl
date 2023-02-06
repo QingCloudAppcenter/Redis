@@ -29,17 +29,26 @@ renameCommands() {
   done
 }
 
-ioThreads() {
-  local hypervisor="{{ getv "/host/hypervisor" "kvm" }}"
-  local cpu={{ getv "/host/cpu" "2" }}
-  if [[ $cpu -ge 4 ]];then
-    [[ "$hypervisor" != "lxc" ]] && ((cpu-=2))
-    echo "io-threads-do-reads yes"
-    echo "io-threads $cpu"
-  else
-    echo "io-threads-do-reads no"
-    echo "io-threads 1"
+getIoThreadsDoReads() {
+  local ioThreadsDoReads="{{ getv "/env/io-threads-do-reads" "auto" }}"
+  if [[ "$ioThreadsDoReads"  == "auto" ]];then
+        ioThreadsDoReads=yes
+        [[ "$(getIoThreads)" == "1" ]] && ioThreadsDoReads=no
   fi
+  echo "$ioThreadsDoReads"
+}
+
+getIoThreads() {
+  local ioThreads="{{ getv "/env/io-threads" "0" }}"
+  local cpu={{ getv "/host/cpu" "2" }}
+  if [[ "$ioThreads" == "0" ]];then
+    case "$cpu" in
+      1) ioThreads="1" ;;
+      [2-8]) ioThreads="$(($cpu-1))" ;;
+      *) ioThreads="8"
+    esac
+  fi
+  echo "$ioThreads"
 }
 
 flush /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EOF
@@ -77,7 +86,8 @@ masterauth "{{ getv "/env/requirepass" "" }}"
 requirepass "{{ getv "/env/requirepass" "" }}"
 $(renameCommands)
 rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
-$(ioThreads)
+io-threads $(getIoThreads)
+io-threads-do-reads $(getIoThreadsDoReads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}
 tls-protocols "{{ getv "/env/tls-protocols" }}"
 tls-ciphers "{{ getv "/env/tls-ciphers" }}"
