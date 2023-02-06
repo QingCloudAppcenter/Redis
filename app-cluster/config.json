@@ -69,6 +69,8 @@
                 "description": "The replica number for each master",
                 "type": "integer",
                 "default": 1,
+                "min": 0,
+                "max": 5,
                 "required": "yes"
             }, {
                 "key": "volume_size",

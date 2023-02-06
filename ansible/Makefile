@@ -96,7 +96,7 @@ cluster:
 		echo "[online-setup]\n$(call getIP)" >> hosts; \
 	fi
 	$(call log, "ansible install")
-	ansible-playbook -i hosts make.yml
+	ansible-playbook -i hosts --extra-vars "password=$(APPCENTER_REDIS_PASSWORD)" make.yml
 	$(call log, "capture instance")
 	$(call capture,../app-cluster/cluster.json.mustache)
 

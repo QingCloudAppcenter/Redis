@@ -16,7 +16,13 @@ listNodes() {
 generateNodesConf() {
   local firstShard lastShard mastersCount={{ len (ls "/hosts/master") }}
   local shardsPerNode=$(( 16383 / $mastersCount ))
-  local clusterPort=$(({{ getv "/env/cluster-port" "0" }}>0?{{ getv "/env/cluster-port" "0" }}:{{ getv "/env/port" "6379" }}+10000))
+  {{- if (eq (getv "/env/tls-cluster" "no") "yes") }}
+  local REDIS_PORT=$(({{- getv "/env/tls-port" -}}!=0?{{ getv "/env/tls-port" }}:{{ getv "/env/port" }}))
+  local CLUSTER_PORT=$(({{ getv "/env/cluster-port" "0" }}>0?{{ getv "/env/cluster-port" "0" }}:$(({{ getv "/env/tls-port" }}+10000))))
+  {{ else }}
+  local REDIS_PORT=$(({{- getv "/env/port" -}}!=0?{{ getv "/env/port" }}:{{ getv "/env/tls-port" }}))
+  local CLUSTER_PORT=$(({{ getv "/env/cluster-port" "0" }}>0?{{ getv "/env/cluster-port" "0" }}:$(({{ getv "/env/port" }}+10000))))
+  {{ end -}}
   local node i=0; for node in $(listNodes); do
     local nodeRole=$(echo $node | awk -F/ '{print $2}')
     local instanceId=$(echo $node | awk -F/ '{print $3}')
@@ -35,7 +41,7 @@ generateNodesConf() {
       shardsRange=""
     fi
     if [ "$ip" == "{{ getv "/host/ip" }}" ]; then nodeRole="myself,$nodeRole"; fi
-    echo $runId $ip:{{ getv "/env/port" "6379" }}@${clusterPort} $nodeRole $myMaster 0 0 0 connected $shardsRange
+    echo $runId $ip:$redisPort@${clusterPort} $nodeRole $myMaster 0 0 0 connected $shardsRange
   done
 }
 
