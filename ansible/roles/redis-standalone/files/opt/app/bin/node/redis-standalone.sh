@@ -125,7 +125,8 @@ measure() {
     replicaDelay=0
   fi
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    gsub( /\r/, "", $0 )
+    if($1!~/^#\|[a-zA-Z0-9]/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
     }
   }
@@ -136,11 +137,24 @@ measure() {
         m[cmd] += r[k]
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
-      } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
-        m[k=="role" ? "node_role" : k] = gensub("\r", "", 1, r[k])
       }
     }
     memUsage = r["maxmemory"] ? 10000 * r["used_memory"] / r["maxmemory"] : 0
+    m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
+    m["loading"] = r["loading"]
+    m["connected_clients"] = r["connected_clients"]
+    m["instantaneous_ops_per_sec"] = r["instantaneous_ops_per_sec"]
+    m["maxmemory"] = r["maxmemory"]
+    m["total_connections_received"] = r["total_connections_received"]
+    m["used_memory"] = r["used_memory"]
+    m["node_role"] = r["role"]
+    m["evicted_keys"] = r["evicted_keys"]
+    m["keyspace_misses"] = r["keyspace_misses"]
+    m["keyspace_hits"] = r["keyspace_hits"]
+    m["expired_keys"] = r["expired_keys"]
+    m["rdb_bgsave"] = r["rdb_bgsave_in_progress"]
+    m["aof_rewrite"] = r["aof_rewrite_in_progress"]
+    m["master_sync"] = r["master_sync_in_progress"]
     m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0

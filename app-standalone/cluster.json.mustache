@@ -26,7 +26,7 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-7uqyujdd"
+      "image": "img-cmn2o835"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -216,6 +216,30 @@
         "value_type" : "int",
         "statistics_type" : "max",
         "scale_factor_when_display" : 1
+      },
+      "loading" : {
+          "unit" : "Times",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 1
+      },
+      "rdb_bgsave" : {
+          "unit" : "Times",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 1
+      },
+      "aof_rewrite" : {
+          "unit" : "Times",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 1
+      },
+      "master_sync" : {
+          "unit" : "Times",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 1
       },
       "key_count": {
         "unit": "Times",
@@ -446,6 +470,7 @@
     "groups": {
       "QPS": ["instantaneous_ops_per_sec"],
       "replicaDelay": ["replica_delay"],
+      "Running_Status": ["loading", "rdb_bgsave", "aof_rewrite", "master_sync"],
       "Keys1_count" : ["del","dump","exists","expire","expireat"],
       "Keys2_count" : ["move","persist","pexpire","pexpireat","pttl"],
       "Keys3_count" : ["randomkey","rename","renamenx","restore","sort"],
@@ -481,7 +506,7 @@
       "Memory_usage": ["memory_usage_min", "memory_usage_avg", "memory_usage_max"],
       "Hit_rate": ["hit_rate_min", "hit_rate_avg", "hit_rate_max"]
     },
-    "display" : ["node_role", "QPS", "replicaDelay", "Memory_usage", "Connected_clients", "Connections", "Keys", "Key_hits", "Hit_rate","Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
+    "display" : ["node_role", "QPS", "replicaDelay", "Memory_usage", "Running_Status", "Connected_clients", "Connections", "Keys", "Key_hits", "Hit_rate","Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
     "alarm": ["node_role","memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max"]
   },
   "health_check": {
