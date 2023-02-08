@@ -388,13 +388,19 @@ checkBgsaveDone(){
   [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
 }
 
+
+preBackup(){
+  runRedisCmd --ip $REDIS_VIP info all | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
+}
+
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
   local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
   local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
-  retry 400 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  retry 600 3 0 preBackup
+  retry 600 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
 }
 
