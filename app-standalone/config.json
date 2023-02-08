@@ -480,6 +480,14 @@
       "type": "integer",
       "min": 0
     }, {
+      "key": "shutdown-timeout",
+      "label": "shutdown-timeout",
+      "description": "Maximum time to wait for replicas when shutting down, in seconds.",
+      "type": "integer",
+      "min": 0,
+      "default": 10,
+      "required": "no"
+    }, {
       "key": "enable-acl",
       "label": "enable-console-acl",
       "description": "Enable the console management ACL.",

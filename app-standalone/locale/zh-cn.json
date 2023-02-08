@@ -86,6 +86,7 @@
   "tcp-keepalive_label": "tcp-keepalive",
   "tcp-keepalive_description": "TCP keepalive",
   "timeout_label": "timeout",
+  "Maximum time to wait for replicas when shutting down, in seconds.": "关闭时等待副本的最长时间（单位:秒）。",
   "timeout_description": "当client空闲N秒后关闭相应的连接，0表示禁用此功能",
   "TLS Listening Port": "TLS监听端口,范围[0, 65535], 等于0时为关闭此端口",
   "port_description": "Redis 服务端口. 范围[1, 65535],默认为6379",

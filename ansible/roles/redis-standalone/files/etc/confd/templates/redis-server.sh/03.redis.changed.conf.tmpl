@@ -77,6 +77,7 @@ slowlog-log-slower-than {{ getv "/env/slowlog-log-slower-than" "-1" }}
 slowlog-max-len {{ getv "/env/slowlog-max-len" "128" }}
 tcp-keepalive {{ getv "/env/tcp-keepalive" "0" }}
 timeout {{ getv "/env/timeout" "0" }}
+shutdown-timeout {{ getv "/env/shutdown-timeout" "10" }}
 zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
 zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
 port {{ getv "/env/port" "6379" }}
