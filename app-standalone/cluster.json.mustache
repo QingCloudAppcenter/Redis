@@ -26,7 +26,7 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-cmn2o835"
+      "image": "img-s9yhrim9"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -211,11 +211,24 @@
         "statistics_type": "latest",
         "enums": ["master", "slave"]
       },
-      "instantaneous_ops_per_sec" : {
-        "unit" : "COUNTS/S",
-        "value_type" : "int",
-        "statistics_type" : "max",
-        "scale_factor_when_display" : 1
+      "instantaneous_ops_per_sec_max" : {
+          "unit" : "COUNTS/S",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 1
+          
+      },
+      "instantaneous_ops_per_sec_avg" : {
+          "unit" : "COUNTS/S",
+          "value_type" : "int",
+          "statistics_type" : "avg",
+          "scale_factor_when_display" : 1
+      },
+      "instantaneous_ops_per_sec_min" : {
+          "unit" : "COUNTS/S",
+          "value_type" : "int",
+          "statistics_type" : "min",
+          "scale_factor_when_display" : 1
       },
       "loading" : {
           "unit" : "Times",
@@ -295,6 +308,12 @@
         "statistics_type": "latest",
         "scale_factor_when_display": 1
       },
+      "evicted_clients" : {
+          "unit" : "Times",
+          "value_type" : "int",
+          "statistics_type" : "delta",
+          "scale_factor_when_display" : 1
+      },
       "connected_clients_min": {
         "unit": "Times",
         "value_type": "int",
@@ -337,12 +356,67 @@
         "statistics_type": "max",
         "scale_factor_when_display": 0.01
       },
+      "mem_fragmentation_ratio_min" : {
+          "unit" : "",
+          "value_type" : "int",
+          "statistics_type" : "min",
+          "scale_factor_when_display" : 0.01
+      },
+      "mem_fragmentation_ratio_avg" : {
+          "unit" : "",
+          "value_type" : "int",
+          "statistics_type" : "avg",
+          "scale_factor_when_display" : 0.01
+      },
+      "mem_fragmentation_ratio_max" : {
+          "unit" : "",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 0.01
+      },
+      "repl_backlog_min" : {
+          "unit" : "%",
+          "value_type" : "int",
+          "statistics_type" : "min",
+          "scale_factor_when_display" : 0.01
+      },
+      "repl_backlog_avg" : {
+          "unit" : "%",
+          "value_type" : "int",
+          "statistics_type" : "avg",
+          "scale_factor_when_display" : 0.01
+      },
+      "repl_backlog_max" : {
+          "unit" : "%",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 0.01
+      },
       "replica_delay" : {
         "unit" : "Bytes",
         "value_type" : "int",
         "statistics_type" : "latest",
         "scale_factor_when_display" : 1
       },
+      "aof_buffer_min" : {
+          "unit" : "Bytes",
+          "value_type" : "int",
+          "statistics_type" : "min",
+          "scale_factor_when_display" : 1
+      },
+      "aof_buffer_avg" : {
+          "unit" : "Bytes",
+          "value_type" : "int",
+          "statistics_type" : "avg",
+          "scale_factor_when_display" : 1
+      },
+      "aof_buffer_max" : {
+          "unit" : "Bytes",
+          "value_type" : "int",
+          "statistics_type" : "max",
+          "scale_factor_when_display" : 1
+      },
+
       "del" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
       "dump" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
       "exists" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 },
@@ -468,8 +542,11 @@
       "script" : { "unit" : "Times", "value_type" : "int", "statistics_type" : "delta", "scale_factor_when_display" : 1 }
     },
     "groups": {
-      "QPS": ["instantaneous_ops_per_sec"],
+      "QPS": ["instantaneous_ops_per_sec_max", "instantaneous_ops_per_sec_avg", "instantaneous_ops_per_sec_min"],
       "replicaDelay": ["replica_delay"],
+      "aof_buffer": ["aof_buffer_min","aof_buffer_avg","aof_buffer_max"],
+      "mem_fragmentation_ratio": ["mem_fragmentation_ratio_min","mem_fragmentation_ratio_avg","mem_fragmentation_ratio_max"],
+      "repl_backlog": ["repl_backlog_min", "repl_backlog_avg", "repl_backlog_max"],
       "Running_Status": ["loading", "rdb_bgsave", "aof_rewrite", "master_sync"],
       "Keys1_count" : ["del","dump","exists","expire","expireat"],
       "Keys2_count" : ["move","persist","pexpire","pexpireat","pttl"],
@@ -506,8 +583,8 @@
       "Memory_usage": ["memory_usage_min", "memory_usage_avg", "memory_usage_max"],
       "Hit_rate": ["hit_rate_min", "hit_rate_avg", "hit_rate_max"]
     },
-    "display" : ["node_role", "QPS", "replicaDelay", "Memory_usage", "Running_Status", "Connected_clients", "Connections", "Keys", "Key_hits", "Hit_rate","Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
-    "alarm": ["node_role","memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max"]
+    "display" : ["node_role", "QPS", "replicaDelay", "repl_backlog", "Memory_usage", "mem_fragmentation_ratio", "Running_Status", "Connected_clients", "Connections", "Keys", "Key_hits", "Hit_rate","Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
+    "alarm": ["node_role","memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max", "repl_backlog_max", "mem_fragmentation_ratio_min", "mem_fragmentation_ratio_max", "evicted_clients"]
   },
   "health_check": {
     "enable": true,
@@ -562,4 +639,4 @@
         "cmd" : "appctl getUserList"
     }
   }
-}
+}      

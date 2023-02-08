@@ -125,9 +125,10 @@ measure() {
     replicaDelay=0
   fi
   runRedisCmd info all | awk -F: '{
-    gsub( /\r/, "", $0 )
-    if($1!~/^#\|[a-zA-Z0-9]/) {
+    if($1~/^(cmdstat_|connected_c|db|evicted_|keyspace_|total_conn)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
+    }else if($1~/^(mem_fragmentation_ratio|instantaneous_ops_per_sec|loading|aof_buffer_length|aof_rewrite_in_progress|rdb_bgsave_in_progress|master_sync_in_progress|repl_backlog_size|repl_backlog_histlen|maxmemory|role|used_memory)$/) {
+      r[$1] = gensub(/\r$/, "", 1, $2)
     }
   }
   END {
@@ -143,7 +144,7 @@ measure() {
     m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
     m["loading"] = r["loading"]
     m["connected_clients"] = r["connected_clients"]
-    m["instantaneous_ops_per_sec"] = r["instantaneous_ops_per_sec"]
+    m["instantaneous_ops_per_sec_max"] = m["instantaneous_ops_per_sec_avg"] = m["instantaneous_ops_per_sec_min"] = r["instantaneous_ops_per_sec"]
     m["maxmemory"] = r["maxmemory"]
     m["total_connections_received"] = r["total_connections_received"]
     m["used_memory"] = r["used_memory"]
@@ -155,6 +156,9 @@ measure() {
     m["rdb_bgsave"] = r["rdb_bgsave_in_progress"]
     m["aof_rewrite"] = r["aof_rewrite_in_progress"]
     m["master_sync"] = r["master_sync_in_progress"]
+    m["repl_backlog_avg"] = m["repl_backlog_max"] = m["repl_backlog_min"] = r["repl_backlog_histlen"] / r["repl_backlog_size"] * 10000
+    m["aof_buffer_avg"] = m["aof_buffer_max"] = m["aof_buffer_min"] = r["aof_buffer_length"] ? r["aof_buffer_length"] : 0
+    m["mem_fragmentation_ratio_avg"] = m["mem_fragmentation_ratio_max"] = m["mem_fragmentation_ratio_min"] = r["mem_fragmentation_ratio"] ? r["mem_fragmentation_ratio"] * 100 : 100
     m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
     m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
