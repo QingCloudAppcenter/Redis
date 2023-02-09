@@ -129,6 +129,7 @@
   "connected_clients_min": "Client连接数最小值",
   "connected_clients_max": "Client连接数最大值",
   "connected_clients_avg": "Client连接数平均值",
+  "evicted_clients": "拒绝的客户端个数",
   "evicted_keys": "被拒绝的Key个数",
   "expired_keys": "过期的Key个数",
   "key_count": "Key的总数",
