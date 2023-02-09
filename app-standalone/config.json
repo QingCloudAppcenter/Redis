@@ -294,24 +294,6 @@
       "key": "appendfsync",
       "type": "string"
     }, {
-      "description": "hash-max-ziplist-entries_description",
-      "default": 512,
-      "required": "no",
-      "label": "hash-max-ziplist-entries_label",
-      "key": "hash-max-ziplist-entries",
-      "type": "integer",
-      "min": 0,
-      "max": 512
-    }, {
-      "description": "hash-max-ziplist-value_description",
-      "default": 64,
-      "required": "no",
-      "label": "hash-max-ziplist-value_label",
-      "key": "hash-max-ziplist-value",
-      "type": "integer",
-      "min": 0,
-      "max": 64
-    }, {
       "description": "latency-monitor-threshold_description",
       "default": 0,
       "required": "no",
@@ -320,24 +302,6 @@
       "type": "integer",
       "min": 0,
       "max": 600000
-    }, {
-      "description": "list-max-ziplist-entries_description",
-      "default": 512,
-      "required": "no",
-      "label": "list-max-ziplist-entries_label",
-      "key": "list-max-ziplist-entries",
-      "type": "integer",
-      "max": 512,
-      "min": 0
-    }, {
-      "description": "list-max-ziplist-value_description",
-      "default": 64,
-      "required": "no",
-      "label": "list-max-ziplist-value_label",
-      "key": "list-max-ziplist-value",
-      "type": "integer",
-      "min": 0,
-      "max": 64
     }, {
       "description": "maxclients_description",
       "default": 65000,
@@ -445,14 +409,6 @@
       "type": "integer",
       "min": 0
     }, {
-      "description": "set-max-intset-entries_description",
-      "default": 512,
-      "required": "no",
-      "label": "set-max-intset-entries_label",
-      "key": "set-max-intset-entries",
-      "type": "integer",
-      "min": 0
-    }, {
       "description": "slowlog-log-slower-than_description",
       "default": -1,
       "required": "no",
@@ -504,21 +460,54 @@
       "default": "yes",
       "range": ["yes", "no"]
     }, {
-      "description": "zset-max-ziplist-entries_description",
-      "default": 128,
+      "description": "set-max-intset-entries_description",
+      "default": 512,
       "required": "no",
-      "label": "zset-max-ziplist-entries_label",
-      "key": "zset-max-ziplist-entries",
+      "label": "set-max-intset-entries_label",
+      "key": "set-max-intset-entries",
       "type": "integer",
       "min": 0
     }, {
-      "description": "zset-max-ziplist-value_description",
-      "default": 64,
+      "description": "list-max-listpack-size_description",
+      "default": -2,
       "required": "no",
-      "label": "zset-max-ziplist-value_label",
-      "key": "zset-max-ziplist-value",
+      "label": "list-max-listpack-size_label",
+      "key": "list-max-listpack-size",
+      "type": "integer"
+    }, {
+      "description": "zset-max-listpack-entries_description",
+      "default": 128,
+      "required": "no",
+      "label": "zset-max-listpack-entries_label",
+      "key": "zset-max-listpack-entries",
       "type": "integer",
       "min": 0
+    }, {
+      "description": "zset-max-listpack-value_description",
+      "default": 64,
+      "required": "no",
+      "label": "zset-max-listpack-value_label",
+      "key": "zset-max-listpack-value",
+      "type": "integer",
+      "min": 0
+    }, {
+      "description": "hash-max-listpack-entries_description",
+      "default": 512,
+      "required": "no",
+      "label": "hash-max-listpack-entries_label",
+      "key": "hash-max-listpack-entries",
+      "type": "integer",
+      "min": 0,
+      "max": 512
+    }, {
+      "description": "hash-max-listpack-value_description",
+      "default": 64,
+      "required": "no",
+      "label": "hash-max-listpack-value_label",
+      "key": "hash-max-listpack-value",
+      "type": "integer",
+      "min": 0,
+      "max": 64
     }, {
       "description": "lua-time-limit_description",
       "default": 5000,
