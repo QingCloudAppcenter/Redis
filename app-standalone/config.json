@@ -386,12 +386,12 @@
       "type": "string"
     }, {
       "description": "repl-backlog-size_description",
-      "default": 1048576,
+      "default": "1mb",
       "required": "no",
       "label": "repl-backlog-size_label",
       "key": "repl-backlog-size",
-      "type": "integer",
-      "min": 16384
+      "type": "string",
+      "pattern": "^\\d+(.\\d)?(k|m|g|t|kb|mb|gb|tb|K|M|G|T|KB|MB|GB|TB|)$"
     }, {
       "description": "repl-backlog-ttl_description",
       "default": 3600,

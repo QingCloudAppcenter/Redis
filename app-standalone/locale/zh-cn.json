@@ -71,7 +71,7 @@
   "notify-keyspace-events_label": "notify-keyspace-events",
   "notify-keyspace-events_description": "指定Redis会发送哪些类型的通知",
   "repl-backlog-size_label": "repl-backlog-size",
-  "repl-backlog-size_description": "设置replication backlog的大小",
+  "repl-backlog-size_description": "设置replication backlog的大小.\n支持单位:k/m/g/t/kb/mb/gb/tb",
   "repl-backlog-ttl_label": "repl-backlog-ttl",
   "repl-backlog-ttl_description": "设置backlog最多保留多久",
   "repl-timeout_label": "repl-timeout",
