@@ -379,6 +379,14 @@
       "type": "integer",
       "min": 0
     }, {
+      "key": "maxmemory-clients",
+      "label": "maxmemory-clients",
+      "description": "A memory value can be used for the client eviction threshold",
+      "type": "string",
+      "default": "0",
+      "pattern": "^(\\d+(.\\d)?(k|m|g|t|kb|mb|gb|tb|K|M|G|T|KB|MB|GB|TB|)|(100%|\\d\\d?%))$",
+      "required": "no"
+    }, {
       "description": "min-slaves-max-lag_description",
       "default": 10,
       "required": "no",

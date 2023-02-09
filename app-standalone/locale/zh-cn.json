@@ -35,6 +35,7 @@
   "count_description": "Redis服务节点的个数，只有3个节点的集群才包含主从切换的功能",
   "env_description": "Redis服务的环境参数。集群启动后，修改这些参数会导致集群重启",
   "maxmemory_portion_label": "最大内存比例",
+  "A memory value can be used for the client eviction threshold": "可以限定所有客户端使用的内存总和的最大值。\n支持单位:k/m/g/t/kb/mb/gb/tb/%",
   "maxmemory_portion_description": "Redis 最大可用内存占主机内存的比例(%)",
   "enable-commands_label": "启用 Redis 命令",
   "enable-commands_description": "打开/关闭 Redis 命令，请谨慎使用本命令，错误地使用可能会导致服务不可用，DISABLE_ALL 选项将禁用以下命令：CONFIG，BGREWRITEAOF, BGSAVE, DEBUG, SAVE, SHUTDOWN, SLAVEOF, KEYS, REPLICAOF",
