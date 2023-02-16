@@ -147,7 +147,7 @@
       "label": "rules",
       "description": "For example:",
       "type": "string",
-      "default": "+@all", 
+      "default": "~* +@all", 
       "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
       "multiline": true,
       "required": "yes"
@@ -351,19 +351,19 @@
       "pattern": "^(\\d+(.\\d)?(k|m|g|t|kb|mb|gb|tb|K|M|G|T|KB|MB|GB|TB|)|(100%|\\d\\d?%))$",
       "required": "no"
     }, {
-      "description": "min-slaves-max-lag_description",
+      "description": "min-replicas-max-lag_description",
       "default": 10,
       "required": "no",
-      "label": "min-slaves-max-lag_label",
-      "key": "min-slaves-max-lag",
+      "label": "min-replicas-max-lag_label",
+      "key": "min-replicas-max-lag",
       "type": "integer",
       "min": 0
     }, {
-      "description": "min-slaves-to-write_description",
+      "description": "min-replicas-to-write_description",
       "default": 0,
       "required": "no",
-      "label": "min-slaves-to-write_label",
-      "key": "min-slaves-to-write",
+      "label": "min-replicas-to-write_label",
+      "key": "min-replicas-to-write",
       "type": "integer",
       "min": 0
     }, {
@@ -656,30 +656,6 @@
       "default": false,
       "required": "no",
       "range": [true, false]
-    }, {
-      "key": "zabbix-agint2-enable",
-      "label": "Enable zabbix",
-      "description": "Enable zabbix-agint2, Port:10050",
-      "type": "boolean",
-      "default": false,
-      "required": "no",
-      "range": [true, false]
-    }, {
-      "key": "zabbix-server",
-      "label": "zabbix server",
-      "description": "Zabbix server host",
-      "type": "string",
-      "pattern": "^([a-z0-9.-\/]+)$",
-      "default": "127.0.0.1",
-      "required": "no"
-    }, {
-      "key": "zabbix-named-sessions",
-      "label": "named-sessions",
-      "description": "Zabbix NAMED SESSIONS",
-      "type": "string",
-      "pattern": "^([a-z0-9]+)?$",
-      "default": "redis",
-      "required": "no"
     }, {
       "key": "web.console.enabled",
       "label": "Enable web console",

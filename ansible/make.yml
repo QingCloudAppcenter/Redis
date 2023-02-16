@@ -33,7 +33,6 @@
       name: "{{ name }}"
     loop:
     - redis-standalone
-    - zabbix-agent2-1.0.0
     - node-exporter-0.18.1
     - redis-exporter
     loop_control:

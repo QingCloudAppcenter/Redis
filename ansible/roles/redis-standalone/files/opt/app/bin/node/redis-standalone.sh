@@ -390,7 +390,8 @@ checkBgsaveDone(){
 
 
 preBackup(){
-  runRedisCmd --ip $REDIS_VIP info all | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
+  local info info=$(runRedisCmd --ip $REDIS_VIP info all)
+  echo "$info" | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
 }
 
 backup(){
@@ -398,8 +399,8 @@ backup(){
   local lastsave="LASTSAVE" bgsave="BGSAVE"
   local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
   local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
-  runRedisCmd --ip $REDIS_VIP $bgsaveCmd
   retry 600 3 0 preBackup
+  runRedisCmd --ip $REDIS_VIP $bgsaveCmd
   retry 600 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
 }
@@ -433,7 +434,7 @@ runRedisCmd() {
     redisCli="/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT"
   fi
   result="$(timeout --preserve-status ${maxTime}s $redisCli -h $redisIp -p $redisPort $@ 2>&1)" || retCode=$?
-  if [ "$retCode" != 0 ] || [[ " $not_error " != *" $cmd "* && "$result" == *ERR* ]]; then
+  if [ "$retCode" != 0 ] || [[ " $not_error " != *" $cmd "* && "$result" == *ERR* &&  " info INFO " != *" $1 "* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"

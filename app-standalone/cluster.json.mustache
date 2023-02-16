@@ -26,7 +26,7 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-nbpaq5gr"
+      "image": "img-vgvpzb1o"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -154,8 +154,8 @@
     "maxmemory-policy": {{env.maxmemory-policy}},
     "maxmemory-samples": {{env.maxmemory-samples}},
     "maxmemory-clients": {{env.maxmemory-clients}},
-    "min-slaves-max-lag": {{env.min-slaves-max-lag}},
-    "min-slaves-to-write": {{env.min-slaves-to-write}},
+    "min-replicas-max-lag": {{env.min-replicas-max-lag}},
+    "min-replicas-to-write": {{env.min-replicas-to-write}},
     "no-appendfsync-on-rewrite": {{env.no-appendfsync-on-rewrite}},
     "notify-keyspace-events": {{env.notify-keyspace-events}},
     "port": {{env.port}},
@@ -175,9 +175,6 @@
     "sentinel.failover-timeout":{{env.sentinel.failover-timeout}},
     "sentinel.down-after-milliseconds":{{env.sentinel.down-after-milliseconds}},
     "sentinel.requirepass":{{env.sentinel.requirepass}},
-    "zabbix-agint2-enable": {{env.zabbix-agint2-enable}},
-    "zabbix-server": {{env.zabbix-server}},
-    "zabbix-named-sessions": {{env.zabbix-named-sessions}},
     "node-exporter-enable": {{env.node-exporter-enable}},
     "redis-exporter-enable": {{env.redis-exporter-enable}},
     "web.console.enabled": {{env.web.console.enabled}},
@@ -625,10 +622,6 @@
     },
     "Redis-Exporter": {
       "port": 9121,
-      "protocol": "tcp"
-    },
-    "Zabbix-Agent2": {
-      "port": 10050,
       "protocol": "tcp"
     }
   },

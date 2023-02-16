@@ -64,8 +64,8 @@ maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/maxmemory_porti
 maxmemory-policy {{ getv "/env/maxmemory-policy" "volatile-lru" }}
 maxmemory-samples {{ getv "/env/maxmemory-samples" "3" }}
 maxmemory-clients {{ getv "/env/maxmemory-clients" "0" }}
-min-slaves-max-lag {{ getv "/env/min-slaves-max-lag" "10" }}
-min-slaves-to-write {{ getv "/env/min-slaves-to-write" "0" }}
+min-replicas-max-lag {{ getv "/env/min-replicas-max-lag" "10" }}
+min-replicas-to-write {{ getv "/env/min-replicas-to-write" "0" }}
 no-appendfsync-on-rewrite {{ getv "/env/no-appendfsync-on-rewrite" "yes" }}
 notify-keyspace-events "{{ getv "/env/notify-keyspace-events" "" }}"
 repl-backlog-size {{ getv "/env/repl-backlog-size" "1048576" }}
