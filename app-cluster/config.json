@@ -337,15 +337,15 @@
             "pattern": "^(\\d+(.\\d)?(k|m|g|t|kb|mb|gb|tb|K|M|G|T|KB|MB|GB|TB|)|(100%|\\d\\d?%))$",
             "required": "no"
         }, {
-            "key": "min-slaves-max-lag",
-            "label": "min-slaves-max-lag",
+            "key": "min-replicas-max-lag",
+            "label": "min-replicas-max-lag",
             "description": "A master stops accepting writes if there are less than N slaves connected, having a lag less or equal than M seconds.",
             "type": "integer",
             "default": 10,
             "required": "no"
         }, {
-            "key": "min-slaves-to-write",
-            "label": "min-slaves-to-write",
+            "key": "min-replicas-to-write",
+            "label": "min-replicas-to-write",
             "description": "A master stops accepting writes if there are less than N slaves connected, having a lag less or equal than M seconds.",
             "type": "integer",
             "default": 0,
@@ -369,8 +369,9 @@
             "key": "repl-backlog-size",
             "label": "repl-backlog-size",
             "description": "Set the replication backlog size.",
-            "type": "integer",
-            "default": 1048576,
+            "default": "1mb",
+            "type": "string",
+            "pattern": "^\\d+(.\\d)?(k|m|g|t|kb|mb|gb|tb|K|M|G|T|KB|MB|GB|TB|)$",
             "required": "no"
         }, {
             "key": "repl-backlog-ttl",

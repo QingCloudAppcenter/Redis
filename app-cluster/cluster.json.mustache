@@ -20,7 +20,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-ywllpkt5"
+            "image": "img-09vs6fd2"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -137,8 +137,8 @@
         "maxmemory-policy": {{env.maxmemory-policy}},
         "maxmemory-samples": {{env.maxmemory-samples}},
         "maxmemory-clients": {{env.maxmemory-clients}},
-        "min-slaves-max-lag": {{env.min-slaves-max-lag}},
-        "min-slaves-to-write": {{env.min-slaves-to-write}},
+        "min-replicas-max-lag": {{env.min-replicas-max-lag}},
+        "min-replicas-to-write": {{env.min-replicas-to-write}},
         "no-appendfsync-on-rewrite": {{env.no-appendfsync-on-rewrite}},
         "notify-keyspace-events": {{env.notify-keyspace-events}},
         "repl-backlog-size": {{env.repl-backlog-size}},
