@@ -1,0 +1,9 @@
+galaxy_info:
+  role_name: Set Timezone
+  role_version: 1.0.0
+  author: Shubo An
+  description: Set Timezone
+  license: Apache
+  min_ansible_version: 2.4
+  galaxy_tags: []
+dependencies: []

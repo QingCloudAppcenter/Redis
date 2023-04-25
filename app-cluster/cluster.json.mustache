@@ -3,24 +3,16 @@
     "description": {{cluster.description}},
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
-    "upgrade_policy": [
-     "appv-3x5sw2u0",
-     "appv-79rlu7jt",
-     "appv-1pbmp78g",
-     "appv-tqzrokkb",
-     "appv-9yvinzz0",
-     "appv-okxhok17",
-     "appv-pjxqcdm1"
-    ],    
+    "upgrade_policy": [],    
     "upgrading_policy": "parallel",
     "nodes": [{
         "role": "master",
         "container": {
             "type": "lxc",
             "prefer_type": "lxc",
-            "zone": "pek3",
+            "zone": "pekt3",
             "sriov_nic": true,
-            "image": "img-vs5zdto0"
+            "image": "img-z2ykru2t"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},

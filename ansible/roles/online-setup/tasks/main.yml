@@ -14,8 +14,8 @@
 - name: change user passwd
   user: name={{ item.name }} password={{ item.chpass | password_hash('sha512') }}  update_password=always
   with_items:
-      - { name: 'root', chpass: '{{ password }}' }
-      - { name: 'ubuntu', chpass: '{{ password }}' }
+      - { name: 'root', chpass: '{{ lookup("env","APPCENTER_REDIS_PASSWORD") }}' }
+      - { name: 'ubuntu', chpass: '{{ lookup("env","APPCENTER_REDIS_PASSWORD") }}' }
 
 
 - name: sshd config
@@ -26,11 +26,11 @@
     owner: root
     group: root
     force: true
-    mode: 0644
+    mode: 0600
 
 - name: disable sshd
   systemd:
-    name: ssh
+    name: sshd
     state: restarted
     enabled: false
 

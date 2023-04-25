@@ -1,0 +1,57 @@
+---
+- name: install goloag
+  include_tasks: install-goloag.yml
+
+- name: prepare service group
+  group:
+    name: svc
+    state: present
+
+- name: prepare service user
+  user:
+    name: caddy
+    groups: svc
+    shell: /sbin/nologin
+    create_home: no
+    append: yes
+    comment: "Service User"
+    state: present
+
+- name: prepare binary directory
+  file:
+    path: /opt/caddy/{{ caddy_version }}
+    state: directory
+
+- name: link binary dir
+  file:
+    src: "{{ caddy_version }}"
+    dest: /opt/caddy/current
+    state: link
+
+- name: compile with plugins
+  include_tasks: compile-and-install.yml
+  when: caddy_plugins is defined
+
+- name: download official prebuilt package
+  include_tasks: install-prebuilt.yml
+  when: caddy_plugins is undefined
+
+- name: transfer files
+  copy:
+    src: files/{{ file_path }}
+    dest: /{{ file_path }}
+    owner: root
+    group: root
+    mode: preserve
+  loop:
+    - lib/systemd/system/
+    - opt/app/
+  loop_control:
+    loop_var: file_path
+
+- name: mask caddy service
+  systemd:
+    name: caddy
+    enabled: no
+    masked: yes
+    state: stopped

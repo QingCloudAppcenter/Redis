@@ -1,0 +1,148 @@
+---
+- name: set vars
+  set_fact:
+    redis_version: "{{ version | d(default_version) }}"
+
+- name: add the service group
+  group:
+    name: svc
+    state: present
+
+- name: add the service user
+  user:
+    name: redis
+    groups: svc
+    shell: /sbin/nologin
+    create_home: no
+    home: /data/redis
+    append: yes
+    comment: "Service User"
+    state: present
+
+- name: create directories
+  file:
+    path: /opt/redis/{{ redis_version }}
+    state: directory
+
+- name: link binary dir
+  file:
+    src: "{{ redis_version }}"
+    dest: /opt/redis/current
+    state: link
+
+- name: prepare download directory
+  file:
+    path: "{{ role_path }}/files/tmp"
+    state: directory
+  delegate_to: localhost
+
+- name: check if package file exists
+  stat:
+    path: "{{ role_path }}/files/tmp/redis-{{ redis_version }}.tgz"
+  register: cached_file
+  run_once: True
+  delegate_to: localhost
+
+- name: download src
+  get_url:
+    url: http://download.redis.io/releases/redis-{{ redis_version }}.tar.gz
+    dest: "{{ role_path }}/files/tmp/redis-{{ redis_version }}.tgz"
+  delegate_to: localhost
+  run_once: True
+  when:
+  - cached_file.stat.exists == False
+
+- name: extract src
+  unarchive:
+    src: "{{ role_path }}/files/tmp/redis-{{ redis_version }}.tgz"
+    dest: "{{ role_path }}/files/tmp/"
+  delegate_to: localhost
+  run_once: True
+
+- name: Install the compilation environment
+  yum:
+    name:
+      - gcc
+      - make
+      - openssl-devel
+      - systemd-devel
+      - tcl
+    state: present
+  delegate_to: localhost
+  run_once: True
+
+- name: make binaries redis-{{ redis_version }}
+  shell:
+    chdir: "{{ role_path }}/files/tmp/redis-{{ redis_version }}"
+    cmd: make BUILD_TLS=yes USE_SYSTEMD=yes
+  delegate_to: localhost
+  run_once: True
+
+- name: install binaries
+  copy:
+    src: "{{ role_path }}/files/tmp/redis-{{ redis_version }}/src/{{ file_name }}"
+    dest: /opt/redis/current/
+    mode: preserve
+  loop:
+  - redis-server
+  - redis-sentinel
+  - redis-cli
+  - redis-benchmark
+  - redis-check-aof
+  - redis-check-rdb
+  loop_control:
+    loop_var: file_name
+
+- name: install services
+  copy:
+    src: "{{ role_path }}/files/lib/systemd/system/"
+    dest: /lib/systemd/system/
+
+- name: mask services
+  systemd:
+    name: "{{ service_name }}"
+    enabled: no
+    masked: yes
+    state: stopped
+  loop:
+  - redis-server
+  - redis-sentinel
+  loop_control:
+    loop_var: service_name
+
+- name: add commands to PATH
+  copy:
+    dest: /etc/profile.d/redis-path.sh
+    content: 'PATH=$PATH:/opt/redis/current'
+
+- stat:
+    path: /etc/rc.local
+  register: rc_local
+
+- name: create rc.local file
+  copy:
+    dest: /etc/rc.local
+    content: |
+      #!/bin/sh
+      set -e
+      exit 0
+    mode: u=rwx,go=rx
+  when: not rc_local.stat.exists
+
+- name: disable huge page
+  lineinfile:
+    path: /etc/rc.local
+    insertbefore: '^exit 0'
+    line: echo never > /sys/kernel/mm/transparent_hugepage/enabled
+
+- name: copy config files
+  copy:
+    src: files/{{ path }}/
+    dest: /{{ path }}
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - etc
+  loop_control:
+    loop_var: path

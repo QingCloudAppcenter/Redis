@@ -1,0 +1,59 @@
+---
+- name: install php and mariaDB
+  yum:
+    name: tar
+    state: present
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+- name: set up variables
+  set_fact:
+    app_agent_version: "{{ timezone | d(default_app_agent_version) }}"
+    app_agent_arch: "{{ timezone | d(default_app_agent_arch) }}"
+
+- name: prepare directories
+  file:
+    path: "/tmp/app-agent"
+    state: directory
+
+- name: prepare local download directories
+  file:
+    path : "{{ role_path }}/files/tmp"
+    state: directory
+  delegate_to: localhost
+
+- name: download reusable binaries locally
+  vars:
+    dest_path: "{{ role_path }}/files/tmp/app-agent-{{ app_agent_version }}.tar.gz"
+  get_url:
+    url: "https://ghproxy.com/https://github.com/QingCloudAppcenter/AppcenterAgent/releases/download/v{{ app_agent_version }}/app-agent-linux-{{ app_agent_arch }}.tar.gz"
+    dest: "{{ dest_path }}"
+  when: dest_path is not exists
+  run_once: True
+  delegate_to: localhost
+
+- name: extract binary
+  unarchive:
+    src: "{{ role_path }}/files/tmp/app-agent-{{ app_agent_version }}.tar.gz"
+    dest: "/tmp/app-agent"
+    creates: "/tmp/app-agent/bin"
+    extra_opts: [ --strip-components=1 ]
+
+- name: scp install kylin
+  copy:
+    src: "{{ role_path }}/files/install-kylin.sh"
+    dest: "/tmp/app-agent"
+    mode: 755
+
+- name: install app agent
+  raw: |
+    cd /tmp/app-agent
+    ./install-kylin.sh
+  args:
+    creates: /opt/qingcloud/app-agent/bin/confd
+
+- name: adjust logrotate
+  replace:
+    path: /etc/logrotate.d/app-agent
+    regexp: '^(\s+size).*'
+    replace: '\1 2M'

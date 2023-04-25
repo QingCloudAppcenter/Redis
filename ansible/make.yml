@@ -4,27 +4,22 @@
   vars:
     target_env: "{{ lookup('env', 'target') }}"
   roles:
-  - update-apt-sources-1.0.0
-  - disable-apt-jobs-1.0.0
-  - disable-motd-1.0.0
-  - disable-ipv6-1.0.0
-  - app-agent-1.0.6
-  - jq-1.0.9
-  - ifupdown
-  - appctl
-  - role: arping-1.0.5
-    vars:
-      arping_version: "20161105-1ubuntu3"
-  - role: set-timezone-1.0.0
-    vars:
-      timezone: "Asia/Shanghai"
-
-  - role: redis-server-1.1.1
-    vars:
-      version: "{{ redis_version }}"
   - role: caddy-1.0.6
     vars:
       caddy_plugins: upload
+  - role: set-timezone
+    vars:
+      timezone: "Asia/Shanghai"
+  - disable-motd
+  - iputils
+  - appctl
+  - role: app-agent
+    app_agent_version: "1.0.7"
+    app_agent_arch: "arm64"
+  - jq
+  - role: redis-server
+    vars:
+      version: "{{ redis_version }}"
 
 - name: redis standalone
   hosts: redis-standalone

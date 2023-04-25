@@ -1,0 +1,11 @@
+---
+- name: disable apt auto upgrade
+  systemd:
+    name: "{{ svc_name }}"
+    state: stopped
+    masked: yes
+  loop:
+  - yum-cron
+  loop_control:
+    loop_var: svc_name
+

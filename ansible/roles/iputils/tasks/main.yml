@@ -1,0 +1,3 @@
+---
+- name: install arping
+  shell: yum -y install iputils

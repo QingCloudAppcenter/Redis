@@ -1,0 +1,33 @@
+---
+- name: prepare tmp download dir
+  file:
+    path: "{{ role_path }}/files/tmp/"
+    state: directory
+  delegate_to: localhost
+
+- name: download goloag binary
+  vars:
+    dest_path: "{{ role_path }}/files/tmp/go.tar.gz"
+  get_url:
+    url: https://go.dev/dl/go{{ goloag_version }}.linux-{{ arch }}.tar.gz
+    dest: "{{ dest_path }}"
+    mode: 0644
+    force: yes
+    timeout: 300
+  delegate_to: localhost
+  when: dest_path is not exists
+  run_once: True
+
+
+- name: mkdir go dir
+  file:
+    path: "{{ role_path }}/files/usr/local/"
+    state: directory
+  delegate_to: localhost
+
+- name: install goloag
+  unarchive:
+    src: "{{ role_path }}/files/tmp/go.tar.gz"
+    dest: "{{ role_path }}/files/usr/local/"
+  delegate_to: localhost
+
