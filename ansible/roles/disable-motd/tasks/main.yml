@@ -1,0 +1,20 @@
+---
+- name: create user
+  user:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - ubuntu
+
+- name: remove welcome messages after SSH login
+  file:
+    path: "{{ remote_usr.home }}/.hushlogin"
+    owner: "{{ remote_usr.name }}"
+    state: touch
+  loop:
+  - name: ubuntu
+    home: /home/ubuntu
+  - name: root
+    home: /root
+  loop_control:
+    loop_var: remote_usr

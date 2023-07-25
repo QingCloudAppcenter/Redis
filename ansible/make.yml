@@ -4,25 +4,22 @@
   vars:
     target_env: "{{ lookup('env', 'target') }}"
   roles:
-  - update-apt-sources-1.0.0
-  - disable-apt-jobs-1.0.0
-  - disable-motd-1.0.0
-  - app-agent-1.0.6
-  - role: arping-1.0.5
-    vars:
-      arping_version: "20161105-1ubuntu3"
-  - appctl
-  - role: set-timezone-1.0.0
-    vars:
-      timezone: "Asia/Shanghai"
-
-  - role: redis-server-1.1.1
-    vars:
-      version: "{{ redis_version }}"
   - role: caddy-1.0.6
     vars:
       caddy_plugins: upload
-  - jq-1.0.9
+  - role: set-timezone
+    vars:
+      timezone: "Asia/Shanghai"
+  - disable-motd
+  - iputils
+  - appctl
+  - role: app-agent
+    app_agent_version: "1.0.7"
+    app_agent_arch: "arm64"
+  - jq
+  - role: redis-server
+    vars:
+      version: "{{ redis_version }}"
 
 - name: redis standalone
   hosts: redis-standalone
@@ -31,7 +28,6 @@
       name: "{{ name }}"
     loop:
     - redis-standalone
-    - zabbix-agent2-1.0.0
     - node-exporter-0.18.1
     - redis-exporter
     loop_control:
@@ -44,5 +40,13 @@
       name: "{{ name }}"
     loop:
     - redis-cluster
+    - node-exporter-0.18.1
+    - redis-exporter
     loop_control:
       loop_var: name
+
+- name: online-setup 
+  hosts: online-setup 
+  tasks:
+  - include_role:
+      name: "online-setup"

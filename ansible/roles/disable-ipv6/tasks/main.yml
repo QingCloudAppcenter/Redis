@@ -1,0 +1,5 @@
+---
+- name: delete 60-default-with-ipv6.cfg
+  file:
+    path: "/etc/network/interfaces.d/60-default-with-ipv6.cfg"
+    state: absent

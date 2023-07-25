@@ -1,0 +1,8 @@
+---
+- name: set vars
+  set_fact:
+    timezone: "{{ timezone | d(default_timezone) }}"
+
+- name: set timezone 
+  shell: /usr/bin/timedatectl set-timezone {{ timezone }}
+

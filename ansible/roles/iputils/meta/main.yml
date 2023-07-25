@@ -1,0 +1,13 @@
+galaxy_info:
+  role_name: iputils
+  role_version: 1.0.0
+  author: ShuBo An
+  description: installs iputils
+
+  license: Apache
+
+  min_ansible_version: 2.4
+
+  galaxy_tags: []
+
+dependencies: []

@@ -21,6 +21,11 @@ EC_RESTORE_BGREWRITEAOF_ERR=232
 # 修改 appendonly 失败
 EC_RESTORE_UPDATE_APPENDONLY_ERR=233
 
+if [[ "-x" == "$1" ]] ;then
+  set -x
+  shift 1
+fi
+
 command=$1
 args="${@:2}"
 

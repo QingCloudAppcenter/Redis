@@ -1,0 +1,64 @@
+---
+- name: jq vars
+  set_fact:
+    jq_version: "1.6"
+
+- name: prepare binary directory
+  file:
+    path: "{{ role_path }}/files/"
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+    recurse: yes
+  delegate_to: localhost
+
+- name: check if package file exists
+  stat:
+    path: "{{ role_path }}/files/jq/jq"
+  register: cached_file
+  run_once: True
+  delegate_to: localhost
+
+- name: clone gitlab
+  shell:
+    chdir: "{{ role_path }}/files/"
+    cmd: |
+      git clone https://ghproxy.com/https://github.com/stedolan/jq.git
+      cd jq
+      git checkout jq-1.6
+      git submodule update --init
+  delegate_to: localhost
+  when:
+  - cached_file.stat.exists == False
+
+- name: Install the compilation environment
+  yum:
+    name:
+      - gcc
+      - make
+      - autoconf
+      - automake
+    state: present
+  delegate_to: localhost
+  run_once: True
+  when:
+  - cached_file.stat.exists == False
+
+- name: make binaries jq-{{ jq_version }}
+  shell:
+    chdir: "{{ role_path }}/files/jq"
+    cmd: |
+        autoreconf -fi
+        ./configure --with-oniguruma=builtin 
+        make
+  delegate_to: localhost
+  run_once: True
+  when:
+  - cached_file.stat.exists == False
+
+- name: install binaries
+  copy:
+    src: "{{ role_path }}/files/jq/jq"
+    dest: /usr/bin/jq
+    mode: preserve

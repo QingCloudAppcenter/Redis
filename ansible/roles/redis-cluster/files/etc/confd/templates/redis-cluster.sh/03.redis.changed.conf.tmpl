@@ -29,54 +29,71 @@ renameCommands() {
   done
 }
 
-ioThreads() {
-  local hypervisor="{{ getv "/host/hypervisor" "kvm" }}"
-  local cpu={{ getv "/host/cpu" "2" }}
-  if [[ $cpu -ge 4 ]];then
-    [[ "$hypervisor" != "lxc" ]] && ((cpu-=2))
-    echo "io-threads-do-reads yes"
-    echo "io-threads $cpu"
-  else
-    echo "io-threads-do-reads no"
-    echo "io-threads 1"
+getIoThreadsDoReads() {
+  local ioThreadsDoReads="{{ getv "/env/io-threads-do-reads" "auto" }}"
+  if [[ "$ioThreadsDoReads"  == "auto" ]];then
+        ioThreadsDoReads=yes
+        [[ "$(getIoThreads)" == "1" ]] && ioThreadsDoReads=no
   fi
+  echo "$ioThreadsDoReads"
 }
 
+getIoThreads() {
+  local ioThreads="{{ getv "/env/io-threads" "0" }}"
+  local cpu={{ getv "/host/cpu" "2" }}
+  if [[ "$ioThreads" == "0" ]];then
+    case "$cpu" in
+      1) ioThreads="1" ;;
+      [2-8]) ioThreads="$(($cpu-1))" ;;
+      *) ioThreads="8"
+    esac
+  fi
+  echo "$ioThreads"
+}
+
+REDIS_PASSWORD='{{ getv "/env/requirepass" "" }}'
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 port {{ getv "/env/port" "6379" }}
+cluster-port {{ getv "/env/cluster-port" "0" }}
 tls-port {{ getv "/env/tls-port" "0" }}
 tls-cluster {{ getv "/env/tls-cluster" "no" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
 cluster-node-timeout {{ getv "/env/cluster-node-timeout" "15000" }}
-hash-max-ziplist-entries {{ getv "/env/hash-max-ziplist-entries" "512" }}
-hash-max-ziplist-value {{ getv "/env/hash-max-ziplist-value" "64" }}
+cluster-allow-pubsubshard-when-down {{ getv "/env/cluster-allow-pubsubshard-when-down" "yes" }}
+cluster-link-sendbuf-limit {{ getv "/env/cluster-link-sendbuf-limit" "0" }}
 latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
 lua-time-limit {{ getv "/env/lua-time-limit" "5000" }}
 maxclients {{ getv "/env/maxclients" "65000" }}
 maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/appctl.maxmemory.percent" "80") }}
 maxmemory-policy {{ getv "/env/maxmemory-policy" "volatile-lru" }}
 maxmemory-samples {{ getv "/env/maxmemory-samples" "3" }}
-min-slaves-max-lag {{ getv "/env/min-slaves-max-lag" "10" }}
-min-slaves-to-write {{ getv "/env/min-slaves-to-write" "0" }}
+maxmemory-clients {{ getv "/env/maxmemory-clients" "0" }}
+min-replicas-max-lag {{ getv "/env/min-replicas-max-lag" "10" }}
+min-replicas-to-write {{ getv "/env/min-replicas-to-write" "0" }}
 no-appendfsync-on-rewrite {{ getv "/env/no-appendfsync-on-rewrite" "yes" }}
 notify-keyspace-events "{{ getv "/env/notify-keyspace-events" "" }}"
 repl-backlog-size {{ getv "/env/repl-backlog-size" "1048576" }}
 repl-backlog-ttl {{ getv "/env/repl-backlog-ttl" "3600" }}
 repl-timeout {{ getv "/env/repl-timeout" "60" }}
-set-max-intset-entries {{ getv "/env/set-max-intset-entries" "512" }}
 slowlog-log-slower-than {{ getv "/env/slowlog-log-slower-than" "-1" }}
 slowlog-max-len {{ getv "/env/slowlog-max-len" "128" }}
 tcp-keepalive {{ getv "/env/tcp-keepalive" "0" }}
 timeout {{ getv "/env/timeout" "0" }}
-zset-max-ziplist-entries {{ getv "/env/zset-max-ziplist-entries" "128" }}
-zset-max-ziplist-value {{ getv "/env/zset-max-ziplist-value" "64" }}
-masterauth "{{ getv "/env/appcenterignore-requirepass" "" }}"
-requirepass "{{ getv "/env/appcenterignore-requirepass" "" }}"
+shutdown-timeout {{ getv "/env/shutdown-timeout" "10" }}
+set-max-intset-entries {{ getv "/env/set-max-intset-entries" "512" }}
+list-max-listpack-size {{ getv "/env/list-max-listpack-size" "-2" }}
+hash-max-listpack-entries {{ getv "/env/hash-max-listpack-entries" "512" }}
+hash-max-listpack-value {{ getv "/env/hash-max-listpack-value" "64" }}
+zset-max-listpack-entries {{ getv "/env/zset-max-listpack-entries" "128" }}
+zset-max-listpack-value {{ getv "/env/zset-max-listpack-value" "64" }}
+masterauth "$REDIS_PASSWORD"
+requirepass "$REDIS_PASSWORD"
 $(renameCommands)
 rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
-$(ioThreads)
+io-threads $(getIoThreads)
+io-threads-do-reads $(getIoThreadsDoReads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}
 tls-cluster {{ getv "/env/tls-cluster" }}
 tls-protocols "{{ getv "/env/tls-protocols" }}"

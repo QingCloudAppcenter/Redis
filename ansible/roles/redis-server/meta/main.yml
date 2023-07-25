@@ -1,0 +1,13 @@
+galaxy_info:
+  role_name: redis-server
+  role_version: 1.1.1
+  author: ShuBo An
+  description: installs redis server
+
+  license: Apache
+
+  min_ansible_version: 2.4
+
+  galaxy_tags: []
+
+dependencies: []

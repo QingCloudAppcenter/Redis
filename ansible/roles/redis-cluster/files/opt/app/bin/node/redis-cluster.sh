@@ -4,6 +4,8 @@ DELETED_REPLICA_NODE_REDIS_ROLE_IS_MASTER_ERR=242
 REBALANCE_ERR=243
 CLUSTER_FORGET_ERR=204
 CLUSTER_RESET_ERR=205
+CLUSTER_CLUSER_TLS_PORT_ERR=244
+CLUSTER_CLUSER_PORT_ERR=245
 EXISTS_REDIS_MEMORY_USAGE_TOO_BIG=206
 AVERAGE_REDIS_MEMORY_USAGE_TOO_BIG_AFTER_SCALEIN=207
 REDIS_COMMAND_EXECUTE_FAIL=210
@@ -19,6 +21,10 @@ ROOT_CONF_DIR=/opt/app/conf/redis-cluster
 CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
 DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
 CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
+
+REDIS_EXPORTER="/data/redis_exporter"
+REDIS_EXPORTER_LOGS_DIR="$REDIS_EXPORTER/logs"
+REDIS_EXPORTER_PID_FILE="$REDIS_EXPORTER/redis_exporter.pid"
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
@@ -39,10 +45,13 @@ execute() {
 }
 
 initNode() {
-  mkdir -p /data/redis/{logs,tls}
-  touch /data/redis/tls/{ca.crt,redis.crt,redis.dh,redis.key}
+  mkdir -p $REDIS_DIR/{logs,tls}
+  mkdir -p $REDIS_EXPORTER $REDIS_EXPORTER_LOGS_DIR
+  touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   touch $RUNTIME_ACL_FILE
-  chown -R redis.svc /data/redis
+  touch $REDIS_EXPORTER_PID_FILE
+  chown -R redis.svc $REDIS_DIR
+  chown -R prometheus.svc $REDIS_EXPORTER
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
 }
@@ -188,8 +197,21 @@ sortOutLeavingNodesIps(){
   echo "$slaveNodeIps $masterNodeIps" |xargs -n1
 }
 
+checkClusterPort() {
+  if [[ ${CONFIG_CLUSTER_PORT} != 0 ]];then
+    return
+  elif [ "${REDIS_TLS_CLUSTER}" == "yes" ] && [ "${REDIS_TLS_PORT}" == "0" ] ;then
+    log "TLS-Cluster=yes and tls-port=0 will execute the error, Code:(${CLUSTER_CLUSER_TLS_PORT_ERR})"
+    return ${CLUSTER_CLUSER_TLS_PORT_ERR}
+  elif [ "${REDIS_TLS_CLUSTER}" == "no" ] && [ "${REDIS_PORT}" == "0" ] ;then
+    log "TLS-Cluster=no and port=0 will execute the error, Code:(${CLUSTER_CLUSER_PORT_ERR})"
+    [ "${REDIS_PLAIN_PORT}" != "0" ] || return ${CLUSTER_CLUSER_PORT_ERR}
+  fi
+}
+
 preScaleOut(){
   log "preScaleOut"
+  checkClusterPort
   return 0
 }
 
@@ -283,6 +305,7 @@ checkMemoryIsEnoughAfterScaled(){
 
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
+  checkClusterPort
   local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
   rotate $NODE_CONF_FILE
   log "leaving nodes $LEAVING_REDIS_NODES"
@@ -399,8 +422,8 @@ revive(){
 }
 
 findMasterIpByNodeIp(){
-  local myRoleResult myRole nodeIp=${1:-$MY_IP}
-  myRoleResult="$(runRedisCmd -h $nodeIp role)"
+  local myRoleResult myRole nodeIp=${MY_IP}
+  myRoleResult="$(runRedisCmd -h "$nodeIp" role)"
   myRole="$(echo "$myRoleResult" |head -n1)"
   if [[ "$myRole" == "master" ]]; then
     echo "$nodeIp"
@@ -411,19 +434,23 @@ findMasterIpByNodeIp(){
 
 measure() {
   local groupMatched; groupMatched="$(getGroupMatched)"
-  local masterIp replicaDelay; masterIp="$(findMasterIpByNodeIp)"
+  local masterIp replicaDelay
+  masterIp="$(findMasterIpByNodeIp)"
   if [[ "$masterIp" != "$MY_IP" ]]; then
-    local masterReplication="$(runRedisCmd -h $masterIp info replication)"
-    local masterOffset=$(echo "$masterReplication"|grep "master_repl_offset" |cut -d: -f2 |tr -d '\n\r')
-    local myOffset=$(echo "$masterReplication" |grep -E "ip=${MY_IP//\./\\.}\,"| cut -d, -f4 |cut -d= -f2|tr -d '\n\r')
-    replicaDelay=$(($masterOffset-$myOffset))
+    local masterReplication masterOffset myOffset
+    masterReplication="$(runRedisCmd -h "${masterIp}" info replication)"
+    masterOffset="$(echo "$masterReplication"|grep "master_repl_offset" |cut -d: -f2 |tr -d '\n\r')"
+    myOffset=$(echo "$masterReplication" |grep -E "ip=${MY_IP//\./\\.}\,"| cut -d, -f4 |cut -d= -f2|tr -d '\n\r')
+    replicaDelay="$((masterOffset-myOffset))"
   else
     replicaDelay=0
   fi
 
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    if($1~/^(cmdstat_|connected_c|db|evicted_|keyspace_|total_conn)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
+    }else if($1~/^(mem_fragmentation_ratio|instantaneous_ops_per_sec|loading|aof_buffer_length|aof_rewrite_in_progress|rdb_bgsave_in_progress|master_sync_in_progress|repl_backlog_size|repl_backlog_histlen|maxmemory|role|used_memory)$/) {
+      r[$1] = gensub(/\r$/, "", 1, $2)
     }
   }
   END {
@@ -433,15 +460,30 @@ measure() {
         m[cmd] += r[k]
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
-      } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
-        m[k=="role" ? "node_role" : k] = gensub("\r", "", 1, r[k])
       }
     }
+    m["connected_clients"] = r["connected_clients"]
+    m["maxmemory"] = r["maxmemory"]
+    m["total_connections_received"] = r["total_connections_received"]
+    m["used_memory"] = r["used_memory"]
+    m["node_role"] = r["role"]
+    m["evicted_keys"] = r["evicted_keys"]
+    m["keyspace_misses"] = r["keyspace_misses"]
+    m["keyspace_hits"] = r["keyspace_hits"]
+    m["expired_keys"] = r["expired_keys"]
+    m["loading"] = r["loading"]
+    m["rdb_bgsave"] = r["rdb_bgsave_in_progress"]
+    m["aof_rewrite"] = r["aof_rewrite_in_progress"]
+    m["master_sync"] = r["master_sync_in_progress"]
     memUsage = r["maxmemory"] ? 10000 * r["used_memory"] / r["maxmemory"] : 0
     m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
-    m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
+    m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 10000
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
+    m["repl_backlog_avg"] = m["repl_backlog_max"] = m["repl_backlog_min"] = r["repl_backlog_histlen"] / r["repl_backlog_size"] * 10000
+    m["aof_buffer_avg"] = m["aof_buffer_max"] = m["aof_buffer_min"] = r["aof_buffer_length"] ? r["aof_buffer_length"] : 0
+    m["mem_fragmentation_ratio_avg"] = m["mem_fragmentation_ratio_max"] = m["mem_fragmentation_ratio_min"] = r["mem_fragmentation_ratio"] ? r["mem_fragmentation_ratio"] * 100 : 100
+    m["instantaneous_ops_per_sec_avg"] = m["instantaneous_ops_per_sec_max"] = m["instantaneous_ops_per_sec_min"] = r["instantaneous_ops_per_sec"]
     m["group_matched"] = "'$groupMatched'"
     m["replica_delay"] = "'$replicaDelay'"
     for(k in m) {
@@ -452,11 +494,8 @@ measure() {
 
 redisCli() {
   local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
-  if [ $REDIS_TLS_CLUSTER == "yes" ]; then
-    echo "/opt/redis/current/redis-cli $authOpt --tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
-  else
-    echo "/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT $@"
-  fi
+  [[ "$REDIS_TLS_PORT" == "${REDIS_PORT}" ]] && tls="--tls"
+  echo "/opt/redis/current/redis-cli $authOpt $tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
 }
 
 runRedisCmd() {
@@ -486,15 +525,15 @@ getRuntimeNameOfCmd() {
 
 swapIpAndName() {
   local fields replaceCmd  port=$REDIS_PLAIN_PORT nodes=$REDIS_NODES
-  [ "$REDIS_TLS_CLUSTER" == "yes" ] && port=$REDIS_TLS_PORT
+  [[ "$REDIS_TLS_CLUSTER" == "yes" ]] && port=$REDIS_TLS_PORT
   sudo -u redis touch $NODE_CONF_FILE && rotate $NODE_CONF_FILE
   if [ -n "$1" ];then
     nodes="$UPDATE_CHANGE_VXNET $nodes"
-    fields='{print "s/ "$4":\\([0-9]\\+\\)@/ "$5":\\1@/g"}'
+    fields='{print "s/ "$4":[0-9]*@[0-9]* / "$5":'$port'@'${CLUSTER_PORT}' /g"}'
   else
-    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":\\([0-9]\\+\\)@/ "$4":\\1@/g"}}'
+    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":[0-9]*@[0-9]* / "$4":'$port'@'${CLUSTER_PORT}' /g"}}'
   fi
-  replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]\\+@[0-9]\\+ /:$port@$(($port+10000)) /g"
+  replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]*@[0-9]* /:$port@${CLUSTER_PORT} /g"
   sed -i "$replaceCmd" $NODE_CONF_FILE
 }
 
@@ -521,12 +560,15 @@ configureForACL() {
     rm $ACL_CLEAR -f
   elif [[ "$ENABLE_ACL" == "yes" ]]; then
     if [[ -e "$ACL_CLEAR" ]];then
-      awk 'NR==FNR{user[$2]=$0}NR>FNR{if (user[$2]){print user[$2]}else{print}}' \
-        $CHANGED_ACL_FILE $RUNTIME_ACL_FILE.1 > $RUNTIME_ACL_FILE
+      cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
+      awk '$2!="default"' $RUNTIME_ACL_FILE.1 >> $RUNTIME_ACL_FILE
     else
       cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
       sudo -u redis touch $ACL_CLEAR
     fi
+  elif [[ "$ENABLE_ACL" == "no" ]]; then
+    cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
+    awk '$2!="default"' $RUNTIME_ACL_FILE.1 >> $RUNTIME_ACL_FILE
   fi
   log "configureForACL End"
 }
@@ -576,8 +618,7 @@ getRedisRoles(){
 }
 
 getGroupMatched(){
-  local clusterNodes groupMatched="true" targetIp="${1:-$MY_IP}"
-
+  local clusterNodes port="($REDIS_PLAIN_PORT|$REDIS_TLS_PORT)" groupMatched="true" targetIp="${1:-$MY_IP}"
   if [[ "$targetIp" == "$MY_IP" ]]; then
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
@@ -588,7 +629,7 @@ getGroupMatched(){
     clusterNodes="$(runRedisCmd -h "$targetIp" CLUSTER NODES)"
   fi
 
-  local targetRoleInfo; targetRoleInfo="$(echo "$clusterNodes" |awk 'BEGIN{OFS=" "}{if($0~/'${targetIp//\./\\.}':'$REDIS_PORT'/){print $3,$4}}')"
+  local targetRoleInfo; targetRoleInfo="$(echo "$clusterNodes" |awk 'BEGIN{OFS=" "}{if($0~/'${targetIp//\./\\.}':'$port'/){print $3,$4}}')"
   local targetRole; targetRole="$(echo "$targetRoleInfo"|awk '{split($1,role,",");print role[2]}')"
   if [[ "$targetRole" == "slave" ]]; then
       local targetMasterId; targetMasterId="$(echo "$targetRoleInfo" |awk '{print $2}')"
@@ -605,7 +646,7 @@ getGroupMatched(){
 }
 
 getClusterMatched(){
-  local clusterNodes clusterMatched="true" targetIp="${1:-$MY_IP}"
+  local clusterNodes port="($REDIS_PLAIN_PORT|$REDIS_TLS_PORT)" clusterMatched="true" targetIp="${1:-$MY_IP}"
   if [[ "$targetIp" == "$MY_IP" ]]; then
     if checkActive "redis-server"; then
       clusterNodes="$(runRedisCmd CLUSTER NODES)"
@@ -619,7 +660,7 @@ getClusterMatched(){
   local expectedNodes; expectedNodes="("
   local node; for node in $REDIS_NODES; do
     node="${node##*/}"
-    expectedNodes="$expectedNodes${node//\./\\.}:$REDIS_PORT|"
+    expectedNodes="$expectedNodes${node//\./\\.}:$port|"
   done
   expectedNodes="${expectedNodes%|*})"
   if [[ "$(echo "$clusterNodes" |grep -Ev "$expectedNodes")" =~ [a-z0-9]+ ]];then

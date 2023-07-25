@@ -1,0 +1,65 @@
+#!/usr/bin/bash
+REDIS_CLI_CMDS="/opt/redis/current/redis-cli /opt/redis/bin/redis-cli"
+REDIS_CLI_CMD="$(for cmd in $REDIS_CLI_CMDS; do [ -e "$cmd" ] && ( echo $cmd ; break ); done)"
+REDIS_PORT="$(curl -s metadata/self/cluster/endpoints/client/port)"
+APP_ID="$(curl -s metadata/self/cluster/app_id)"
+if [[ "app-zydumbxo" == "$APP_ID" ]];then
+  REDIS_PASSWORD="$(curl -s metadata/self/env/requirepass)"
+else
+  REDIS_PASSWORD="$(curl -s metadata/self/env/appcenterignore-requirepass)"
+fi
+
+runRedisCmd() {
+  local not_error="getUserList addUser measure runRedisCmd"
+  local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
+  local result retCode=0
+  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a $REDIS_PASSWORD"
+  result="$(timeout --preserve-status ${timeout}s $REDIS_CLI_CMD -p $REDIS_PORT $authOpt $@  2>&1)" || retCode=$?
+  if [[ "$retCode" != 0 ]]; then
+    echo "ERROR failed to run redis command '$@' ($retCode): $(echo "$result" |tr '\r\n' ';' |tail -c 4000)."
+    retCode=$REDIS_COMMAND_EXECUTE_FAIL
+  else
+    echo "$result"
+  fi
+  return $retCode
+}
+
+execute() {
+  local cmd=$1;
+  $cmd ${@:2}
+}
+
+node() {
+infoAll=$(runRedisCmd info all|sed 's/\r//g')
+
+cat << NODE_INFO_EOF
+{
+  "node_health": $(runRedisCmd ping | awk 'BEGIN{c=1}{if ($0~/^PONG$/){c=0}}END{print c}'),
+  "node_role": "$(echo "$infoAll" | awk -F "[:\r]+" '$1=="role"{print $2}')",
+  "memory_usage": $(echo "$infoAll" | awk -F":" '{a[$1]=$2}END{print a["used_memory"]/a["maxmemory"]*100}'),
+  "connected_clients": $(echo "$infoAll" | awk -F"[:\n\r]+" '$1=="connected_clients"{print $2}'),
+  "evicted_keys": $(echo "$infoAll" | sed -n "s/^evicted_keys://p"),
+  "hit_rate": $(echo "$infoAll" | awk -F":" '{a[$1]=$2}END{title=(a["keyspace_hits"] + a["keyspace_misses"]); if (title){print a["keyspace_hits"]/title}else{print 100}}'),
+  "keyspace_misses": $(echo "$infoAll" | sed -n "s/^keyspace_misses://p")
+}
+NODE_INFO_EOF
+
+}
+
+cluster() {
+if [[ "app-zydumbxo" == "$APP_ID" ]];then
+  VIP=$(curl -s metadata/self/cluster/endpoints/reserved_ips/vip/value)
+  CLUSTER_HEALTH="$(runRedisCmd --ip "$VIP" ping | awk 'BEGIN{c=1}{if ($0~/^PONG$/){c=0}}END{print c}')"
+else
+  CLUSTER_HEALTH="$(runRedisCmd cluster info | awk 'BEGIN{c=1}{if ($0~/^cluster_state:ok\r/){c=0}}END{print c}')"
+fi
+cat << CLUSTER_INFO_EOF
+{
+  "cluster_health": $CLUSTER_HEALTH
+}
+CLUSTER_INFO_EOF
+}
+
+
+execute $@
+

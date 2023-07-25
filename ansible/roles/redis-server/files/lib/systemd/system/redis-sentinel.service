@@ -1,0 +1,21 @@
+[Unit]
+Description=Redis Sentinel
+After=network.target
+
+[Service]
+User=redis
+Group=svc
+RuntimeDirectory=redis
+PIDFile=/var/run/redis/sentinel.pid
+WorkingDirectory=/tmp
+ExecStart=/opt/redis/current/redis-sentinel /data/redis/sentinel.conf
+Restart=always
+
+LimitNOFILE=65536
+
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

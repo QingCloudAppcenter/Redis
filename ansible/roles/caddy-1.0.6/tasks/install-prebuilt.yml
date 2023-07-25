@@ -1,0 +1,21 @@
+---
+- name: prepare tmp download dir
+  file:
+    path: "{{ role_path }}/files/tmp/prebuilt"
+    state: directory
+  delegate_to: localhost
+
+- name: download caddy binary
+  vars:
+    dest_path: "{{ role_path }}/files/tmp/prebuilt/caddy-{{ caddy_version }}.tgz"
+  get_url:
+    url: https://github.com/caddyserver/caddy/releases/download/v{{ caddy_version }}/caddy_v{{ caddy_version }}_linux_amd64.tar.gz
+    dest: "{{ dest_path }}"
+  delegate_to: localhost
+  when: dest_path is not exists
+  run_once: True
+
+- name: install caddy
+  unarchive:
+    src: "{{ role_path }}/files/tmp/prebuilt/caddy-{{ caddy_version }}.tgz"
+    dest: /opt/caddy/current
