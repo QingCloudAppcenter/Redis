@@ -23,9 +23,6 @@ DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
 CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
 CHANGED_SENTINEL_FILE=$ROOT_CONF_DIR/sentinel.changed.conf
 
-REDIS_EXPORTER="/data/redis_exporter"
-REDIS_EXPORTER_LOGS_DIR="$REDIS_EXPORTER/logs"
-REDIS_EXPORTER_PID_FILE="$REDIS_EXPORTER/redis_exporter.pid"
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
@@ -38,13 +35,10 @@ initNode() {
   local caddyPath="/data/caddy"
   mkdir -p $REDIS_DIR/logs $caddyPath/upload
   mkdir -p $REDIS_DIR/{logs,tls}
-  mkdir -p $REDIS_EXPORTER $REDIS_EXPORTER_LOGS_DIR
   touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   touch $RUNTIME_ACL_FILE
-  touch $REDIS_EXPORTER_PID_FILE
   chown -R redis.svc $REDIS_DIR
   chown -R caddy.svc $caddyPath
-  chown -R prometheus.svc $REDIS_EXPORTER
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
 }
@@ -190,10 +184,10 @@ preScaleIn() {
     log "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
     log "sentinel nodes: $firstToThirdNode"
     local node;for node in $firstToThirdNode;do
-      if [[ "$LEAVING_REDIS_NODES" == *"$node"* ]]; then
+      [[ "$LEAVING_REDIS_NODES" == *"$node"* ]] && {
         log "leaving nodes include sentinel node: $node"
         return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
-      fi
+      }
     done
   fi
 }
@@ -263,7 +257,9 @@ destroy() {
         runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
         log "${sentinelNode##*/} reset"
       done
+
     fi
+
   fi
 }
 
