@@ -119,8 +119,10 @@ measure() {
     replicaDelay=0
   fi
   runRedisCmd info all | awk -F: '{
-    if($1~/^(cmdstat_|connected_c|db|instantaneous_ops_per_sec|evicted_|expired_k|keyspace_|maxmemory$|role|total_conn|used_memory$)/) {
+    if($1~/^(cmdstat_|connected_c|db|evicted_|keyspace_|total_conn)/) {
       r[$1] = gensub(/^(keys=|calls=)?([0-9]+).*/, "\\2", 1, $2);
+    }else if($1~/^(mem_fragmentation_ratio|instantaneous_ops_per_sec|loading|aof_buffer_length|aof_rewrite_in_progress|rdb_bgsave_in_progress|master_sync_in_progress|repl_backlog_size|repl_backlog_histlen|maxmemory|role|used_memory)$/) {
+      r[$1] = gensub(/\r$/, "", 1, $2)
     }
   }
   END {
@@ -130,14 +132,30 @@ measure() {
         m[cmd] += r[k]
       } else if(k~/^db[0-9]+/) {
         m["key_count"] += r[k]
-      } else if(k!~/^(used_memory|maxmemory|connected_c)/) {
-        m[k=="role" ? "node_role" : k] = gensub("\r", "", 1, r[k])
       }
     }
     memUsage = r["maxmemory"] ? 10000 * r["used_memory"] / r["maxmemory"] : 0
     m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
+    m["loading"] = r["loading"]
+    m["connected_clients"] = r["connected_clients"]
+    m["instantaneous_ops_per_sec_max"] = m["instantaneous_ops_per_sec_avg"] = m["instantaneous_ops_per_sec_min"] = r["instantaneous_ops_per_sec"]
+    m["maxmemory"] = r["maxmemory"]
+    m["total_connections_received"] = r["total_connections_received"]
+    m["used_memory"] = r["used_memory"]
+    m["node_role"] = r["role"]
+    m["evicted_keys"] = r["evicted_keys"]
+    m["keyspace_misses"] = r["keyspace_misses"]
+    m["keyspace_hits"] = r["keyspace_hits"]
+    m["expired_keys"] = r["expired_keys"]
+    m["rdb_bgsave"] = r["rdb_bgsave_in_progress"]
+    m["aof_rewrite"] = r["aof_rewrite_in_progress"]
+    m["master_sync"] = r["master_sync_in_progress"]
+    m["repl_backlog_avg"] = m["repl_backlog_max"] = m["repl_backlog_min"] = r["repl_backlog_histlen"] / r["repl_backlog_size"] * 10000
+    m["aof_buffer_avg"] = m["aof_buffer_max"] = m["aof_buffer_min"] = r["aof_buffer_length"] ? r["aof_buffer_length"] : 0
+    m["mem_fragmentation_ratio_avg"] = m["mem_fragmentation_ratio_max"] = m["mem_fragmentation_ratio_min"] = r["mem_fragmentation_ratio"] ? r["mem_fragmentation_ratio"] * 100 : 100
+    m["memory_usage_min"] = m["memory_usage_avg"] = m["memory_usage_max"] = memUsage
     totalOpsCount = r["keyspace_hits"] + r["keyspace_misses"]
-    m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 0
+    m["hit_rate_min"] = m["hit_rate_avg"] = m["hit_rate_max"] = totalOpsCount ? 10000 * r["keyspace_hits"] / totalOpsCount : 10000
     m["connected_clients_min"] = m["connected_clients_avg"] = m["connected_clients_max"] = r["connected_clients"]
     m["replica_delay"] = "'$replicaDelay'"
     for(k in m) {
@@ -366,13 +384,20 @@ checkBgsaveDone(){
   [[ $(runRedisCmd --ip $REDIS_VIP $lastsaveCmd) > ${1?Lastsave time is required} ]]
 }
 
+
+preBackup(){
+  local info info=$(runRedisCmd --ip $REDIS_VIP info all)
+  echo "$info" | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
+}
+
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
   local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
   local lastTime; lastTime="$(runRedisCmd --ip $REDIS_VIP $lastsaveCmd)"
+  retry 600 3 0 preBackup
   runRedisCmd --ip $REDIS_VIP $bgsaveCmd
-  retry 400 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  retry 600 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
   log "backup successfully"
 }
 
@@ -405,7 +430,7 @@ runRedisCmd() {
     redisCli="/opt/redis/current/redis-cli $authOpt -p $REDIS_PORT"
   fi
   result="$(timeout --preserve-status ${maxTime}s $redisCli -h $redisIp -p $redisPort $@ 2>&1)" || retCode=$?
-  if [ "$retCode" != 0 ] || [[ " $not_error " != *" $cmd "* && "$result" == *ERR* ]]; then
+  if [ "$retCode" != 0 ] || [[ " $not_error " != *" $cmd "* && "$result" == *ERR* &&  " info INFO " != *" $1 "* ]]; then
     log "ERROR failed to run redis command '$@' ($retCode): $result." && retCode=$REDIS_COMMAND_EXECUTE_FAIL_ERR
   else
     echo "$result"
