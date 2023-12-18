@@ -462,12 +462,12 @@ setUpVip() {
 }
 
 bindVip() {
-  ip addr add $REDIS_VIP/24 dev eth0 || [ "$?" -eq 2 ] # 2: already bound
+  ip addr add $REDIS_VIP/32 dev eth0 || [ "$?" -eq 2 ] # 2: already bound
   arping -q -c 3 -A $REDIS_VIP -I eth0
 }
 
 unbindVip() {
-  ip addr del $REDIS_VIP/24 dev eth0 || [ "$?" -eq 2 ] # 2: not bound
+  ip addr del $REDIS_VIP/32 dev eth0 || [ "$?" -eq 2 ] # 2: not bound
 }
 
 checkSentinelStarted(){
