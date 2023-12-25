@@ -422,13 +422,13 @@ revive(){
 }
 
 findMasterIpByNodeIp(){
-  local myRoleResult myRole nodeIp=${MY_IP}
-  myRoleResult="$(runRedisCmd -h "$nodeIp" role)"
-  myRole="$(echo "$myRoleResult" |head -n1)"
+  local myRoleResult myRole nodeIp=${1:-$MY_IP}
+  myRoleResult="$(runRedisCmd -h $nodeIp info Replication)"
+  myRole="$(echo "$myRoleResult" |awk -F "[:\r]+" '$1=="role"{print $2}')"
   if [[ "$myRole" == "master" ]]; then
     echo "$nodeIp"
   else
-    echo "$myRoleResult" | sed -n '2p'
+    echo "$myRoleResult" | awk -F "[:\r]+" '$1=="master_host"{print $2}'
   fi
 }
 
