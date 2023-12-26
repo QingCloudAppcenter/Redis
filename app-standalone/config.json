@@ -517,6 +517,27 @@
       "type": "integer",
       "min": -1
     }, {
+      "description": "client output buffer limit for normal client",
+      "default": "0 0 0",
+      "required": "yes",
+      "label": "client-output-buffer-limit(normal)",
+      "key": "client-output-buffer-limit-normal",
+      "type": "string"
+    }, {
+      "description": "client output buffer limit for slave replication",
+      "default": "256mb 64mb 60",
+      "required": "yes",
+      "label": "client-output-buffer-limit(slave)",
+      "key": "client-output-buffer-limit-slave",
+      "type": "string"
+    }, {
+      "description": "client output buffer limit for normal pubsub",
+      "default": "32mb 8mb 60",
+      "required": "yes",
+      "label": "client-output-buffer-limit(pubsub)",
+      "key": "client-output-buffer-limit-pubsub",
+      "type": "string"
+    }, {
       "key": "tls-port",
       "label": "TLS-Port",
       "description": "TLS Listening Port",

@@ -7,18 +7,6 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-     "appv-a0a319jr",
-     "appv-r89epe6m",
-     "appv-e97gz6wz",
-     "appv-vedszzfk",
-     "appv-21ddkc5h",
-     "appv-315vkrx9",
-     "appv-dw8hsl7o",
-     "appv-7nnl5m03",
-     "appv-yjt6jcur",
-     "appv-htdfkqlo",
-     "appv-2koqx590",
-     "appv-tse5x72c"
    ],
   "nodes": [{
     "container": {
@@ -26,7 +14,7 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-ix2ujor2"
+      "image": "img-33nwolmy"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -149,6 +137,9 @@
     "latency-monitor-threshold": {{env.latency-monitor-threshold}},
     "list-max-listpack-size": {{env.list-max-listpack-size}},
     "lua-time-limit": {{env.lua-time-limit}},
+    "client-output-buffer-limit-normal": {{env.client-output-buffer-limit-normal}},
+    "client-output-buffer-limit-slave": {{env.client-output-buffer-limit-slave}},
+    "client-output-buffer-limit-pubsub": {{env.client-output-buffer-limit-pubsub}},
     "maxclients": {{env.maxclients}},
     "maxmemory_portion": {{env.maxmemory_portion}},
     "maxmemory-policy": {{env.maxmemory-policy}},
