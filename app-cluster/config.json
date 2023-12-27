@@ -475,24 +475,27 @@
         }, {
             "description": "client output buffer limit for normal client",
             "default": "0 0 0",
-            "required": "yes",
+            "required": "no",
             "label": "client-output-buffer-limit(normal)",
             "key": "client-output-buffer-limit-normal",
-            "type": "string"
+            "type": "string",
+            "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
           }, {
             "description": "client output buffer limit for slave replication",
             "default": "256mb 64mb 60",
-            "required": "yes",
+            "required": "no",
             "label": "client-output-buffer-limit(slave)",
             "key": "client-output-buffer-limit-slave",
-            "type": "string"
+            "type": "string",
+            "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
           }, {
             "description": "client output buffer limit for normal pubsub",
             "default": "32mb 8mb 60",
-            "required": "yes",
+            "required": "no",
             "label": "client-output-buffer-limit(pubsub)",
             "key": "client-output-buffer-limit-pubsub",
-            "type": "string"
+            "type": "string",
+            "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
           }, {
             "key": "tls-auth-clients",
             "label": "TLS-Auth-Clients",
