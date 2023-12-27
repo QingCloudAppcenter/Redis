@@ -65,6 +65,9 @@ cluster-allow-pubsubshard-when-down {{ getv "/env/cluster-allow-pubsubshard-when
 cluster-link-sendbuf-limit {{ getv "/env/cluster-link-sendbuf-limit" "0" }}
 latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
 lua-time-limit {{ getv "/env/lua-time-limit" "5000" }}
+client-output-buffer-limit normal {{getv "/env/client-output-buffer-limit-normal"}}
+client-output-buffer-limit slave {{getv "/env/client-output-buffer-limit-slave"}}
+client-output-buffer-limit pubsub {{getv "/env/client-output-buffer-limit-pubsub"}}
 maxclients {{ getv "/env/maxclients" "65000" }}
 maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/appctl.maxmemory.percent" "80") }}
 maxmemory-policy {{ getv "/env/maxmemory-policy" "volatile-lru" }}

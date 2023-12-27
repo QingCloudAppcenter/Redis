@@ -1,3 +1,4 @@
+mkdir -p /opt/app/conf/redis-cluster/tls
 flush /opt/app/conf/redis-cluster/tls/redis.crt << TLS_CERT_EOF
 {{ join (getvs "/env/tls-cert") "" }}
 TLS_CERT_EOF
