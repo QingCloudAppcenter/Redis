@@ -26,6 +26,7 @@ CHANGED_SENTINEL_FILE=$ROOT_CONF_DIR/sentinel.changed.conf
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
+RUNTIME_CONFIG_FILE_TMP=$REDIS_DIR/redis.conf.tmp
 RUNTIME_SENTINEL_FILE=$REDIS_DIR/sentinel.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
 ACL_CLEAR=$REDIS_DIR/acl.clear
@@ -524,21 +525,68 @@ checkFileChanged() {
   return $retCode
 }
 
+# trim a line
+# be sure only one blank exists when blanks present in the middle of a line
+formatConf() {
+  lines=$(cat $1)
+  lines=$(echo "$lines" | sed -e 's/^[[:space:]]*//g' -e 's/[[:space:]]*$//g')
+  lines=$(echo "$lines" | sed -e 's/[[:space:]]+/ /g')
+  echo "$lines"
+}
+
+mergeRedisConf() {
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    return
+  fi
+  
+  # keys from tmp
+  format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
+  keys_config_tmp=($(echo "$format_config_tmp" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
+  dkeys=$(echo "$format_config_tmp" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
+  while IFS= read -r line; do
+        keys_config_tmp+=("$line")
+  done <<< "$dkeys"
+  
+  # keys from run
+  format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
+  keys_config_run=($(echo "$format_config_run" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
+  dkeys=$(echo "$format_config_run" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
+  while IFS= read -r line; do
+        keys_config_run+=("$line")
+  done <<< "$dkeys"
+
+  # merge
+  for key in "${keys_config_tmp[@]}"; do
+    line=$(echo "$format_config_tmp" | sed -n "/^$key\ / {p;q;}")
+    if ! echo " ${keys_config_run[*]} " | grep "\s\+${key}\s\+"; then
+      log "append new config: $line"
+      format_config_run=$(echo "$format_config_run" | sed '$a'" $line")
+    else
+      log "modify config: $line"
+      format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
+    fi
+  done
+  echo "$format_config_run" > $RUNTIME_CONFIG_FILE
+}
+
 configureForRedis() {
   log --debug "exec configureForRedis"
   local slaveofFile=$ROOT_CONF_DIR/redis.slaveof.conf
   local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
-  rotate $RUNTIME_CONFIG_FILE
+  rotate $RUNTIME_CONFIG_FILE_TMP
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
   [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
 
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE.1 > $RUNTIME_CONFIG_FILE
+    $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE_TMP.1 > $RUNTIME_CONFIG_FILE_TMP
+  
+  mergeRedisConf
 }
 
 swapIpAndName() {
-  local configFiles=$RUNTIME_CONFIG_FILE
+  local configFiles=$RUNTIME_CONFIG_FILE_TMP
   if isSvcEnabled redis-sentinel; then
     configFiles="$configFiles $RUNTIME_SENTINEL_FILE"
   fi
@@ -549,6 +597,7 @@ swapIpAndName() {
   fi
   local replaceCmd="$(echo "$STABLE_REDIS_NODES" | xargs -n1 | awk -F/ '{print '$fields'}' | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
   sed -i "$replaceCmd" $configFiles
+  mergeRedisConf
 }
 
 configureForSentinel() {
