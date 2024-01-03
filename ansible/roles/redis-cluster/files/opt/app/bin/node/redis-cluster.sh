@@ -573,10 +573,10 @@ mergeRedisConf() {
   for key in "${keys_config_tmp[@]}"; do
     line=$(echo "$format_config_tmp" | sed -n "/^$key\ / {p;q;}")
     if ! echo " ${keys_config_run[*]} " | grep "\s\+${key}\s\+"; then
-      log "append new config: $line"
+      # log "append new config: $line"
       format_config_run=$(echo "$format_config_run" | sed '$a'" $line")
     else
-      log "modify config: $line"
+      # log "modify config: $line"
       format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
     fi
   done
