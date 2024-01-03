@@ -50,7 +50,10 @@ getLoadStatus() {
 }
 
 start() {
-  isNodeInitialized || execute initNode
+  if ! isNodeInitialized; then
+    execute initNode
+    configureForRedis
+  fi
 
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then
     log "enable acl:$ENABLE_ACL $JOINING_REDIS_NODES"
@@ -575,6 +578,9 @@ configureForRedis() {
   local slaveofFile=$ROOT_CONF_DIR/redis.slaveof.conf
   local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
+  if [ ! -f $RUNTIME_CONFIG_FILE_TMP ]; then
+    sudo -u redis touch $RUNTIME_CONFIG_FILE_TMP
+  fi
   rotate $RUNTIME_CONFIG_FILE_TMP
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
   [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
