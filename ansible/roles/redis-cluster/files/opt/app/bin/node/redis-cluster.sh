@@ -548,7 +548,9 @@ formatConf() {
 }
 
 mergeRedisConf() {
+  log "mergeRedisConf: start"
   if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
     formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
     return
   fi
@@ -580,7 +582,15 @@ mergeRedisConf() {
       format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
     fi
   done
+
+  # acl
+  if [ "$ENABLE_ACL" = "no" ]; then
+    log "remove acl config from redis.conf, because acl is disabled"
+    format_config_run=$(echo "$format_config_run" | sed "/^aclfile\ .*/d")
+  fi
+
   echo "$format_config_run" > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
 }
 
 configureForRedis(){
