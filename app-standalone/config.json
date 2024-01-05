@@ -517,7 +517,7 @@
       "type": "integer",
       "min": -1
     }, {
-      "description": "client output buffer limit for normal client",
+      "description": "client output buffer limit for normal clients",
       "default": "0 0 0",
       "required": "no",
       "label": "client-output-buffer-limit(normal)",
@@ -525,15 +525,15 @@
       "type": "string",
       "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
     }, {
-      "description": "client output buffer limit for slave replication",
+      "description": "client output buffer limit for replica clients",
       "default": "256mb 64mb 60",
       "required": "no",
-      "label": "client-output-buffer-limit(slave)",
-      "key": "client-output-buffer-limit-slave",
+      "label": "client-output-buffer-limit(replica)",
+      "key": "client-output-buffer-limit-replica",
       "type": "string",
       "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
     }, {
-      "description": "client output buffer limit for normal pubsub",
+      "description": "client output buffer limit for pubsub clients",
       "default": "32mb 8mb 60",
       "required": "no",
       "label": "client-output-buffer-limit(pubsub)",

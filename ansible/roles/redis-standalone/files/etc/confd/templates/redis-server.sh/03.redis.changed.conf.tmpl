@@ -52,7 +52,7 @@ getIoThreads() {
 }
 
 flush /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EOF
-slave-priority $(if isVotingNode "{{ getv "/host/sid" }}";then echo 100 ;else echo 0;fi)
+replica-priority $(if isVotingNode "{{ getv "/host/sid" }}";then echo 100 ;else echo 0;fi)
 databases {{ getv "/env/databases" "16" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
@@ -60,7 +60,7 @@ appendonly {{ getv "/env/appendonly" "yes" }}
 latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
 lua-time-limit {{ getv "/env/lua-time-limit" "5000" }}
 client-output-buffer-limit normal {{getv "/env/client-output-buffer-limit-normal"}}
-client-output-buffer-limit slave {{getv "/env/client-output-buffer-limit-slave"}}
+client-output-buffer-limit replica {{getv "/env/client-output-buffer-limit-replica"}}
 client-output-buffer-limit pubsub {{getv "/env/client-output-buffer-limit-pubsub"}}
 maxclients {{ getv "/env/maxclients" "65000" }}
 maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/maxmemory_portion" "80") }}

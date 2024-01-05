@@ -50,9 +50,11 @@ getLoadStatus() {
 }
 
 start() {
-  if ! isNodeInitialized; then
+  if [ ! -d $REDIS_DIR ]; then
     execute initNode
     configureForRedis
+  else
+    _initNode
   fi
 
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then
@@ -454,9 +456,19 @@ setUpVip() {
   if [ "$MY_IP" == "$masterIp" ]; then
     [[ " $myIps " == *" $REDIS_VIP "* ]] || {
       log "This is the master node, though VIP is unbound. Binding VIP ..."
+      # remove old replicaof/slaveof from $RUNTIME_CONFIG_FILE_TMP
+      sed -i '/^replicaof\ /d' $RUNTIME_CONFIG_FILE_TMP
       bindVip
     }
   else
+    # update replicaof to $RUNTIME_CONFIG_FILE_TMP
+    if grep -q "^replicaof\ " $RUNTIME_CONFIG_FILE_TMP; then
+      sed -i "s/^replicaof\ .*/replicaof $masterIp $REDIS_PORT/" $RUNTIME_CONFIG_FILE_TMP
+    else
+      echo "replicaof $masterIp $REDIS_PORT" >> $RUNTIME_CONFIG_FILE_TMP
+    fi
+
+    # update binding
     [[ " $myIps " != *" $REDIS_VIP "* ]] || {
       log "This is not the master node, though VIP is still bound. Unbinding VIP ..."
       unbindVip
@@ -538,7 +550,9 @@ formatConf() {
 }
 
 mergeRedisConf() {
+  log "mergeRedisConf: start"
   if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
     formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
     return
   fi
@@ -570,7 +584,15 @@ mergeRedisConf() {
       format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
     fi
   done
+
+  # acl
+  if [ "$ENABLE_ACL" = "no" ]; then
+    log "remove acl config from redis.conf, because acl is disabled"
+    format_config_run=$(echo "$format_config_run" | sed "/^aclfile\ .*/d")
+  fi
+
   echo "$format_config_run" > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
 }
 
 configureForRedis() {
@@ -583,7 +605,7 @@ configureForRedis() {
   fi
   rotate $RUNTIME_CONFIG_FILE_TMP
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
-  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
+  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo "replicaof $masterIp $REDIS_PORT" > $slaveofFile
 
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
     $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE_TMP.1 > $RUNTIME_CONFIG_FILE_TMP
@@ -603,7 +625,8 @@ swapIpAndName() {
   fi
   local replaceCmd="$(echo "$STABLE_REDIS_NODES" | xargs -n1 | awk -F/ '{print '$fields'}' | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
   sed -i "$replaceCmd" $configFiles
-  mergeRedisConf
+  # redo for $RUNTIME_CONFIG_FILE
+  sed -i "$replaceCmd" $RUNTIME_CONFIG_FILE
 }
 
 configureForSentinel() {
