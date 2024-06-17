@@ -249,7 +249,7 @@
             "description": "Require clients to issue AUTH <PASSWORD> before processing any other commands.",
             "type": "password",
             "default": "",
-            "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+            "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$",
             "required": "no"
         }, {
             "key": "activerehashing",
