@@ -132,7 +132,7 @@
       "description": "Require clients to issue \"AUTH <USERNAME> <PASSWORD>\" before processing any other commands.",  
       "default": "",
       "type": "password",
-      "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$",
       "required": "yes"
     }, {
       "key": "switch",
