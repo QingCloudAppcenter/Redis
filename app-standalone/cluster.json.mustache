@@ -7,14 +7,16 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-   ],
+    "appv-n0b7h67g"
+  ],
+  "upgrading_policy": "sequential",
   "nodes": [{
     "container": {
       "type": "lxc",
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-950hyhbw"
+      "image": "img-0ewwgxo6"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
