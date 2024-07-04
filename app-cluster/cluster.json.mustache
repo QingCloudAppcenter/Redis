@@ -4,8 +4,9 @@
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
     "upgrade_policy": [
+        "appv-fq0atfpt"
     ],    
-    "upgrading_policy": "parallel",
+    "upgrading_policy": "sequential",
     "nodes": [{
         "role": "master",
         "container": {
@@ -13,7 +14,7 @@
             "prefer_type": "lxc",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-puoalb5y"
+            "image": "img-o3x08ej1"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
