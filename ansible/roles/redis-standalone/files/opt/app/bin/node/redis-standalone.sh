@@ -98,7 +98,7 @@ stop() {
 }
 
 revive() {
-  checkSvc redis-server || configureForRedis
+  checkSvc redis-server || configureForRedis || :
   _revive $@
   checkVip || setUpVip
 }
