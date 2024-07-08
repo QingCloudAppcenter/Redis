@@ -417,8 +417,11 @@ reload() {
 revive(){
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   # 是否发生错位
-  checkGroupMatched
-  checkClusterMatched
+  if !checkGroupMatched; then
+    _revive
+    return 0
+  fi
+  checkClusterMatched || :
   _revive
 }
 
