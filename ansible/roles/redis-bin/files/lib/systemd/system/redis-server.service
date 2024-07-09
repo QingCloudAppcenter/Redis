@@ -1,0 +1,21 @@
+[Unit]
+Description=Redis Server
+After=network.target
+
+[Service]
+User=redis
+Group=svc
+RuntimeDirectory=redis
+PIDFile=/var/run/redis/redis.pid
+ExecStart=/opt/redis/current/redis-server /data/redis/redis.conf
+ExecStop=/bin/kill -15 $MAINPID || /bin/kill -9 $MAINPID
+Restart=always
+
+LimitNOFILE=infinity
+
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
