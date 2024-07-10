@@ -180,22 +180,13 @@ findStableNodesCount() {
 }
 
 preScaleIn() {
+  firstStableNode="$(echo "$STABLE_REDIS_NODES" |cut -d" " -f1)"
+  if [ "${firstStableNode##*/}" != $MY_IP ]; then
+    log "not the first stable node, skipping"
+    return 0
+  fi
   [ -n "$LEAVING_REDIS_NODES" ] || return $LEAVING_REDIS_NODES_IS_NONE_ERR
   checkMasterNotLeaving
-
-  # 防止最终计划剩余3个节点的时候，删除了 sentinel 节点
-  if [[ $(findStableNodesCount) -ge 3 ]];then
-    log --debug "check wether contain sentinel nodes"
-    local firstToThirdNode="$(getSentinelNodes)"
-    log "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
-    log "sentinel nodes: $firstToThirdNode"
-    local node;for node in $firstToThirdNode;do
-      [[ "$LEAVING_REDIS_NODES" == *"$node"* ]] && {
-        log "leaving nodes include sentinel node: $node"
-        return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
-      }
-    done
-  fi
 }
 
 preChangeVxnet() {
@@ -204,7 +195,16 @@ preChangeVxnet() {
 }
 
 getSentinelNodes(){
-  eval echo "$STABLE_REDIS_NODES $LEAVING_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
+  eval echo "$STABLE_REDIS_NODES $JOINING_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs
+}
+
+getMonitorQuorum() {
+  cnt=$(getSentinelNodes | wc -w)
+  if [ "$cnt" = 1 ]; then
+    echo 1
+  else
+    echo $((cnt-1))
+  fi
 }
 
 getStableNodesIps(){
@@ -253,26 +253,24 @@ destroy() {
         [[ "$stableNodeIp" == "$masterIp" ]] || [[ "$replicaResultOnline" == *"ip=${stableNodeIp},"*  ]] || return $CLUSTER_STATS_ERR
         log "$stableNodeIp is ok"
       done
-      # 对所有的 sentinel 节点执行 sentinel reset
-      log "start sentinel reset"
-      local sentinelNodes; sentinelNodes="$(getSentinelNodes)"
-      log --debug "sentinelNodes: $sentinelNodes"
-      local sentinelNode; for sentinelNode in $sentinelNodes; do
-        log "${sentinelNode##*/} reset?"
-        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
-        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
-        log "${sentinelNode##*/} reset"
-      done
-
     fi
-
   fi
 }
 
 scaleIn() {
-  if [[ $(findStableNodesCount) -eq 1 ]]; then
-    stopSvc redis-sentinel && rm -f $RUNTIME_SENTINEL_FILE*
-  fi
+  # current node exec sentinel reset
+  runRedisCmd -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
+  runRedisCmd -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
+  log "sentinel reset done!"
+  # correct quorum
+  log "correct quorum"
+  configureForSentinel
+  restartSvc redis-sentinel
+}
+
+scaleOut() {
+  configureForSentinel
+  restartSvc redis-sentinel
 }
 
 restore() {
@@ -638,7 +636,7 @@ configureForSentinel() {
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
   rotate $RUNTIME_SENTINEL_FILE
-  echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT 2" > $monitorFile
+  echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT $(getMonitorQuorum)" > $monitorFile
 
   if isSvcEnabled redis-sentinel; then
     # 处理升级过程中监控名称的改变
