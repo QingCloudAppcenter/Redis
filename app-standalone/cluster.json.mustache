@@ -16,7 +16,7 @@
       "prefer_type": "lxc",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-0ewwgxo6"
+      "image": "img-czkn2qh1"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -44,8 +44,10 @@
       },
       "scale_in": {
         "pre_check": "appctl preScaleIn",
-        "nodes_to_execute_on": 1,
         "cmd": "appctl scaleIn"
+      },
+      "scale_out": {
+        "cmd": "appctl scaleOut"
       },
       "destroy": {
         "allow_force": false,

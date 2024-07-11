@@ -561,7 +561,7 @@
     }, {
       "key": "tls-replication",
       "label": "Tls-Replication",
-      "description": "the following directive to enable TLS on replication links,",
+      "description": "enable TLS on replication links",
       "type": "string",
       "required": "no",
       "default": "no",
