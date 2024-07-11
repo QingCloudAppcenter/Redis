@@ -785,11 +785,7 @@ getRedisRoles(){
     counter=$(($counter+1))
     nodeIp="$(echo "$node" |cut -d"/" -f3)"
     myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
-    if [[ $stableNodesCount -gt 3 ]]; then
-      if [[ $counter -le 3 ]];then allow_deletion="false";else allow_deletion="true";fi
-    else
-      if [[ "$myRole" == "master" ]]; then allow_deletion="false";else allow_deletion="true";fi
-    fi
+    if [[ "$myRole" == "master" ]]; then allow_deletion="false";else allow_deletion="true";fi
     echo "$nodeIp $myRole $allow_deletion"
   done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","allow_deletion"],"data":.}'
 }
