@@ -756,6 +756,8 @@ restoreByCustomRdb(){
   execute stop
 
   cp -f $uploadedRDBFile $destRDBfile
+  chown redis:svc $destRDBfile
+  chmod 0644 $destRDBfile
   restore
   rm -rf $uploadedRDBFile
 }
