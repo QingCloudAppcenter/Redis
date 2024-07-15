@@ -533,9 +533,9 @@ swapIpAndName() {
   sudo -u redis touch $NODE_CONF_FILE && rotate $NODE_CONF_FILE
   if [ -n "$1" ];then
     nodes="$UPDATE_CHANGE_VXNET $nodes"
-    fields='{print "s/ "$4":[0-9]*@[0-9]* / "$5":'$port'@'${CLUSTER_PORT}' /g"}'
+    fields='{print "s/ "$4":[0-9]*@[0-9]*/ "$5":'$port'@'${CLUSTER_PORT}'/g"}'
   else
-    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":[0-9]*@[0-9]* / "$4":'$port'@'${CLUSTER_PORT}' /g"}}'
+    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":[0-9]*@[0-9]*/ "$4":'$port'@'${CLUSTER_PORT}'/g"}}'
   fi
   replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]*@[0-9]* /:$port@${CLUSTER_PORT} /g"
   sed -i "$replaceCmd" $NODE_CONF_FILE
