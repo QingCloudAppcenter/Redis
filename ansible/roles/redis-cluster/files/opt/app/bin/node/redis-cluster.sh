@@ -636,11 +636,20 @@ configureForACL() {
   log "configureForACL End"
 }
 
+updatePorts() {
+  # update ports settings in node-6379.conf in case the ports changed
+  local fields replaceCmd  port=$REDIS_PLAIN_PORT nodes=$REDIS_NODES
+  [[ "$REDIS_TLS_CLUSTER" == "yes" ]] && port=$REDIS_TLS_PORT
+  replaceCmd="s/:[0-9]*@[0-9]*/:$port@${CLUSTER_PORT}/g"
+  sed -i "$replaceCmd" $NODE_CONF_FILE
+}
+
 configure() {
   sudo -u redis touch $RUNTIME_CONFIG_FILE_TMP
   rotate $RUNTIME_ACL_FILE
   rotate $RUNTIME_CONFIG_FILE_TMP
   swapIpAndName --reverse
+  updatePorts
   configureForACL
   configureForRedis
   rotateTLS
