@@ -14,10 +14,6 @@ renameCommands() {
     SAVE
     SHUTDOWN
     SLAVEOF
-    {{- if (eq (getv "/env/disabled-commands" "no") "yes") }}
-    FLUSHALL
-    FLUSHDB
-    {{- end }}
   "
   readonly CLUSTER_ID="{{ getv "/cluster/cluster_id" }}" NODE_ID="{{ getv "/host/node_id" }}"
   local cmd; for cmd in $disabledCommands; do
@@ -94,7 +90,9 @@ zset-max-listpack-value {{ getv "/env/zset-max-listpack-value" "64" }}
 masterauth "$REDIS_PASSWORD"
 requirepass "$REDIS_PASSWORD"
 $(renameCommands)
-rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
+rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL)
+rename-command FLUSHALL $([[ "{{ getv "/env/disabled-commands" }}" == "yes" ]] && encodeCmd FLUSHALL || echo FLUSHALL)
+rename-command FLUSHDB $([[ "{{ getv "/env/disabled-commands" }}" == "yes" ]] && encodeCmd FLUSHDB || echo FLUSHDB)
 io-threads $(getIoThreads)
 io-threads-do-reads $(getIoThreadsDoReads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}
