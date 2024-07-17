@@ -294,7 +294,7 @@
         }, {
             "key": "cluster-link-sendbuf-limit",
             "label": "cluster-link-sendbuf-limit",
-            "description": "Cluster link send buffer limit is the limit on the memory usage of an individual cluster bus link%27s send buffer in bytes.",
+            "description": "Cluster link send buffer limit is the limit on the memory usage of an individual cluster bus link's send buffer in bytes.",
             "type": "integer",
             "min": 0,
             "default": 0,
