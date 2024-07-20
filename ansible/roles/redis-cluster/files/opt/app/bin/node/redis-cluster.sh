@@ -110,7 +110,13 @@ start() {
     runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
   fi
 
-  configure
+  # only exec at first start
+  # config files are updated automaticly by reload
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    configure
+  else
+    swapIpAndName --reverse
+  fi
   _start
   if [ -n "${REBUILD_AUDIT}${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
     log "retry 86400 1 0 getLoadStatus"
@@ -502,6 +508,12 @@ redisCli() {
   echo "/opt/redis/current/redis-cli $authOpt $tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
 }
 
+redisCli2() {
+  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a '$REDIS_PASSWORD'"
+  [[ "$REDIS_TLS_PORT" == "${REDIS_PORT}" ]] && tls="--tls"
+  echo "/opt/redis/current/redis-cli $authOpt $tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
+}
+
 runRedisCmd() {
   local not_error="getUserList addUser measure runRedisCmd"
   local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
@@ -555,10 +567,12 @@ mergeRedisConf() {
   if [ ! -f $RUNTIME_CONFIG_FILE ]; then
     log "mergeRedisConf: first create, end"
     formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    chown redis:svc $RUNTIME_CONFIG_FILE
     return
   fi
   
   # keys from tmp
+  log "keys from tmp"
   format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
   keys_config_tmp=($(echo "$format_config_tmp" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
   dkeys=$(echo "$format_config_tmp" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
@@ -567,6 +581,7 @@ mergeRedisConf() {
   done <<< "$dkeys"
   
   # keys from run
+  log "keys from run"
   format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
   keys_config_run=($(echo "$format_config_run" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
   dkeys=$(echo "$format_config_run" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
@@ -575,6 +590,7 @@ mergeRedisConf() {
   done <<< "$dkeys"
 
   # merge
+  log "merge start"
   for key in "${keys_config_tmp[@]}"; do
     line=$(echo "$format_config_tmp" | sed -n "/^$key\ / {p;q;}")
     # char '&' must be replaced by '\&': it's a special char to sed
@@ -587,8 +603,10 @@ mergeRedisConf() {
       format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
     fi
   done
+  log "merge end"
 
   # acl
+  log "acl"
   if [ "$ENABLE_ACL" = "no" ]; then
     log "remove acl config from redis.conf, because acl is disabled"
     format_config_run=$(echo "$format_config_run" | sed "/^aclfile\ .*/d")
