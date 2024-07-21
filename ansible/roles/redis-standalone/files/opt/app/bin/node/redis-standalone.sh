@@ -30,6 +30,7 @@ RUNTIME_CONFIG_FILE_TMP=$REDIS_DIR/redis.conf.tmp
 RUNTIME_CONFIG_FILE_COOK=$REDIS_DIR/redis.conf.cook
 RUNTIME_SENTINEL_FILE=$REDIS_DIR/sentinel.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
+RUNTIME_ACL_FILE_COOK=$REDIS_DIR/aclfile.conf.cook
 ACL_CLEAR=$REDIS_DIR/acl.clear
 
 
@@ -716,10 +717,25 @@ rotateTLS() {
   done
 }
 
+combineACL() {
+  cat $CHANGED_ACL_FILE $RUNTIME_ACL_FILE > $RUNTIME_ACL_FILE_COOK
+  awk '
+  {
+      username = $2
+      
+      if (!seen[username]) {
+          seen[username] = $0
+          print $0
+      }
+  }
+  ' $RUNTIME_ACL_FILE_COOK > $RUNTIME_ACL_FILE
+}
+
 configureForACL() {
   log "configureForACL Start"
   if [[ "$ENABLE_ACL" == "no" && -e "$ACL_CLEAR" ]] ; then
     rm $ACL_CLEAR -f
+    combineACL
   elif [[ "$ENABLE_ACL" == "yes" ]]; then
     if [[ -e "$ACL_CLEAR" ]];then
       rotate $RUNTIME_ACL_FILE
