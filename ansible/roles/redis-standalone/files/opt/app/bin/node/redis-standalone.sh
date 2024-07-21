@@ -934,3 +934,6 @@ aclManage() {
   log "acl $command end"
 }
 
+upgrade() {
+  chown syslog:adm /data/appctl/logs/*
+}

@@ -7,16 +7,17 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-    "appv-n0b7h67g"
+    "appv-n0b7h67g",
+    "appv-a0a319jr",
+    "appv-e97gz6wz"
   ],
   "upgrading_policy": "sequential",
   "nodes": [{
     "container": {
-      "type": "lxc",
-      "prefer_type": "lxc",
+      "type": "kvm",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-czkn2qh1"
+      "image": "img-me7i0zj8"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -125,6 +126,9 @@
           "service_params": {
                 "confirm": {{service_params.confirm}}
           }
+      },
+      "upgrade": {
+          "cmd": "appctl upgrade"
       }
     }
   }],
