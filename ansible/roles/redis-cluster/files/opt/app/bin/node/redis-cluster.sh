@@ -949,4 +949,5 @@ aclManage() {
 
 upgrade() {
   chown syslog:adm /data/appctl/logs/*
+  configure
 }

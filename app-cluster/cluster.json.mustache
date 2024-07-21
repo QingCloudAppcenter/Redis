@@ -4,17 +4,17 @@
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
     "upgrade_policy": [
-        "appv-fq0atfpt"
+        "appv-fq0atfpt",
+        "appv-3x5sw2u0"
     ],    
     "upgrading_policy": "sequential",
     "nodes": [{
         "role": "master",
         "container": {
-            "type": "lxc",
-            "prefer_type": "lxc",
+            "type": "kvm",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-k9a0fjg9"
+            "image": "img-pbgoczwg"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -108,6 +108,9 @@
             "get_nodes_order": {
                 "event": ["upgrade", "rollback", "scale_vertical"],
                 "cmd": "appctl getNodesOrder"
+            },
+            "upgrade": {
+                "cmd": "appctl upgrade"
             }
         }
     }],
