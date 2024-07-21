@@ -27,6 +27,7 @@ CHANGED_SENTINEL_FILE=$ROOT_CONF_DIR/sentinel.changed.conf
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
 RUNTIME_CONFIG_FILE_TMP=$REDIS_DIR/redis.conf.tmp
+RUNTIME_CONFIG_FILE_COOK=$REDIS_DIR/redis.conf.cook
 RUNTIME_SENTINEL_FILE=$REDIS_DIR/sentinel.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
 ACL_CLEAR=$REDIS_DIR/acl.clear
@@ -548,6 +549,40 @@ formatConf() {
 }
 
 mergeRedisConf() {
+  log "mergeRedisConf: start"
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
+    formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    return
+  fi
+
+  format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
+  echo "$format_config_tmp" > $RUNTIME_CONFIG_FILE_COOK
+  format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
+  echo "$format_config_run" >> $RUNTIME_CONFIG_FILE_COOK
+  combine_config=$(awk '!seen[$0]++' $RUNTIME_CONFIG_FILE_COOK)
+  echo "$combine_config" > $RUNTIME_CONFIG_FILE_COOK
+
+  awk '
+  {
+      first_word = $1
+      
+      if ($1 == "client-output-buffer-limit" || $1 == "rename-command") {
+          first_two_words = $1 " " $2
+      } else {
+          first_two_words = $1
+      }
+      
+      if (!seen[first_two_words]) {
+          seen[first_two_words] = $0
+          print $0
+      }
+  }
+  ' $RUNTIME_CONFIG_FILE_COOK > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
+}
+
+mergeRedisConf2() {
   log "mergeRedisConf: start"
   if [ ! -f $RUNTIME_CONFIG_FILE ]; then
     log "mergeRedisConf: first create, end"
