@@ -47,7 +47,7 @@ getIoThreads() {
   echo "$ioThreads"
 }
 
-REDIS_PASSWORD='{{ getv "/env/requirepass" "" }}'
+REDIS_PASSWORD='{{ $realPass }}'
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 port {{ getv "/env/port" "6379" }}
 cluster-port {{ getv "/env/cluster-port" "0" }}
