@@ -593,7 +593,9 @@ mergeRedisConf() {
       
       if (!seen[first_two_words]) {
           seen[first_two_words] = $0
-          print $0
+          if (first_two_words != "client-output-buffer-limit slave") {
+              print $0
+          }
       }
   }
   ' $RUNTIME_CONFIG_FILE_COOK > $RUNTIME_CONFIG_FILE
@@ -949,5 +951,8 @@ aclManage() {
 
 upgrade() {
   chown syslog:adm /data/appctl/logs/*
+  if [ ! -d $REDIS_DIR/tls ]; then
+    initNode
+  fi
   configure
 }
