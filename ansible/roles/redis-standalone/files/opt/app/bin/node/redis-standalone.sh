@@ -576,7 +576,9 @@ mergeRedisConf() {
       
       if (!seen[first_two_words]) {
           seen[first_two_words] = $0
-          print $0
+          if (first_two_words != "busy-reply-threshold") {
+              print $0
+          }
       }
   }
   ' $RUNTIME_CONFIG_FILE_COOK > $RUNTIME_CONFIG_FILE
@@ -745,6 +747,8 @@ configureForACL() {
       cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
       sudo -u redis touch $ACL_CLEAR
     fi
+  else
+    combineACL
   fi
   log "configureForACL End"
 }
