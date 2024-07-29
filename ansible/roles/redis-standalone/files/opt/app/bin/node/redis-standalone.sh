@@ -940,4 +940,7 @@ aclManage() {
 
 upgrade() {
   chown syslog:adm /data/appctl/logs/*
+  if [ ! -d $REDIS_DIR/tls ]; then
+    initNode
+  fi
 }
