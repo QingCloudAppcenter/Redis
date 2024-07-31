@@ -4,23 +4,23 @@
     "multi_zone_policy": "round_robin",
     "vxnet": {{cluster.vxnet}},
     "upgrade_policy": [
-     "appv-3x5sw2u0",
-     "appv-79rlu7jt",
-     "appv-1pbmp78g",
-     "appv-tqzrokkb",
-     "appv-9yvinzz0",
-     "appv-okxhok17",
-     "appv-pjxqcdm1"
+        "appv-fq0atfpt",
+        "appv-3x5sw2u0",
+        "appv-79rlu7jt",
+        "appv-1pbmp78g",
+        "appv-tqzrokkb",
+        "appv-9yvinzz0",
+        "appv-okxhok17",
+        "appv-pjxqcdm1"
     ],    
-    "upgrading_policy": "parallel",
+    "upgrading_policy": "sequential",
     "nodes": [{
         "role": "master",
         "container": {
-            "type": "lxc",
-            "prefer_type": "lxc",
+            "type": "kvm",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-vs5zdto0"
+            "image": "img-l12eythn"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -114,6 +114,9 @@
             "get_nodes_order": {
                 "event": ["upgrade", "rollback", "scale_vertical"],
                 "cmd": "appctl getNodesOrder"
+            },
+            "upgrade": {
+                "cmd": "appctl upgrade"
             }
         }
     }],
@@ -161,6 +164,9 @@
         "zset-max-listpack-entries": {{env.zset-max-listpack-entries}},
         "zset-max-listpack-value": {{env.zset-max-listpack-value}},
         "lua-time-limit": {{env.lua-time-limit}},
+        "client-output-buffer-limit-normal": {{env.client-output-buffer-limit-normal}},
+        "client-output-buffer-limit-replica": {{env.client-output-buffer-limit-replica}},
+        "client-output-buffer-limit-pubsub": {{env.client-output-buffer-limit-pubsub}},
         "tls-port": {{env.tls-port}},
         "tls-cluster": {{env.tls-cluster}},
         "tls-auth-clients": {{env.tls-auth-clients}},
@@ -198,227 +204,16 @@
           "port": 9121,
           "protocol": "tcp"
         }
-      },
-      "restore_data_from_rdb": {
-        "type": "custom",
-        "cmd": "appctl restoreByCustomRdb",
-        "timeout": 1200,
-        "service_params": {
-          "confirm": {{service_params.confirm}}
-        }
-      }
-    }
-  }],
-  "env": {
-    "disabled-commands": {{env.disabled-commands}},
-    "activerehashing": {{env.activerehashing}},
-    "appendonly": {{env.appendonly}},
-    "appendfsync": {{env.appendfsync}},
-    "databases": {{env.databases}},
-    "enable-commands": {{env.enable-commands}},
-    "hash-max-ziplist-entries": {{env.hash-max-ziplist-entries}},
-    "hash-max-ziplist-value": {{env.hash-max-ziplist-value}},
-    "latency-monitor-threshold": {{env.latency-monitor-threshold}},
-    "list-max-ziplist-entries": {{env.list-max-ziplist-entries}},
-    "list-max-ziplist-value": {{env.list-max-ziplist-value}},
-    "lua-time-limit": {{env.lua-time-limit}},
-    "maxclients": {{env.maxclients}},
-    "maxmemory_portion": {{env.maxmemory_portion}},
-    "maxmemory-policy": {{env.maxmemory-policy}},
-    "maxmemory-samples": {{env.maxmemory-samples}},
-    "min-slaves-max-lag": {{env.min-slaves-max-lag}},
-    "min-slaves-to-write": {{env.min-slaves-to-write}},
-    "no-appendfsync-on-rewrite": {{env.no-appendfsync-on-rewrite}},
-    "notify-keyspace-events": {{env.notify-keyspace-events}},
-    "port": {{env.port}},
-    "repl-backlog-size": {{env.repl-backlog-size}},
-    "repl-backlog-ttl": {{env.repl-backlog-ttl}},
-    "repl-timeout": {{env.repl-timeout}},
-    "requirepass": {{env.requirepass}},
-    "set-max-intset-entries": {{env.set-max-intset-entries}},
-    "slowlog-log-slower-than": {{env.slowlog-log-slower-than}},
-    "slowlog-max-len": {{env.slowlog-max-len}},
-    "tcp-keepalive": {{env.tcp-keepalive}},
-    "timeout": {{env.timeout}},
-    "zset-max-ziplist-entries": {{env.zset-max-ziplist-entries}},
-    "zset-max-ziplist-value": {{env.zset-max-ziplist-value}},
-    "sentinel.failover-timeout":{{env.sentinel.failover-timeout}},
-    "sentinel.down-after-milliseconds":{{env.sentinel.down-after-milliseconds}},
-    "web.console.enabled": {{env.web.console.enabled}},
-    "web.console.username": {{env.web.console.username}},
-    "web.console.password": {{env.web.console.password}}
-  },
-  "monitor": {
-    "enable": true,
-    "cmd": "appctl measure",
-    "items": {
-      "node_role": {
-        "unit": "",
-        "value_type": "str",
-        "statistics_type": "latest",
-        "enums": ["master", "slave"]
-      },
-      "key_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "latest",
-        "scale_factor_when_display": 1
-      },
-      "get_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "set_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "key_based_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "string_based_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "set_based_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "sorted_set_based_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "list_based_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "hash_based_count": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "hit_rate_max": {
-        "unit": "%",
-        "value_type": "int",
-        "statistics_type": "max",
-        "scale_factor_when_display": 0.01
-      },
-      "hit_rate_min": {
-        "unit": "%",
-        "value_type": "int",
-        "statistics_type": "min",
-        "scale_factor_when_display": 0.01
-      },
-      "hit_rate_avg": {
-        "unit": "%",
-        "value_type": "int",
-        "statistics_type": "avg",
-        "scale_factor_when_display": 0.01
-      },
-      "keyspace_hits": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "latest",
-        "scale_factor_when_display": 1
-      },
-      "keyspace_misses": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "latest",
-        "scale_factor_when_display": 1
-      },
-      "total_connections_received": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "delta",
-        "scale_factor_when_display": 1
-      },
-      "evicted_keys": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "latest",
-        "scale_factor_when_display": 1
-      },
-      "expired_keys": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "latest",
-        "scale_factor_when_display": 1
-      },
-      "connected_clients_min": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "min",
-        "scale_factor_when_display": 1
-      },
-      "connected_clients_max": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "max",
-        "scale_factor_when_display": 1
-      },
-      "connected_clients_avg": {
-        "unit": "Times",
-        "value_type": "int",
-        "statistics_type": "avg",
-        "scale_factor_when_display": 1
-      },
-      "used_memory": {
-        "unit": "MB",
-        "value_type": "int",
-        "statistics_type": "latest",
-        "scale_factor_when_display": 0.000001
-      },
-      "memory_usage_min": {
-        "unit": "Pecent(%)",
-        "value_type": "int",
-        "statistics_type": "min",
-        "scale_factor_when_display": 0.01
-      },
-      "memory_usage_avg": {
-        "unit": "Pecent(%)",
-        "value_type": "int",
-        "statistics_type": "avg",
-        "scale_factor_when_display": 0.01
-      },
-      "memory_usage_max": {
-        "unit": "Pecent(%)",
-        "value_type": "int",
-        "statistics_type": "max",
-        "scale_factor_when_display": 0.01
-      },
-      "replica_delay" : {
-        "unit" : "Bytes",
-        "value_type" : "int",
-        "statistics_type" : "latest",
-        "scale_factor_when_display" : 1
-      }
     },
-    "groups": {
-      "replicaDelay": ["replica_delay"],
-      "Operations": ["get_count", "set_count", "key_based_count", "string_based_count"],
-      "Operations2": ["set_based_count", "sorted_set_based_count", "list_based_count", "hash_based_count"],
-      "Connections": ["total_connections_received"],
-      "Connected_clients": ["connected_clients_min", "connected_clients_max", "connected_clients_avg"],
-      "Keys": ["evicted_keys", "expired_keys", "key_count"],
-      "Key_hits": ["keyspace_hits", "keyspace_misses"],
-      "Memory_usage": ["memory_usage_min", "memory_usage_avg", "memory_usage_max"],
-      "Hit_rate": ["hit_rate_min", "hit_rate_avg", "hit_rate_max"]
+    "health_check": {
+        "enable": true,
+        "interval_sec": 60,
+        "timeout_sec": 10,
+        "action_timeout_sec": 30,
+        "healthy_threshold": 2,
+        "unhealthy_threshold": 3,
+        "check_cmd": "appctl check",
+        "action_cmd": "appctl revive"
     },
     "monitor" : {
         "enable" : true,
@@ -811,19 +606,12 @@
         "display" : ["node_role", "is_group_matched", "QPS", "memory_usage", "mem_fragmentation_ratio",  "Running_Status", "replicaDelay", "repl_backlog", "aof_buffer",  "connected_clients", "Connections", "Keys", "Key_hits", "hit_rate",  "Keys1_count","Keys2_count", "Keys3_count", "Keys4_count", "Strings1_count", "Strings2_count", "Strings3_count", "Strings4_count", "Strings5_count", "Hashes1_count", "Hashes2_count", "Hashes3_count", "Lists1_count", "Lists2_count", "Lists3_count", "Lists4_count", "Set1_count", "Set2_count", "Set3_count", "Zset1_count", "Zset2_count", "Zset3_count", "Zset4_count", "Hyperlog_count", "Pubsub1_count", "Pubsub2_count", "Transaction_count", "Script_count"],
         "alarm" : ["memory_usage_max", "evicted_keys", "keyspace_misses", "hit_rate_max", "connected_clients_max","group_matched", "node_role", "repl_backlog_max", "mem_fragmentation_ratio_min", "mem_fragmentation_ratio_max", "evicted_clients"]
     },
-    "sentinel": {
-      "port": 26379,
-      "protocol": "tcp"
-    },
-    "reserved_ips": {
-      "vip": {
-        "value": ""
-      }
+    "display_tabs" : {
+        "roles" : {
+        "cmd" : "appctl getRedisRoles"
+        },
+        "ACL_List" : {
+        "cmd" : "appctl getUserList"
+        }
     }
-  },
-  "display_tabs" : {
-    "roles" : {
-    "cmd" : "appctl getRedisRoles"
-    }
-  }
 }

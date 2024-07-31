@@ -14,10 +14,6 @@ renameCommands() {
     SAVE
     SHUTDOWN
     SLAVEOF
-    {{- if (eq (getv "/env/disabled-commands" "no") "yes") }}
-    FLUSHALL
-    FLUSHDB
-    {{- end }}
   "
   readonly CLUSTER_ID="{{ getv "/cluster/cluster_id" }}" NODE_ID="{{ getv "/host/node_id" }}"
   local cmd; for cmd in $disabledCommands; do
@@ -51,7 +47,7 @@ getIoThreads() {
   echo "$ioThreads"
 }
 
-REDIS_PASSWORD='{{ getv "/env/requirepass" "" }}'
+REDIS_PASSWORD='{{ $realPass }}'
 flush /opt/app/conf/redis-cluster/redis.changed.conf << REDIS_CHANGED_CONF_EOF
 port {{ getv "/env/port" "6379" }}
 cluster-port {{ getv "/env/cluster-port" "0" }}
@@ -65,6 +61,9 @@ cluster-allow-pubsubshard-when-down {{ getv "/env/cluster-allow-pubsubshard-when
 cluster-link-sendbuf-limit {{ getv "/env/cluster-link-sendbuf-limit" "0" }}
 latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
 lua-time-limit {{ getv "/env/lua-time-limit" "5000" }}
+client-output-buffer-limit normal {{getv "/env/client-output-buffer-limit-normal"}}
+client-output-buffer-limit replica {{getv "/env/client-output-buffer-limit-replica"}}
+client-output-buffer-limit pubsub {{getv "/env/client-output-buffer-limit-pubsub"}}
 maxclients {{ getv "/env/maxclients" "65000" }}
 maxmemory {{ mul (mul (getv "/host/memory") "10485") (getv "/env/appctl.maxmemory.percent" "80") }}
 maxmemory-policy {{ getv "/env/maxmemory-policy" "volatile-lru" }}
@@ -91,7 +90,9 @@ zset-max-listpack-value {{ getv "/env/zset-max-listpack-value" "64" }}
 masterauth "$REDIS_PASSWORD"
 requirepass "$REDIS_PASSWORD"
 $(renameCommands)
-rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
+rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL)
+rename-command FLUSHALL $([[ "{{ getv "/env/disabled-commands" }}" == "yes" ]] && encodeCmd FLUSHALL || echo FLUSHALL)
+rename-command FLUSHDB $([[ "{{ getv "/env/disabled-commands" }}" == "yes" ]] && encodeCmd FLUSHDB || echo FLUSHDB)
 io-threads $(getIoThreads)
 io-threads-do-reads $(getIoThreadsDoReads)
 tls-auth-clients {{ getv "/env/tls-auth-clients" }}

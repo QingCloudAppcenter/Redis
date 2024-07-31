@@ -6,6 +6,6 @@ sha256sum() {
   fi
 }
 flush /opt/app/conf/redis-cluster/aclfile.conf << NODES_CONF_EOF
-user default on $(sha256sum '{{ getv "/env/requirepass" "" }}') ~* &* +@all
+user default on $(sha256sum '{{ $realPass }}') ~* &* +@all
 NODES_CONF_EOF
 

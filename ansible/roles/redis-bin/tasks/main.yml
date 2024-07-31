@@ -1,0 +1,101 @@
+---
+- name: set vars
+  set_fact:
+    redis_version: "{{ redis_version | d('7.2.5') }}"
+    os: "{{ os | d(default_os) }}"
+    osv: "{{ osv | d(default_osv) }}"
+    arch: "{{ arch | d(default_arch) }}"
+
+- name: add the service group
+  group:
+    name: svc
+    state: present
+
+- name: add the service user
+  user:
+    name: redis
+    groups: svc
+    shell: /sbin/nologin
+    create_home: no
+    home: /data/redis
+    append: yes
+    comment: "Service User"
+    state: present
+
+- name: create directories
+  file:
+    path: /opt/redis/{{ redis_version }}
+    state: directory
+
+- name: link binary dir
+  file:
+    src: "{{ redis_version }}"
+    dest: /opt/redis/current
+    state: link
+
+- include_role:
+    name: install-1.0.6
+  vars:
+    opts:
+      pkg_name: redis
+      pkg_version: "{{ redis_version }}"
+      pkg_url: "https://github.com/djangoyi-yunify/redis-compiler/releases/download/redis-{{ redis_version }}_{{ os }}-{{ osv }}/redis-{{ redis_version }}-{{ arch }}.tgz"
+      pkg_type: tgz
+      creates: bin
+      extracts: yes
+      extra_opts:
+        - "--strip-components=1"
+
+- name: install services
+  copy:
+    src: "{{ role_path }}/files/lib/systemd/system/"
+    dest: /lib/systemd/system/
+
+- name: mask services
+  systemd:
+    name: "{{ service_name }}"
+    enabled: no
+    masked: yes
+    state: stopped
+  loop:
+  - redis-server
+  - redis-sentinel
+  loop_control:
+    loop_var: service_name
+
+- name: add commands to PATH
+  copy:
+    dest: /etc/profile.d/redis-path.sh
+    content: 'PATH=$PATH:/opt/redis/current'
+
+- stat:
+    path: /etc/rc.local
+  register: rc_local
+
+- name: create rc.local file
+  copy:
+    dest: /etc/rc.local
+    content: |
+      #!/bin/sh
+      set -e
+      exit 0
+    mode: u=rwx,go=rx
+  when: not rc_local.stat.exists
+
+- name: disable huge page
+  lineinfile:
+    path: /etc/rc.local
+    insertbefore: '^exit 0'
+    line: echo never > /sys/kernel/mm/transparent_hugepage/enabled
+
+- name: copy config files
+  copy:
+    src: files/{{ path }}/
+    dest: /{{ path }}
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - etc
+  loop_control:
+    loop_var: path

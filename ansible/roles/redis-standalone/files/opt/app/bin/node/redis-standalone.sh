@@ -26,8 +26,11 @@ CHANGED_SENTINEL_FILE=$ROOT_CONF_DIR/sentinel.changed.conf
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
+RUNTIME_CONFIG_FILE_TMP=$REDIS_DIR/redis.conf.tmp
+RUNTIME_CONFIG_FILE_COOK=$REDIS_DIR/redis.conf.cook
 RUNTIME_SENTINEL_FILE=$REDIS_DIR/sentinel.conf
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
+RUNTIME_ACL_FILE_COOK=$REDIS_DIR/aclfile.conf.cook
 ACL_CLEAR=$REDIS_DIR/acl.clear
 
 
@@ -49,7 +52,12 @@ getLoadStatus() {
 }
 
 start() {
-  isNodeInitialized || execute initNode
+  if [ ! -d $REDIS_DIR ]; then
+    execute initNode
+    configureForRedis
+  else
+    _initNode
+  fi
 
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then
     log "enable acl:$ENABLE_ACL $JOINING_REDIS_NODES"
@@ -92,19 +100,19 @@ stop() {
 }
 
 revive() {
-  checkSvc redis-server || configureForRedis
+  checkSvc redis-server || configureForRedis || :
   _revive $@
   checkVip || setUpVip
 }
 
 findMasterIpByNodeIp(){
   local myRoleResult myRole nodeIp=${1:-$MY_IP}
-  myRoleResult="$(runRedisCmd -h $nodeIp role)"
-  myRole="$(echo "$myRoleResult" |head -n1)"
+  myRoleResult="$(runRedisCmd -h $nodeIp info Replication)"
+  myRole="$(echo "$myRoleResult" |awk -F "[:\r]+" '$1=="role"{print $2}')"
   if [[ "$myRole" == "master" ]]; then
     echo "$nodeIp"
   else
-    echo "$myRoleResult" | sed -n '2p'
+    echo "$myRoleResult" | awk -F "[:\r]+" '$1=="master_host"{print $2}'
   fi
 }
 
@@ -174,22 +182,13 @@ findStableNodesCount() {
 }
 
 preScaleIn() {
+  firstStableNode="$(echo "$STABLE_REDIS_NODES" |cut -d" " -f1)"
+  if [ "${firstStableNode##*/}" != $MY_IP ]; then
+    log "not the first stable node, skipping"
+    return 0
+  fi
   [ -n "$LEAVING_REDIS_NODES" ] || return $LEAVING_REDIS_NODES_IS_NONE_ERR
   checkMasterNotLeaving
-
-  # 防止最终计划剩余3个节点的时候，删除了 sentinel 节点
-  if [[ $(findStableNodesCount) -ge 3 ]];then
-    log --debug "check wether contain sentinel nodes"
-    local firstToThirdNode="$(getSentinelNodes)"
-    log "LEAVING_REDIS_NODES: $LEAVING_REDIS_NODES"
-    log "sentinel nodes: $firstToThirdNode"
-    local node;for node in $firstToThirdNode;do
-      [[ "$LEAVING_REDIS_NODES" == *"$node"* ]] && {
-        log "leaving nodes include sentinel node: $node"
-        return $LEAVING_REDIS_NODES_INCLUDE_SENTINEL_NODE
-      }
-    done
-  fi
 }
 
 preChangeVxnet() {
@@ -198,7 +197,16 @@ preChangeVxnet() {
 }
 
 getSentinelNodes(){
-  eval echo "$STABLE_REDIS_NODES $LEAVING_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs|cut -d" " -f1-3
+  eval echo "$STABLE_REDIS_NODES $JOINING_REDIS_NODES" |xargs -n1| sort -n -t'/' -k1| xargs
+}
+
+getMonitorQuorum() {
+  cnt=$(getSentinelNodes | wc -w)
+  if [ "$cnt" = 1 ]; then
+    echo 1
+  else
+    echo $((cnt-1))
+  fi
 }
 
 getStableNodesIps(){
@@ -247,26 +255,24 @@ destroy() {
         [[ "$stableNodeIp" == "$masterIp" ]] || [[ "$replicaResultOnline" == *"ip=${stableNodeIp},"*  ]] || return $CLUSTER_STATS_ERR
         log "$stableNodeIp is ok"
       done
-      # 对所有的 sentinel 节点执行 sentinel reset
-      log "start sentinel reset"
-      local sentinelNodes; sentinelNodes="$(getSentinelNodes)"
-      log --debug "sentinelNodes: $sentinelNodes"
-      local sentinelNode; for sentinelNode in $sentinelNodes; do
-        log "${sentinelNode##*/} reset?"
-        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
-        runRedisCmd -h ${sentinelNode##*/} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
-        log "${sentinelNode##*/} reset"
-      done
-
     fi
-
   fi
 }
 
 scaleIn() {
-  if [[ $(findStableNodesCount) -eq 1 ]]; then
-    stopSvc redis-sentinel && rm -f $RUNTIME_SENTINEL_FILE*
-  fi
+  # current node exec sentinel reset
+  runRedisCmd -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL RESET $SENTINEL_MONITOR_CLUSTER_NAME || return $SENTINEL_RESET_ERR
+  runRedisCmd -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FLUSHCONFIG || return $SENTINEL_FLUSH_CONFIG_ERR
+  log "sentinel reset done!"
+  # correct quorum
+  log "correct quorum"
+  configureForSentinel
+  restartSvc redis-sentinel
+}
+
+scaleOut() {
+  configureForSentinel
+  restartSvc redis-sentinel
 }
 
 restore() {
@@ -450,9 +456,19 @@ setUpVip() {
   if [ "$MY_IP" == "$masterIp" ]; then
     [[ " $myIps " == *" $REDIS_VIP "* ]] || {
       log "This is the master node, though VIP is unbound. Binding VIP ..."
+      # remove old replicaof/slaveof from $RUNTIME_CONFIG_FILE_TMP
+      sed -i '/^replicaof\ /d' $RUNTIME_CONFIG_FILE_TMP
       bindVip
     }
   else
+    # update replicaof to $RUNTIME_CONFIG_FILE_TMP
+    if grep -q "^replicaof\ " $RUNTIME_CONFIG_FILE_TMP; then
+      sed -i "s/^replicaof\ .*/replicaof $masterIp $REDIS_PORT/" $RUNTIME_CONFIG_FILE_TMP
+    else
+      echo "replicaof $masterIp $REDIS_PORT" >> $RUNTIME_CONFIG_FILE_TMP
+    fi
+
+    # update binding
     [[ " $myIps " != *" $REDIS_VIP "* ]] || {
       log "This is not the master node, though VIP is still bound. Unbinding VIP ..."
       unbindVip
@@ -524,21 +540,119 @@ checkFileChanged() {
   return $retCode
 }
 
+# trim a line
+# be sure only one blank exists when blanks present in the middle of a line
+formatConf() {
+  lines=$(cat $1)
+  lines=$(echo "$lines" | sed -e 's/^[[:space:]]*//g' -e 's/[[:space:]]*$//g')
+  lines=$(echo "$lines" | sed -e 's/[[:space:]]+/ /g')
+  echo "$lines"
+}
+
+mergeRedisConf() {
+  log "mergeRedisConf: start"
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
+    formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    return
+  fi
+
+  format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
+  echo "$format_config_tmp" > $RUNTIME_CONFIG_FILE_COOK
+  format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
+  echo "$format_config_run" >> $RUNTIME_CONFIG_FILE_COOK
+  combine_config=$(awk '!seen[$0]++' $RUNTIME_CONFIG_FILE_COOK)
+  echo "$combine_config" > $RUNTIME_CONFIG_FILE_COOK
+
+  awk '
+  {
+      first_word = $1
+      
+      if ($1 == "client-output-buffer-limit" || $1 == "rename-command") {
+          first_two_words = $1 " " $2
+      } else {
+          first_two_words = $1
+      }
+      
+      if (!seen[first_two_words]) {
+          seen[first_two_words] = $0
+          if (first_two_words != "busy-reply-threshold") {
+              print $0
+          }
+      }
+  }
+  ' $RUNTIME_CONFIG_FILE_COOK > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
+}
+
+mergeRedisConf2() {
+  log "mergeRedisConf: start"
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
+    formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    return
+  fi
+  
+  # keys from tmp
+  format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
+  keys_config_tmp=($(echo "$format_config_tmp" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
+  dkeys=$(echo "$format_config_tmp" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
+  while IFS= read -r line; do
+        keys_config_tmp+=("$line")
+  done <<< "$dkeys"
+  
+  # keys from run
+  format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
+  keys_config_run=($(echo "$format_config_run" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
+  dkeys=$(echo "$format_config_run" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
+  while IFS= read -r line; do
+        keys_config_run+=("$line")
+  done <<< "$dkeys"
+
+  # merge
+  for key in "${keys_config_tmp[@]}"; do
+    line=$(echo "$format_config_tmp" | sed -n "/^$key\ / {p;q;}")
+    # char '&' must be replaced by '\&': it's a special char to sed
+    line="${line//&/\\&}"
+    if ! echo " ${keys_config_run[*]} " | grep "\s\+${key}\s\+"; then
+      # log "append new config: $line"
+      format_config_run=$(echo "$format_config_run" | sed '$a'" $line")
+    else
+      # log "modify config: $line"
+      format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
+    fi
+  done
+
+  # acl
+  if [ "$ENABLE_ACL" = "no" ]; then
+    log "remove acl config from redis.conf, because acl is disabled"
+    format_config_run=$(echo "$format_config_run" | sed "/^aclfile\ .*/d")
+  fi
+
+  echo "$format_config_run" > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
+}
+
 configureForRedis() {
   log --debug "exec configureForRedis"
   local slaveofFile=$ROOT_CONF_DIR/redis.slaveof.conf
   local masterIp; masterIp="$(findMasterIp)"
   log --debug "masterIp is $masterIp"
-  rotate $RUNTIME_CONFIG_FILE
+  if [ ! -f $RUNTIME_CONFIG_FILE_TMP ]; then
+    sudo -u redis touch $RUNTIME_CONFIG_FILE_TMP
+  fi
+  rotate $RUNTIME_CONFIG_FILE_TMP
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
-  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo -e "slaveof $masterIp $REDIS_PORT\nreplicaof $masterIp $REDIS_PORT" > $slaveofFile
+  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo "replicaof $masterIp $REDIS_PORT" > $slaveofFile
 
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE.1 > $RUNTIME_CONFIG_FILE
+    $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE_TMP.1 > $RUNTIME_CONFIG_FILE_TMP
+  
+  mergeRedisConf
 }
 
 swapIpAndName() {
-  local configFiles=$RUNTIME_CONFIG_FILE
+  local configFiles=$RUNTIME_CONFIG_FILE_TMP
   if isSvcEnabled redis-sentinel; then
     configFiles="$configFiles $RUNTIME_SENTINEL_FILE"
   fi
@@ -549,6 +663,8 @@ swapIpAndName() {
   fi
   local replaceCmd="$(echo "$STABLE_REDIS_NODES" | xargs -n1 | awk -F/ '{print '$fields'}' | sed 's#/# / #g; s#^#s/ #g; s#$# /g#g' | paste -sd';')"
   sed -i "$replaceCmd" $configFiles
+  # redo for $RUNTIME_CONFIG_FILE
+  sed -i "$replaceCmd" $RUNTIME_CONFIG_FILE
 }
 
 configureForSentinel() {
@@ -558,7 +674,7 @@ configureForSentinel() {
   log --debug "masterIp is $masterIp"
   # flush every time even no master IP switches, but port is changed
   rotate $RUNTIME_SENTINEL_FILE
-  echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT 2" > $monitorFile
+  echo "sentinel monitor $SENTINEL_MONITOR_CLUSTER_NAME $masterIp $REDIS_PORT $(getMonitorQuorum)" > $monitorFile
 
   if isSvcEnabled redis-sentinel; then
     # 处理升级过程中监控名称的改变
@@ -603,10 +719,25 @@ rotateTLS() {
   done
 }
 
+combineACL() {
+  cat $CHANGED_ACL_FILE $RUNTIME_ACL_FILE > $RUNTIME_ACL_FILE_COOK
+  awk '
+  {
+      username = $2
+      
+      if (!seen[username]) {
+          seen[username] = $0
+          print $0
+      }
+  }
+  ' $RUNTIME_ACL_FILE_COOK > $RUNTIME_ACL_FILE
+}
+
 configureForACL() {
   log "configureForACL Start"
   if [[ "$ENABLE_ACL" == "no" && -e "$ACL_CLEAR" ]] ; then
     rm $ACL_CLEAR -f
+    combineACL
   elif [[ "$ENABLE_ACL" == "yes" ]]; then
     if [[ -e "$ACL_CLEAR" ]];then
       rotate $RUNTIME_ACL_FILE
@@ -616,6 +747,8 @@ configureForACL() {
       cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
       sudo -u redis touch $ACL_CLEAR
     fi
+  else
+    combineACL
   fi
   log "configureForACL End"
 }
@@ -678,6 +811,8 @@ restoreByCustomRdb(){
   execute stop
 
   cp -f $uploadedRDBFile $destRDBfile
+  chown redis:svc $destRDBfile
+  chmod 0644 $destRDBfile
   restore
   rm -rf $uploadedRDBFile
 }
@@ -707,11 +842,7 @@ getRedisRoles(){
     counter=$(($counter+1))
     nodeIp="$(echo "$node" |cut -d"/" -f3)"
     myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
-    if [[ $stableNodesCount -gt 3 ]]; then
-      if [[ $counter -le 3 ]];then allow_deletion="false";else allow_deletion="true";fi
-    else
-      if [[ "$myRole" == "master" ]]; then allow_deletion="false";else allow_deletion="true";fi
-    fi
+    if [[ "$myRole" == "master" ]]; then allow_deletion="false";else allow_deletion="true";fi
     echo "$nodeIp $myRole $allow_deletion"
   done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","allow_deletion"],"data":.}'
 }
@@ -807,3 +938,9 @@ aclManage() {
   log "acl $command end"
 }
 
+upgrade() {
+  chown syslog:adm /data/appctl/logs/*
+  if [ ! -d $REDIS_DIR/tls ]; then
+    initNode
+  fi
+}

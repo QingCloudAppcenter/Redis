@@ -7,26 +7,27 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-     "appv-a0a319jr",
-     "appv-r89epe6m",
-     "appv-e97gz6wz",
-     "appv-vedszzfk",
-     "appv-21ddkc5h",
-     "appv-315vkrx9",
-     "appv-dw8hsl7o",
-     "appv-7nnl5m03",
-     "appv-yjt6jcur",
-     "appv-htdfkqlo",
-     "appv-2koqx590",
-     "appv-tse5x72c"
-   ],
+    "appv-n0b7h67g",
+    "appv-a0a319jr",
+    "appv-r89epe6m",
+    "appv-e97gz6wz",
+    "appv-vedszzfk",
+    "appv-21ddkc5h",
+    "appv-315vkrx9",
+    "appv-dw8hsl7o",
+    "appv-7nnl5m03",
+    "appv-yjt6jcur",
+    "appv-htdfkqlo",
+    "appv-m2kn3sl6",
+    "appv-p313cfew"
+  ],
+  "upgrading_policy": "sequential",
   "nodes": [{
     "container": {
-      "type": "lxc",
-      "prefer_type": "lxc",
+      "type": "kvm",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-ix2ujor2"
+      "image": "img-b8sv8mzr"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -54,8 +55,10 @@
       },
       "scale_in": {
         "pre_check": "appctl preScaleIn",
-        "nodes_to_execute_on": 1,
         "cmd": "appctl scaleIn"
+      },
+      "scale_out": {
+        "cmd": "appctl scaleOut"
       },
       "destroy": {
         "allow_force": false,
@@ -133,6 +136,9 @@
           "service_params": {
                 "confirm": {{service_params.confirm}}
           }
+      },
+      "upgrade": {
+          "cmd": "appctl upgrade"
       }
     }
   }],
@@ -149,6 +155,9 @@
     "latency-monitor-threshold": {{env.latency-monitor-threshold}},
     "list-max-listpack-size": {{env.list-max-listpack-size}},
     "lua-time-limit": {{env.lua-time-limit}},
+    "client-output-buffer-limit-normal": {{env.client-output-buffer-limit-normal}},
+    "client-output-buffer-limit-replica": {{env.client-output-buffer-limit-replica}},
+    "client-output-buffer-limit-pubsub": {{env.client-output-buffer-limit-pubsub}},
     "maxclients": {{env.maxclients}},
     "maxmemory_portion": {{env.maxmemory_portion}},
     "maxmemory-policy": {{env.maxmemory-policy}},

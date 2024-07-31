@@ -249,7 +249,7 @@
             "description": "Require clients to issue AUTH <PASSWORD> before processing any other commands.",
             "type": "password",
             "default": "",
-            "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+            "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$",
             "required": "no"
         }, {
             "key": "activerehashing",
@@ -294,7 +294,7 @@
         }, {
             "key": "cluster-link-sendbuf-limit",
             "label": "cluster-link-sendbuf-limit",
-            "description": "Cluster link send buffer limit is the limit on the memory usage of an individual cluster bus link%27s send buffer in bytes.",
+            "description": "Cluster link send buffer limit is the limit on the memory usage of an individual cluster bus link's send buffer in bytes.",
             "type": "integer",
             "min": 0,
             "default": 0,
@@ -473,6 +473,30 @@
             "default": 5000,
             "required": "no"
         }, {
+            "description": "client output buffer limit for normal clients",
+            "default": "0 0 0",
+            "required": "no",
+            "label": "client-output-buffer-limit(normal)",
+            "key": "client-output-buffer-limit-normal",
+            "type": "string",
+            "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
+          }, {
+            "description": "client output buffer limit for replica clients",
+            "default": "256mb 64mb 60",
+            "required": "no",
+            "label": "client-output-buffer-limit(replica)",
+            "key": "client-output-buffer-limit-replica",
+            "type": "string",
+            "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
+          }, {
+            "description": "client output buffer limit for pubsub clients",
+            "default": "32mb 8mb 60",
+            "required": "no",
+            "label": "client-output-buffer-limit(pubsub)",
+            "key": "client-output-buffer-limit-pubsub",
+            "type": "string",
+            "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
+          }, {
             "key": "tls-auth-clients",
             "label": "TLS-Auth-Clients",
             "description": "tls-auth-clients-description",

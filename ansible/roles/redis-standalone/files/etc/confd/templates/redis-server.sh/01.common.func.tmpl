@@ -1,5 +1,5 @@
 isVotingNode() {
-  local ourVotingNodesSid="$(sort -n <<< "{{ join (getvs "/hosts/*/sid") "\n" }}" |xargs |cut -d" " -f 1-3)"
+  local ourVotingNodesSid="$(sort -n <<< "{{ join (getvs "/hosts/*/sid") "\n" }}" |xargs)"
   echo "$ourVotingNodesSid" | grep -q $1
 }
 

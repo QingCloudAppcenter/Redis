@@ -70,7 +70,7 @@
         "description": "count_description",
         "type": "integer",
         "default": 1,
-        "range": [1, 3, 4, 5, 6, 7, 8, 9],
+        "range": [1, 3, 5, 7, 9],
         "required": "yes"
       }]
     }]
@@ -132,7 +132,7 @@
       "description": "Require clients to issue \"AUTH <USERNAME> <PASSWORD>\" before processing any other commands.",  
       "default": "",
       "type": "password",
-      "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$",
       "required": "yes"
     }, {
       "key": "switch",
@@ -517,6 +517,30 @@
       "type": "integer",
       "min": -1
     }, {
+      "description": "client output buffer limit for normal clients",
+      "default": "0 0 0",
+      "required": "no",
+      "label": "client-output-buffer-limit(normal)",
+      "key": "client-output-buffer-limit-normal",
+      "type": "string",
+      "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
+    }, {
+      "description": "client output buffer limit for replica clients",
+      "default": "256mb 64mb 60",
+      "required": "no",
+      "label": "client-output-buffer-limit(replica)",
+      "key": "client-output-buffer-limit-replica",
+      "type": "string",
+      "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
+    }, {
+      "description": "client output buffer limit for pubsub clients",
+      "default": "32mb 8mb 60",
+      "required": "no",
+      "label": "client-output-buffer-limit(pubsub)",
+      "key": "client-output-buffer-limit-pubsub",
+      "type": "string",
+      "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
+    }, {
       "key": "tls-port",
       "label": "TLS-Port",
       "description": "TLS Listening Port",
@@ -537,7 +561,7 @@
     }, {
       "key": "tls-replication",
       "label": "Tls-Replication",
-      "description": "the following directive to enable TLS on replication links,",
+      "description": "enable TLS on replication links",
       "type": "string",
       "required": "no",
       "default": "no",

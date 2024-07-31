@@ -11,6 +11,8 @@
   - jq-1.0.9
   - ifupdown
   - appctl
+  - redis-bin
+
   - role: arping-1.0.5
     vars:
       arping_version: "20161105-1ubuntu3"
@@ -18,9 +20,6 @@
     vars:
       timezone: "Asia/Shanghai"
 
-  - role: redis-server-1.1.1
-    vars:
-      version: "{{ redis_version }}"
   - role: caddy-1.0.6
     vars:
       caddy_plugins: upload

@@ -28,7 +28,10 @@ REDIS_EXPORTER_PID_FILE="$REDIS_EXPORTER/redis_exporter.pid"
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
+RUNTIME_CONFIG_FILE_TMP=$REDIS_DIR/redis.conf.tmp
+RUNTIME_CONFIG_FILE_COOK=$REDIS_DIR/redis.conf.cook
 RUNTIME_ACL_FILE=$REDIS_DIR/aclfile.conf
+RUNTIME_ACL_FILE_COOK=$REDIS_DIR/aclfile.conf.cook
 NODE_CONF_FILE=$REDIS_DIR/nodes-6379.conf
 ACL_CLEAR=$REDIS_DIR/acl.clear
 
@@ -109,7 +112,14 @@ start() {
     runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
   fi
 
-  configure
+  # only exec at first start
+  # config files are updated automaticly by reload
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    configure
+  else
+    log "swapIpAndName --reverse"
+    swapIpAndName --reverse
+  fi
   _start
   if [ -n "${REBUILD_AUDIT}${VERTICAL_SCALING_ROLES}${UPGRADE_AUDIT}" ]; then
     log "retry 86400 1 0 getLoadStatus"
@@ -416,19 +426,22 @@ reload() {
 revive(){
   [[ "${REVIVE_ENABLED:-"true"}" == "true" ]] || return 0
   # 是否发生错位
-  checkGroupMatched
-  checkClusterMatched
+  if !checkGroupMatched; then
+    _revive
+    return 0
+  fi
+  checkClusterMatched || :
   _revive
 }
 
 findMasterIpByNodeIp(){
-  local myRoleResult myRole nodeIp=${MY_IP}
-  myRoleResult="$(runRedisCmd -h "$nodeIp" role)"
-  myRole="$(echo "$myRoleResult" |head -n1)"
+  local myRoleResult myRole nodeIp=${1:-$MY_IP}
+  myRoleResult="$(runRedisCmd -h $nodeIp info Replication)"
+  myRole="$(echo "$myRoleResult" |awk -F "[:\r]+" '$1=="role"{print $2}')"
   if [[ "$myRole" == "master" ]]; then
     echo "$nodeIp"
   else
-    echo "$myRoleResult" | sed -n '2p'
+    echo "$myRoleResult" | awk -F "[:\r]+" '$1=="master_host"{print $2}'
   fi
 }
 
@@ -498,6 +511,12 @@ redisCli() {
   echo "/opt/redis/current/redis-cli $authOpt $tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
 }
 
+redisCli2() {
+  local authOpt; [ -z "$REDIS_PASSWORD" ] || authOpt="--no-auth-warning -a '$REDIS_PASSWORD'"
+  [[ "$REDIS_TLS_PORT" == "${REDIS_PORT}" ]] && tls="--tls"
+  echo "/opt/redis/current/redis-cli $authOpt $tls --cert /data/redis/tls/redis.crt --key /data/redis/tls/redis.key --cacert /data/redis/tls/ca.crt -p $REDIS_PORT $@"
+}
+
 runRedisCmd() {
   local not_error="getUserList addUser measure runRedisCmd"
   local timeout=5; if [ "$1" == "--timeout" ]; then timeout=$2; shift 2; fi
@@ -529,19 +548,121 @@ swapIpAndName() {
   sudo -u redis touch $NODE_CONF_FILE && rotate $NODE_CONF_FILE
   if [ -n "$1" ];then
     nodes="$UPDATE_CHANGE_VXNET $nodes"
-    fields='{print "s/ "$4":[0-9]*@[0-9]* / "$5":'$port'@'${CLUSTER_PORT}' /g"}'
+    fields='{print "s/ "$4":[0-9]*@[0-9]*/ "$5":'$port'@'${CLUSTER_PORT}'/g"}'
   else
-    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":[0-9]*@[0-9]* / "$4":'$port'@'${CLUSTER_PORT}' /g"}}'
+    fields='{gsub("\\.", "\\.", $5);{print "s/ "$5":[0-9]*@[0-9]*/ "$4":'$port'@'${CLUSTER_PORT}'/g"}}'
   fi
   replaceCmd="$(echo "$nodes" | xargs -n1 | awk -F/ "$fields"  | paste -sd';');s/:[0-9]*@[0-9]* /:$port@${CLUSTER_PORT} /g"
   sed -i "$replaceCmd" $NODE_CONF_FILE
 }
 
+# trim a line
+# be sure only one blank exists when blanks present in the middle of a line
+formatConf() {
+  lines=$(cat $1)
+  lines=$(echo "$lines" | sed -e 's/^[[:space:]]*//g' -e 's/[[:space:]]*$//g')
+  lines=$(echo "$lines" | sed -e 's/[[:space:]]+/ /g')
+  echo "$lines"
+}
+
+mergeRedisConf() {
+  log "mergeRedisConf: start"
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
+    formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    chown redis:svc $RUNTIME_CONFIG_FILE
+    return
+  fi
+
+  format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
+  echo "$format_config_tmp" > $RUNTIME_CONFIG_FILE_COOK
+  format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
+  echo "$format_config_run" >> $RUNTIME_CONFIG_FILE_COOK
+  combine_config=$(awk '!seen[$0]++' $RUNTIME_CONFIG_FILE_COOK)
+  echo "$combine_config" > $RUNTIME_CONFIG_FILE_COOK
+
+  awk '
+  {
+      first_word = $1
+      
+      if ($1 == "client-output-buffer-limit" || $1 == "rename-command") {
+          first_two_words = $1 " " $2
+      } else {
+          first_two_words = $1
+      }
+      
+      if (!seen[first_two_words]) {
+          seen[first_two_words] = $0
+          if (first_two_words != "client-output-buffer-limit slave") {
+              print $0
+          }
+      }
+  }
+  ' $RUNTIME_CONFIG_FILE_COOK > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
+}
+
+mergeRedisConf2() {
+  log "mergeRedisConf: start"
+  if [ ! -f $RUNTIME_CONFIG_FILE ]; then
+    log "mergeRedisConf: first create, end"
+    formatConf $RUNTIME_CONFIG_FILE_TMP > $RUNTIME_CONFIG_FILE
+    chown redis:svc $RUNTIME_CONFIG_FILE
+    return
+  fi
+  
+  # keys from tmp
+  log "keys from tmp"
+  format_config_tmp=$(formatConf $RUNTIME_CONFIG_FILE_TMP)
+  keys_config_tmp=($(echo "$format_config_tmp" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
+  dkeys=$(echo "$format_config_tmp" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
+  while IFS= read -r line; do
+        keys_config_tmp+=("$line")
+  done <<< "$dkeys"
+  
+  # keys from run
+  log "keys from run"
+  format_config_run=$(formatConf $RUNTIME_CONFIG_FILE)
+  keys_config_run=($(echo "$format_config_run" | grep -v "client-output-buffer-limit\|rename-command" | awk '{print $1}' | sort -u))
+  dkeys=$(echo "$format_config_run" | grep "client-output-buffer-limit\|rename-command" | awk '{print $1 " " $2}' | sort -u)
+  while IFS= read -r line; do
+        keys_config_run+=("$line")
+  done <<< "$dkeys"
+
+  # merge
+  log "merge start"
+  for key in "${keys_config_tmp[@]}"; do
+    line=$(echo "$format_config_tmp" | sed -n "/^$key\ / {p;q;}")
+    # char '&' must be replaced by '\&': it's a special char to sed
+    line="${line//&/\\&}"
+    if ! echo " ${keys_config_run[*]} " | grep "\s\+${key}\s\+"; then
+      # log "append new config: $line"
+      format_config_run=$(echo "$format_config_run" | sed '$a'" $line")
+    else
+      # log "modify config: $line"
+      format_config_run=$(echo "$format_config_run" | sed "0,\|^$key\ .*|s||$line|")
+    fi
+  done
+  log "merge end"
+
+  # acl
+  log "acl"
+  if [ "$ENABLE_ACL" = "no" ]; then
+    log "remove acl config from redis.conf, because acl is disabled"
+    format_config_run=$(echo "$format_config_run" | sed "/^aclfile\ .*/d")
+  fi
+
+  echo "$format_config_run" > $RUNTIME_CONFIG_FILE
+  log "mergeRedisConf: end"
+}
+
 configureForRedis(){
   log "configureForRedis Start"
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
-    $CHANGED_CONFIG_FILE $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE.1 > $RUNTIME_CONFIG_FILE
+    $CHANGED_CONFIG_FILE $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE_TMP.1 > $RUNTIME_CONFIG_FILE_TMP
   log "configureForRedis End"
+
+  mergeRedisConf
 }
 
 rotateTLS() {
@@ -554,10 +675,25 @@ rotateTLS() {
   done
 }
 
+combineACL() {
+  cat $CHANGED_ACL_FILE $RUNTIME_ACL_FILE > $RUNTIME_ACL_FILE_COOK
+  awk '
+  {
+      username = $2
+      
+      if (!seen[username]) {
+          seen[username] = $0
+          print $0
+      }
+  }
+  ' $RUNTIME_ACL_FILE_COOK > $RUNTIME_ACL_FILE
+}
+
 configureForACL() {
   log "configureForACL Start"
   if [[ "$ENABLE_ACL" == "no" && -e "$ACL_CLEAR" ]] ; then
     rm $ACL_CLEAR -f
+    combineACL
   elif [[ "$ENABLE_ACL" == "yes" ]]; then
     if [[ -e "$ACL_CLEAR" ]];then
       cat $CHANGED_ACL_FILE > $RUNTIME_ACL_FILE
@@ -573,11 +709,20 @@ configureForACL() {
   log "configureForACL End"
 }
 
+updatePorts() {
+  # update ports settings in node-6379.conf in case the ports changed
+  local fields replaceCmd  port=$REDIS_PLAIN_PORT nodes=$REDIS_NODES
+  [[ "$REDIS_TLS_CLUSTER" == "yes" ]] && port=$REDIS_TLS_PORT
+  replaceCmd="s/:[0-9]*@[0-9]*/:$port@${CLUSTER_PORT}/g"
+  sed -i "$replaceCmd" $NODE_CONF_FILE
+}
+
 configure() {
-  sudo -u redis touch $RUNTIME_CONFIG_FILE
+  sudo -u redis touch $RUNTIME_CONFIG_FILE_TMP
   rotate $RUNTIME_ACL_FILE
-  rotate $RUNTIME_CONFIG_FILE
+  rotate $RUNTIME_CONFIG_FILE_TMP
   swapIpAndName --reverse
+  updatePorts
   configureForACL
   configureForRedis
   rotateTLS
@@ -804,3 +949,10 @@ aclManage() {
   log "acl $command end"
 }
 
+upgrade() {
+  chown syslog:adm /data/appctl/logs/*
+  if [ ! -d $REDIS_DIR/tls ]; then
+    initNode
+  fi
+  configure
+}
