@@ -1,0 +1,37 @@
+---
+- name: set vars
+  set_fact:
+    os: "{{ os | d(default_os) }}"
+
+- name: ubuntu
+  systemd:
+    name: "{{ svc_name }}"
+    state: stopped
+    masked: yes
+  loop:
+  - apt-daily.timer
+  - apt-daily.service
+  - apt-daily-upgrade.timer
+  - apt-daily-upgrade.service
+  loop_control:
+    loop_var: svc_name
+  when: os == 'ubuntu'
+
+- name: kylin
+  systemd:
+    name: "{{ svc_name }}"
+    state: stopped
+    masked: yes
+  loop:
+  - dnf-automatic-download.timer
+  - dnf-automatic-download.service
+  - dnf-automatic-install.timer
+  - dnf-automatic-install.service
+  - dnf-automatic-notifyonly.timer
+  - dnf-automatic-notifyonly.service
+  - dnf-automatic.timer
+  - dnf-automatic.service
+  loop_control:
+    loop_var: svc_name
+  when: os == 'kylin'
+  

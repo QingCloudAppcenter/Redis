@@ -4,52 +4,51 @@
   vars:
     target_env: "{{ lookup('env', 'target') }}"
   roles:
-  - update-apt-sources-1.0.0
-  - disable-apt-jobs-1.0.0
-  - disable-motd-1.0.0
-  - app-agent-1.0.6
-  - jq-1.0.9
-  - ifupdown
-  - appctl
-  - redis-bin
+  - disable-package-manager-timers
+  - disable-motd
+  - app-agent
+  - jq
+  # - ifupdown
+  # - appctl
+  # - redis-bin
 
-  - role: arping-1.0.5
-    vars:
-      arping_version: "20161105-1ubuntu3"
-  - role: set-timezone-1.0.0
-    vars:
-      timezone: "Asia/Shanghai"
+#   - role: arping-1.0.5
+#     vars:
+#       arping_version: "20161105-1ubuntu3"
+#   - role: set-timezone-1.0.0
+#     vars:
+#       timezone: "Asia/Shanghai"
 
-  - role: caddy-1.0.6
-    vars:
-      caddy_plugins: upload
+#   - role: caddy-1.0.6
+#     vars:
+#       caddy_plugins: upload
 
-- name: redis standalone
-  hosts: redis-standalone
-  tasks:
-  - include_role:
-      name: "{{ name }}"
-    loop:
-    - redis-standalone
-    - node-exporter-0.18.1
-    - redis-exporter
-    loop_control:
-      loop_var: name
+# - name: redis standalone
+#   hosts: redis-standalone
+#   tasks:
+#   - include_role:
+#       name: "{{ name }}"
+#     loop:
+#     - redis-standalone
+#     - node-exporter-0.18.1
+#     - redis-exporter
+#     loop_control:
+#       loop_var: name
 
-- name: redis cluster
-  hosts: redis-cluster
-  tasks:
-  - include_role:
-      name: "{{ name }}"
-    loop:
-    - redis-cluster
-    - node-exporter-0.18.1
-    - redis-exporter
-    loop_control:
-      loop_var: name
+# - name: redis cluster
+#   hosts: redis-cluster
+#   tasks:
+#   - include_role:
+#       name: "{{ name }}"
+#     loop:
+#     - redis-cluster
+#     - node-exporter-0.18.1
+#     - redis-exporter
+#     loop_control:
+#       loop_var: name
 
-- name: online-setup 
-  hosts: online-setup 
-  tasks:
-  - include_role:
-      name: "online-setup"
+# - name: online-setup 
+#   hosts: online-setup 
+#   tasks:
+#   - include_role:
+#       name: "online-setup"

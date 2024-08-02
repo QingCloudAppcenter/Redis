@@ -1,0 +1,40 @@
+---
+- name: set up variables
+  set_fact:
+    jq_version: "{{ jq_version | d('1.7') }}"
+    arch: "{{ arch | d(default_arch) }}"
+    installPath: "/opt/jq"
+
+# will set var downloaded
+- include_role:
+    name: downloader
+  vars:
+    opts:
+      pkg_name: jq
+      pkg_version: "{{ jq_version }}"
+      pkg_feature: "linux-{{ arch }}"
+      pkg_fileType: ""
+      pkg_url: https://github.com/jqlang/jq/releases/download/jq-{{ jq_version }}/jq-linux-{{ arch }}
+
+- name: prepare dir
+  file:
+    path: "{{ installPath }}"
+    state: directory
+
+- name: copy file
+  copy:
+    src: "{{ downloaded }}"
+    dest: "{{ installPath }}/{{ jq_version }}/jq"
+    mode: "0755"
+
+- name: link for current
+  file:
+    src: "{{ installPath }}/{{ jq_version }}"
+    dest: "{{ installPath }}/current"
+    state: link
+
+- name: link for jq
+  file:
+    src: "{{ installPath }}/current/jq"
+    dest: "/usr/bin/jq"
+    state: link
