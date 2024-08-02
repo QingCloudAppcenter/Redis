@@ -1,0 +1,7 @@
+[redisstandalone]
+ubuntu-amd64 ansible_host=172.22.2.9
+kylin-amd64 ansible_host=36.110.217.232 ansible_port=30022
+kylin-arm64 ansible_host=36.110.217.232 ansible_port=30122
+
+[rediscluster]
+#172.22.2.8

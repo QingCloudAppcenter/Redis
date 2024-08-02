@@ -1,0 +1,9 @@
+- include_role:
+    name: downloader
+  vars:
+    opts:
+      pkg_name: redis
+      pkg_version: abc
+      pkg_feature: def
+      pkg_fileType: zip
+      pkg_url: ghi
