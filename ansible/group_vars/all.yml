@@ -4,3 +4,4 @@ redis_version: 7.2.5
 local_cache_path: "file/tmp"
 arping_version: "20211215-1"
 default_timezone: "Asia/Shanghai"
+caddy_version: "v2.8.4"

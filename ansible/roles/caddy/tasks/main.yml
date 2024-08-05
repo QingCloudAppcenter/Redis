@@ -1,0 +1,49 @@
+---
+- name: set up variables
+  set_fact:
+    caddy_version: "{{ caddy_version | d('v2.8.4') }}"
+    arch: "{{ arch | d(default_arch) }}"
+    installPath: "/opt/caddy"
+
+- name: prepare service group
+  group:
+    name: svc
+    state: present
+
+- name: prepare service user
+  user:
+    name: caddy
+    groups: svc
+    shell: /sbin/nologin
+    create_home: no
+    append: yes
+    comment: "Service User"
+    state: present
+
+- name: prepare binary directory
+  file:
+    path: "{{ installPath }}/{{ caddy_version }}"
+    state: directory
+
+- name: link binary dir
+  file:
+    src: "{{ installPath }}/{{ caddy_version }}"
+    dest: "{{ installPath }}/current"
+    state: link
+  
+# will set var downloaded
+- include_role:
+    name: downloader
+  vars:
+    opts:
+      pkg_name: caddy
+      pkg_version: "{{ caddy_version }}"
+      pkg_feature: "linux-{{ arch }}"
+      pkg_fileType: ""
+      pkg_url: https://github.com/djangoyi-yunify/caddy-compiler/releases/download/redis-{{ caddy_version }}_linux/caddy-{{ arch }}
+
+- name: copy bin file
+  copy:
+    src: "{{ downloaded }}"
+    dest: "{{ installPath }}/{{ caddy_version }}/caddy"
+    mode: "0755"
