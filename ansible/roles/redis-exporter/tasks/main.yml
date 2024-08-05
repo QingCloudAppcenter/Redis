@@ -1,7 +1,9 @@
 ---
-- name: Node_exporter set var
+- name: set up variables
   set_fact:
-    redis_exporter_version: 1.31.4
+    redis_exporter_version: "{{ redis_exporter_version | d('v1.62.0') }}"
+    arch: "{{ arch | d(default_arch) }}"
+    installPath: "/opt/prometheus/redis_exporter"
 
 - name: Copy files
   copy:
@@ -27,42 +29,30 @@
 
 - name: Create redis_exporter folder
   file:
-    path: /opt/prometheus/redis_exporter
+    path: "{{ installPath }}"
     state: directory
     owner: prometheus
     group: prometheus
     mode: 0755
 
-- name: Prepare tmp download dir
-  file:
-    path: "{{ role_path }}/files/tmp"
-    state: directory
-  delegate_to: localhost
+# will set var downloaded
+- include_role:
+    name: downloader
+  vars:
+    opts:
+      pkg_name: redis-exporter
+      pkg_version: "{{ redis_exporter_version }}"
+      pkg_feature: "linux-{{ arch }}"
+      pkg_fileType: ".tgz"
+      pkg_url: "https://github.com/oliver006/redis_exporter/releases/download/{{redis_exporter_version}}/redis_exporter-{{redis_exporter_version}}.linux-{{ arch }}.tar.gz"
 
-- name: check if package file exists
-  stat:
-    path: "{{ role_path }}/files/tmp/redis_exporter-{{redis_exporter_version}}.tar.gz"
-  register: cached_file
-  delegate_to: localhost
-
-- name: Download redis_exporter reusable binaries locally
-  get_url:
-    url: "https://github.com/oliver006/redis_exporter/releases/download/v{{redis_exporter_version}}/redis_exporter-v{{redis_exporter_version}}.linux-amd64.tar.gz"
-    dest: "{{ role_path }}/files/tmp/redis_exporter-{{redis_exporter_version}}.tar.gz"
-  delegate_to: localhost
-  run_once: True
-  when:
-  - cached_file.stat.exists == False
-
-- name: Extract redis_exporter binary
+- name: decompress file
   unarchive:
-    src: "{{ role_path }}/files/tmp/{{ item }}.tar.gz"
-    dest: "/opt/prometheus/redis_exporter/"
-    extra_opts: [ --strip-components=1 ]
-    owner: root
-    group: root
-  with_items:
-    - "redis_exporter-{{redis_exporter_version}}"
+    src: "{{ downloaded }}"
+    dest: "{{ installPath }}"
+    # creates: "{{ installPath }}/node_exporter"
+    extra_opts:
+    - --strip-components=1
 
 - name: disable apt auto upgrade
   systemd:
@@ -71,10 +61,6 @@
     enabled: no
     masked: yes
     state: stopped
-  loop:
-  - redis_exporter
-  loop_control:
-    loop_var: svc_name
 
 - name: install confd files
   include_tasks: ../../utils/tasks/process-confd-files.yml
