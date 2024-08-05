@@ -29,7 +29,7 @@
 
 - name: Create node_exporter folder
   file:
-    path: "{{ installPath }}"
+    path: "{{ installPath }}/{{ node_exporter_version }}"
     state: directory
     owner: prometheus
     group: prometheus
@@ -49,10 +49,16 @@
 - name: decompress file
   unarchive:
     src: "{{ downloaded }}"
-    dest: "{{ installPath }}"
-    creates: "{{ installPath }}/node_exporter"
+    dest: "{{ installPath }}/{{ node_exporter_version }}"
+    creates: "{{ installPath }}/{{ node_exporter_version }}/node_exporter"
     extra_opts:
     - --strip-components=1
+
+- name: link for current
+  file:
+    src: "{{ installPath }}/{{ node_exporter_version }}"
+    dest: "{{ installPath }}/current"
+    state: link
 
 - name: disable systemd deamon
   systemd:
