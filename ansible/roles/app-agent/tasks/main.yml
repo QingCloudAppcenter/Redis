@@ -14,7 +14,7 @@
       pkg_version: "{{ appAgentVersion }}"
       pkg_feature: "linux-{{ arch }}"
       pkg_fileType: ".tgz"
-      pkg_url: https://github.com/QingCloudAppcenter/AppcenterAgent/releases/download/{{ appAgentVersion }}/app-agent-linux-amd64.tar.gz
+      pkg_url: "https://github.com/QingCloudAppcenter/AppcenterAgent/releases/download/{{ appAgentVersion }}/app-agent-linux-{{ arch }}.tar.gz"
 
 - name: prepare dir
   file:

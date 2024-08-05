@@ -1,0 +1,45 @@
+---
+- name: set up variables
+  set_fact:
+    arping_version: "{{ arping_version | d('20211215-1') }}"
+    os: "{{ os | d(default_os) }}"
+    arch: "{{ arch | d(default_arch) }}"
+
+- name: set up url_prefix for ubuntu amd64
+  set_fact:
+    url_prefix: "http://archive.ubuntu.com/ubuntu"
+  when:
+  - os == 'ubuntu'
+  - arch == 'amd64'
+
+- name: set up url_prefix for ubuntu arm64
+  set_fact:
+    url_prefix: "http://ports.ubuntu.com"
+  when:
+  - os == 'ubuntu'
+  - arch == 'arm64'
+
+# will set var downloaded
+- include_role:
+    name: downloader
+  vars:
+    opts:
+      pkg_name: arping
+      pkg_version: "{{ arping_version }}"
+      pkg_feature: "linux-{{ arch }}"
+      pkg_fileType: ".deb"
+      pkg_url: "{{ url_prefix }}/pool/main/i/iputils/iputils-arping_{{ arping_version }}_{{ arch }}.deb"
+  when: os == 'ubuntu'
+
+- name: copy file
+  copy:
+    src: "{{ downloaded }}"
+    dest: "/tmp"
+  when: os == 'ubuntu'
+
+- name: install
+  apt:
+    deb: "/tmp/{{ downloaded | basename }}"
+    policy_rc_d: 101
+    state: present
+  when: os == 'ubuntu'

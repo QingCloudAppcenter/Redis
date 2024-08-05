@@ -2,3 +2,4 @@ appAgentVersion: v1.0.7
 jq_version: "1.7"
 redis_version: 7.2.5
 local_cache_path: "file/tmp"
+arping_version: "20211215-1"
