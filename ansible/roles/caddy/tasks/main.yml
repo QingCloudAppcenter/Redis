@@ -47,3 +47,23 @@
     src: "{{ downloaded }}"
     dest: "{{ installPath }}/{{ caddy_version }}/caddy"
     mode: "0755"
+
+- name: transfer files
+  copy:
+    src: files/{{ file_path }}
+    dest: /{{ file_path }}
+    owner: root
+    group: root
+    mode: preserve
+  loop:
+    - lib/systemd/system/
+    - opt/app/
+  loop_control:
+    loop_var: file_path
+
+- name: mask caddy service
+  systemd:
+    name: caddy
+    enabled: no
+    masked: yes
+    state: stopped
