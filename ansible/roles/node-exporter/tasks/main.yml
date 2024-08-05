@@ -1,0 +1,66 @@
+---
+- name: set up variables
+  set_fact:
+    node_exporter_version: "{{ node_exporter_version | d('1.8.2') }}"
+    arch: "{{ arch | d(default_arch) }}"
+    installPath: "/opt/prometheus/node_exporter"
+
+- name: Copy files
+  copy:
+    src: "{{ role_path }}/files/opt/app/current/conf/systemd/node_exporter.service"
+    dest: /lib/systemd/system/
+    directory_mode: yes
+
+- name: Add the prometheus Service Group
+  group:
+    name: "prometheus"
+    state: present
+
+- name: Add the prometheus Service User
+  user:
+    name: "prometheus"
+    groups: "prometheus"
+    shell: /sbin/nologin
+    create_home: no
+    home: /var/lib/prometheus
+    append: yes
+    comment: "prometheus Service User"
+    state: present
+
+- name: Create node_exporter folder
+  file:
+    path: "{{ installPath }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: 0755
+
+# will set var downloaded
+- include_role:
+    name: downloader
+  vars:
+    opts:
+      pkg_name: node-exporter
+      pkg_version: "{{ node_exporter_version }}"
+      pkg_feature: "linux-{{ arch }}"
+      pkg_fileType: ".tgz"
+      pkg_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-{{ arch }}.tar.gz"
+
+- name: decompress file
+  unarchive:
+    src: "{{ downloaded }}"
+    dest: "{{ installPath }}"
+    creates: "{{ installPath }}/node_exporter"
+    extra_opts:
+    - --strip-components=1
+
+- name: disable systemd deamon
+  systemd:
+    daemon_reload: yes
+    name: node_exporter
+    enabled: no
+    masked: yes
+    state: stopped
+
+- name: install confd files
+  include_tasks: ../../utils/tasks/process-confd-files.yml
