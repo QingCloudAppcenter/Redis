@@ -29,7 +29,7 @@
 
 - name: Create redis_exporter folder
   file:
-    path: "{{ installPath }}"
+    path: "{{ installPath }}/{{ redis_exporter_version }}"
     state: directory
     owner: prometheus
     group: prometheus
@@ -49,12 +49,18 @@
 - name: decompress file
   unarchive:
     src: "{{ downloaded }}"
-    dest: "{{ installPath }}"
-    # creates: "{{ installPath }}/node_exporter"
+    dest: "{{ installPath }}/{{ redis_exporter_version }}"
+    creates: "{{ installPath }}/{{ redis_exporter_version }}/redis_exporter"
     extra_opts:
     - --strip-components=1
 
-- name: disable apt auto upgrade
+- name: link for current
+  file:
+    src: "{{ installPath }}/{{ redis_exporter_version }}"
+    dest: "{{ installPath }}/current"
+    state: link
+
+- name: disable systemd deamon
   systemd:
     daemon_reload: yes
     name: redis_exporter
