@@ -43,6 +43,7 @@ initNode() {
   chown -R redis.svc $REDIS_DIR
   chown -R caddy.svc $caddyPath
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
+  local templateDir=/data/templates; [ -e "$templateDir" ] || ln -s /opt/app/conf/caddy/templates $templateDir
   _initNode
 }
 
