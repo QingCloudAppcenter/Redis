@@ -88,8 +88,8 @@ zset-max-listpack-value {{ getv "/env/zset-max-listpack-value" "64" }}
 port {{ getv "/env/port" "6379" }}
 tls-port {{ getv "/env/tls-port" "0" }}
 tls-replication {{ getv "/env/tls-replication" "no" }}
-masterauth "{{ getv "/env/requirepass" "" }}"
-requirepass "{{ getv "/env/requirepass" "" }}"
+masterauth "{{ replace (getv "/env/requirepass" "") `$` `\$` -1 }}"
+requirepass "{{ replace (getv "/env/requirepass" "") `$` `\$` -1 }}"
 $(renameCommands)
 rename-command ACL $([[ "{{ getv "/env/enable-acl" }}" == "yes" ]] && encodeCmd ACL || echo ACL) 
 io-threads $(getIoThreads)
