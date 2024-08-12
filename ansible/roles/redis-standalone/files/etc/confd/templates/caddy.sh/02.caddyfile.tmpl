@@ -1,17 +1,28 @@
+hashtool=/opt/caddy/current/caddy
+
 flush /opt/app/conf/caddy/caddyfile << CADDYFILE_EOF
 {
+        admin off
+        auto_https off
+        persist_config off
         order upload before file_server
+        log {
+                output file /data/caddy/caddy.log
+        }
 }
 
 :80 {
-        {{- with getv "/env/web.console.password" "" }}
-        basicauth / "{{ getv "/env/web.console.username" "admin" }}" "{{ . }}"
-        {{- end }}
         vars {
                 rootDir "/data"
         }
 
         root {vars.rootDir}
+
+        {{- with getv "/env/web.console.password" "" }}
+        basic_auth {
+                {{ getv "/env/web.console.username" "admin" }} $($hashtool hash-password --plaintext '{{ . }}')
+        }
+        {{- end }}
 
         handle /redis/logs* {
                 file_server browse
@@ -30,8 +41,9 @@ flush /opt/app/conf/caddy/caddyfile << CADDYFILE_EOF
         @mypost method POST
         upload @mypost {
                 dest_dir caddy/upload
+                fixed_file_name dump.rdb
                 max_form_buffer 1G
-                max_filesize 4MB
+                max_filesize 500MB
                 response_template templates/upload-resp-template.txt
         }
 }

@@ -11,6 +11,7 @@ Restart=on-abnormal
 User=caddy
 Group=caddy
 
+Environment=XDG_DATA_HOME=/data
 ; Always set "-root" to something safe in case it gets forgotten in the Caddyfile.
 ExecStart=/opt/caddy/current/caddy run --config=/opt/app/conf/caddy/caddyfile
 ExecReload=/bin/kill -USR1 $MAINPID
