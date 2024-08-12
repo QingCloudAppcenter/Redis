@@ -4,6 +4,8 @@
   vars:
     target_env: "{{ lookup('env', 'target') }}"
   roles:
+  - tar
+  - nc
   - disable-package-manager-timers
   - disable-motd
   - app-agent
@@ -15,6 +17,7 @@
   - caddy
   - node-exporter
   - redis-exporter
+  - users_groups
 
 - name: redis standalone
   hosts: redisstandalone
