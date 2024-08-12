@@ -1,20 +1,26 @@
 ---
+- name: set vars
+  set_fact:
+    os: "{{ os | d(default_os) }}"
 
 - name: prepare tmp path
   include_tasks: ../../utils/tasks/prepare-tmp-dir.yml
   
-- name: copy logging config files
+- name: copy rsyslog config files
   copy:
-    src: files/{{ path }}/
-    dest: /{{ path }}
+    src: files/etc/rsyslog.d
+    dest: /etc
     owner: root
     group: root
     mode: u=rw,go=r
-  loop:
-    - etc/logrotate.d
-    - etc/rsyslog.d
-  loop_control:
-    loop_var: path
+
+- name: copy logrotate config files
+  copy:
+    src: "files/etc/logrotate.d/appctl-{{ os }}"
+    dest: /etc/logrotate.d/appctl
+    owner: root
+    group: root
+    mode: u=rw,go=r
 
 - name: create svc group
   group:
