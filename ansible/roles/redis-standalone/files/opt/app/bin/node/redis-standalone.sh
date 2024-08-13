@@ -940,8 +940,15 @@ aclManage() {
 }
 
 upgrade() {
-  chown syslog:adm /data/appctl/logs/*
+  chown syslog:adm /data/appctl/logs/* || :
   if [ ! -d $REDIS_DIR/tls ]; then
     initNode
+  fi
+  oldUser=$(ls -ld $REDIS_DIR | awk '{print $3}')
+  if [ "$oldUser" != "redis" ]; then
+    chown -R redis:svc $REDIS_DIR
+    chown -R prometheus:svc /data/redis_exporter
+    chown -R caddy:svc /data/caddy
+    local templateDir=/data/templates; [ -e "$templateDir" ] || ln -s /opt/app/conf/caddy/templates $templateDir
   fi
 }
