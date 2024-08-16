@@ -235,5 +235,7 @@
   "swith threading of reads and protocol parsing": "开/关读取线程和协议解析.\n为 \"auto\" 时, 根据 CPU 数自行调整，重启生效",
   "client output buffer limit for normal clients": "针对普通客户端的 output buffer 限制，重启生效",
   "client output buffer limit for replica clients": "针对 redis 副本的 output buffer 限制，重启生效",
-  "client output buffer limit for pubsub clients": "针对订阅的 output buffer 限制，重启生效"
+  "client output buffer limit for pubsub clients": "针对订阅的 output buffer 限制，重启生效",
+  "Preferred AZ": "优先的 Zone",
+  "preferred AZ where master node will be elected": "该 Zone 中的节点将被优先选举为主节点，重启生效"
 }

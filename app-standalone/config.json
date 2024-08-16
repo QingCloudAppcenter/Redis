@@ -526,7 +526,7 @@
       "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
     }, {
       "description": "client output buffer limit for replica clients",
-      "default": "256mb 64mb 60",
+      "default": "256mb 128mb 60",
       "required": "no",
       "label": "client-output-buffer-limit(replica)",
       "key": "client-output-buffer-limit-replica",
@@ -702,6 +702,13 @@
       "description": "password of admin web console",
       "type": "password",
       "pattern": "^\\w{0,24}$",
+      "default": "",
+      "required": "no"
+    }, {
+      "key": "preferred-az",
+      "label": "Preferred AZ",
+      "description": "preferred AZ where master node will be elected",
+      "type": "string",
       "default": "",
       "required": "no"
     }]

@@ -7,15 +7,27 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-    "appv-vmg56wlp"
+    "appv-n0b7h67g",
+    "appv-a0a319jr",
+    "appv-r89epe6m",
+    "appv-e97gz6wz",
+    "appv-vedszzfk",
+    "appv-21ddkc5h",
+    "appv-315vkrx9",
+    "appv-dw8hsl7o",
+    "appv-7nnl5m03",
+    "appv-yjt6jcur",
+    "appv-htdfkqlo",
+    "appv-m2kn3sl6",
+    "appv-p313cfew"
   ],
   "upgrading_policy": "sequential",
   "nodes": [{
     "container": {
       "type": "kvm",
       "sriov_nic": true,
-      "zone": "pekt3",
-      "image": "img-srzdyxlv"
+      "zone": "pek3",
+      "image": "img-r6nu5w0t"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -194,7 +206,8 @@
     "tls-ca-cert": {{env.tls-ca-cert}},
     "tls-dh-params": {{env.tls-dh-params}},
     "io-threads-do-reads": {{env.io-threads-do-reads}},
-    "io-threads": {{env.io-threads}}
+    "io-threads": {{env.io-threads}},
+    "preferred-az": {{env.preferred-az}}
   },
   "monitor": {
     "enable": true,

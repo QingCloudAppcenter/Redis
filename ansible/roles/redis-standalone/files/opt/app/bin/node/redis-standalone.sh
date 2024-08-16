@@ -22,7 +22,7 @@ CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
 DEFAULT_CONFIG_FILE=$ROOT_CONF_DIR/redis.default.conf
 CHANGED_ACL_FILE=$ROOT_CONF_DIR/aclfile.conf
 CHANGED_SENTINEL_FILE=$ROOT_CONF_DIR/sentinel.changed.conf
-
+PREFERRED_AZ_CONFIG_FILE=$ROOT_CONF_DIR/preferred-az.conf
 
 REDIS_DIR=/data/redis
 RUNTIME_CONFIG_FILE=$REDIS_DIR/redis.conf
@@ -74,6 +74,29 @@ start() {
     log "retry 86400 1 0 getLoadStatus"
     retry 86400 1 0 getLoadStatus
   fi
+
+  # failover when preferred az changed
+  if ! checkFileChanged $PREFERRED_AZ_CONFIG_FILE; then return 0; fi
+  # create preferred-az.conf.1 if not exist
+  if [ ! -f $PREFERRED_AZ_CONFIG_FILE.1 ]; then
+    rotate $PREFERRED_AZ_CONFIG_FILE
+  fi
+  # first stable exec failover
+  firstStableNode="$(echo "$STABLE_REDIS_NODES" |cut -d" " -f1)"
+  if [ "${firstStableNode##*/}" != $MY_IP ]; then
+    log "not the first stable node, skipping failover"
+    return 0
+  fi
+  # wait 15s for redis/sentinel service
+  sleep 15
+  # exec failover
+  manualFailover
+}
+
+manualFailover() {
+  log "manual failover started"
+  runRedisCmd -h $MY_IP -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL FAILOVER $CLUSTER_ID
+  log "manual failover ended"
 }
 
 stop() {
@@ -523,7 +546,7 @@ reload() {
       log "Vertical Scaling Roles ing..."
     elif [ -n "${REBUILD_AUDIT}" ]; then
       log "Rebuild Audit ..."
-    elif checkFileChanged "$CHANGED_CONFIG_FILE $CHANGED_ACL_FILE $(echo $TLS_CONF_LIST | awk -F ":" 'BEGIN{ORS=RS=" "}{print $1}')"; then
+    elif checkFileChanged "$CHANGED_CONFIG_FILE $CHANGED_ACL_FILE $PREFERRED_AZ_CONFIG_FILE $(echo $TLS_CONF_LIST | awk -F ":" 'BEGIN{ORS=RS=" "}{print $1}')"; then
       execute restart
     elif checkFileChanged $CHANGED_SENTINEL_FILE; then
       configureForSentinel && _reload redis-sentinel
