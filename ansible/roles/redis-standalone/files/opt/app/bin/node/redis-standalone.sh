@@ -75,6 +75,11 @@ start() {
     retry 86400 1 0 getLoadStatus
   fi
 
+  if [ -n "$JOINING_REDIS_NODES" ]; then
+    log "no need to manual failover when adding nodes"
+    rotate $PREFERRED_AZ_CONFIG_FILE
+    return 0
+  fi
   # failover when preferred az changed
   if ! checkFileChanged $PREFERRED_AZ_CONFIG_FILE; then return 0; fi
   # create preferred-az.conf.1 if not exist
@@ -974,4 +979,60 @@ upgrade() {
     chown -R caddy:svc /data/caddy
     local templateDir=/data/templates; [ -e "$templateDir" ] || ln -s /opt/app/conf/caddy/templates $templateDir
   fi
+}
+
+sentinelReset() {
+  log "sentinel reset started"
+  runRedisCmd -h $MY_IP -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" SENTINEL RESET $CLUSTER_ID
+  log "sentinel reset ended"
+}
+
+redisReplicaOfNoOne() {
+  log "redis replicaof no one started"
+  realCmd="$(getRuntimeNameOfCmd REPLICAOF)"
+  runRedisCmd $realCmd no one
+  log "redis replicaof no one ended"
+}
+
+redisReplicaOf() {
+  log "redis replicaof $1 $REDIS_PORT"
+  realCmd="$(getRuntimeNameOfCmd REPLICAOF)"
+  runRedisCmd $realCmd $1 $REDIS_PORT
+  log "redis replicaof $1 $REDIS_PORT ended"
+}
+
+# first slave to master
+# other slave remain slave, but must exec sentinel reset 
+forceToMaster() {
+  local isConfirm; isConfirm="$(echo $1 |jq .confirm)"
+  [[ "$isConfirm" == "\"yes\"" ]] || {
+    log "user dont accept tips"
+    return $CONFIRM_ERR
+  }
+  # reset myself
+  sentinelReset
+  # check survived nodes
+  local nodeIp
+  for nodeHost in $STABLE_REDIS_NODES; do
+    nodeIp="${nodeHost##*/}"
+    if [ "$nodeIp" = "$MY_IP" ]; then break; fi
+    if checkRedisStarted $nodeIp; then
+      # wait 10s for sentinel sync
+      sleep 10
+      log "other node are survived and ahead of me, set it as master."
+      redisReplicaOf $nodeIp
+      return 0
+    fi
+  done
+  # wait 10s for sentinel sync
+  sleep 10
+  log "promote me to the master"
+  # replicaof no one
+  redisReplicaOfNoOne
+  # remove replicaof from redis.conf for persistance
+  sed -i '/^replicaof/d' $RUNTIME_CONFIG_FILE
+  log "replicaof config is removed from redis.conf"
+  # bind vip
+  bindVip
+  log "vip binded"
 }

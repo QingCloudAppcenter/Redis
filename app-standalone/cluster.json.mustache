@@ -27,7 +27,7 @@
       "type": "kvm",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-r6nu5w0t"
+      "image": "img-57wbanhc"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -139,6 +139,13 @@
       },
       "upgrade": {
           "cmd": "appctl upgrade"
+      },
+      "force_to_master": {
+          "type": "custom",
+          "cmd": "appctl forceToMaster",
+          "service_params": {
+                "confirm": {{service_params.forceToMaster_confirm}}
+          }
       }
     }
   }],

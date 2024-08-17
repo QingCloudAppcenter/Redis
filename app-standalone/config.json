@@ -151,6 +151,14 @@
       "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
       "multiline": true,
       "required": "yes"
+    }, {
+      "key": "forceToMaster_confirm",
+      "label": "confirm",
+      "description": "Will promote survived slave node to master. Only for emergency, choose 'yes' to continue",
+      "type": "string",
+      "default": "no",
+      "required": "yes",
+      "range": ["yes", "no"]
     }]
   }, {
     "key": "env",
