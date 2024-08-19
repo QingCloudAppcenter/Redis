@@ -27,7 +27,7 @@
       "type": "kvm",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-57wbanhc"
+      "image": "img-pveniix6"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -143,6 +143,7 @@
       "force_to_master": {
           "type": "custom",
           "cmd": "appctl forceToMaster",
+          "timeout": 60,
           "service_params": {
                 "confirm": {{service_params.forceToMaster_confirm}}
           }
