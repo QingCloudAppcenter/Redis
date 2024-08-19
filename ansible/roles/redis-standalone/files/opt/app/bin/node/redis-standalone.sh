@@ -1073,3 +1073,30 @@ forceToMaster() {
   log "enable health check"
   enableHealthCheck
 }
+
+# only for repairing
+beginRepair() {
+  log "disable health check"
+  disableHealthCheck
+  log "stop redis-sentinel and redis-server"
+  appctl stopSvc redis-sentinel || :
+  appctl stopSvc redis-server || :
+}
+
+repairConfig() {
+  if [ $# -eq 0 ]; then echo "please provide the new master's ip"; return 0; fi
+  # repair redis.conf
+  configReplicaOf $1
+  # repair sentinel.conf
+  reConfigSentinel $1
+}
+
+endRepair() {
+  log "start redis-server and redis-sentinel"
+  appctl startSvc redis-server || :
+  # wait for 10s
+  sleep 10
+  appctl startSvc redis-sentinel || :
+  log "enable health check"
+  enableHealthCheck
+}
