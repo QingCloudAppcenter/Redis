@@ -1081,6 +1081,8 @@ beginRepair() {
   log "stop redis-sentinel and redis-server"
   appctl stopSvc redis-sentinel || :
   appctl stopSvc redis-server || :
+  echo "begin to repair node."
+  echo "next step: ifup eth0, appctl repairConfig <new master-ip>"
 }
 
 repairConfig() {
@@ -1089,6 +1091,8 @@ repairConfig() {
   configReplicaOf $1
   # repair sentinel.conf
   reConfigSentinel $1
+  echo "update config files successfully."
+  echo "next step: appctl endRepair"
 }
 
 endRepair() {
@@ -1099,4 +1103,6 @@ endRepair() {
   appctl startSvc redis-sentinel || :
   log "enable health check"
   enableHealthCheck
+  echo "repair node ended."
+  echo "please check each nodes' role using 'redis-cli role'"
 }
