@@ -13,19 +13,19 @@ getMyPriority() {
   local myZone="{{ getv "/host/zone" }}"
   if [ -z "$preferredAz" ]; then
     if [ -z "$mainZone" ]; then
-      echo 0
+      echo 200
     else
       if [ "$myZone" = "$mainZone" ]; then
         echo 100
       else
-        echo 0
+        echo 200
       fi
     fi
   else
     if [ "$myZone" = "$preferredAz" ]; then
       echo 100
     else
-      echo 0
+      echo 200
     fi
   fi
 }
