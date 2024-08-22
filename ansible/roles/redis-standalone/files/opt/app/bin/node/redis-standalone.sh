@@ -80,6 +80,11 @@ start() {
     rotate $PREFERRED_AZ_CONFIG_FILE
     return 0
   fi
+  if [ "$UPGRADE_AUDIT" -gt 0 ]; then
+    log "no need to manual failover when upgrading redis"
+    rotate $PREFERRED_AZ_CONFIG_FILE
+    return 0
+  fi
   # failover when preferred az changed
   if ! checkFileChanged $PREFERRED_AZ_CONFIG_FILE; then return 0; fi
   # create preferred-az.conf.1 if not exist
@@ -969,16 +974,9 @@ aclManage() {
 
 upgrade() {
   chown syslog:adm /data/appctl/logs/* || :
-  if [ ! -d $REDIS_DIR/tls ]; then
-    initNode
-  fi
-  oldUser=$(ls -ld $REDIS_DIR | awk '{print $3}')
-  if [ "$oldUser" != "redis" ]; then
-    chown -R redis:svc $REDIS_DIR
-    chown -R prometheus:svc /data/redis_exporter
-    chown -R caddy:svc /data/caddy
-    local templateDir=/data/templates; [ -e "$templateDir" ] || ln -s /opt/app/conf/caddy/templates $templateDir
-  fi
+  initNode
+  # remove slave-priority
+  sed -i '/^slave-priority/d' $REDIS_DIR/redis.conf*
 }
 
 APPCTL_ENV_FILE=/opt/app/bin/envs/appctl.env
