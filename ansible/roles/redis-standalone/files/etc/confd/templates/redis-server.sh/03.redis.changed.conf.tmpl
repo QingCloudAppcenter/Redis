@@ -70,7 +70,7 @@ maxmemory-clients {{ getv "/env/maxmemory-clients" "0" }}
 min-replicas-max-lag {{ getv "/env/min-replicas-max-lag" "10" }}
 min-replicas-to-write {{ getv "/env/min-replicas-to-write" "0" }}
 no-appendfsync-on-rewrite {{ getv "/env/no-appendfsync-on-rewrite" "yes" }}
-notify-keyspace-events "{{ getv "/env/notify-keyspace-events" "" }}"
+notify-keyspace-events "{{ replace (getv "/env/notify-keyspace-events" "") `$` `\$` -1 }}"
 repl-backlog-size {{ getv "/env/repl-backlog-size" "1048576" }}
 repl-backlog-ttl {{ getv "/env/repl-backlog-ttl" "3600" }}
 repl-timeout {{ getv "/env/repl-timeout" "60" }}
