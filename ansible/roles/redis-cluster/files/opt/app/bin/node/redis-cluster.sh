@@ -48,12 +48,15 @@ execute() {
 }
 
 initNode() {
+  local caddyPath="/data/caddy"
+  mkdir -p $caddyPath
   mkdir -p $REDIS_DIR/{logs,tls}
   mkdir -p $REDIS_EXPORTER $REDIS_EXPORTER_LOGS_DIR
   touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   touch $RUNTIME_ACL_FILE
   touch $REDIS_EXPORTER_PID_FILE
   chown -R redis.svc $REDIS_DIR
+  chown -R caddy.svc $caddyPath
   chown -R prometheus.svc $REDIS_EXPORTER
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
