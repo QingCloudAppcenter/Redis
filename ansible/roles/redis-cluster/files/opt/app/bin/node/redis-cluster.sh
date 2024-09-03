@@ -110,9 +110,10 @@ start() {
   isNodeInitialized || execute initNode
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then 
     sudo -u redis touch $ACL_CLEAR
-    local ACL_CMD node_ip=$(echo ${REDIS_NODES%% *} | cut -d "/" -f5)
-    ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(echo ${REDIS_NODES%% *} | cut -d "/" -f4)" ACL)"
-    runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
+    local ACL_CMD node_ip=$(getFirstNodeIpInStableNodesExceptLeavingNodes)
+    ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(getFirstNodeIdInStableNodesExceptLeavingNodes)" ACL)"
+    # runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
+    retry 60 1 0 helperUpdateAclFile $node_ip $ACL_CMD
   fi
 
   # only exec at first start
@@ -130,6 +131,16 @@ start() {
   fi
 }
 
+helperUpdateAclFile(){
+  log "update acl file begin..."
+  if ! runRedisCmd -h $1 $2 LIST > $RUNTIME_ACL_FILE; then
+    log "update acl file failed."
+    return 1
+  fi
+  log "update acl file end."
+  return 0
+}
+
 checkRedisStateIsOkByInfo(){
   local oKTag="cluster_state:ok" 
   local infoResponse; infoResponse="$(runRedisCmd -h $1 cluster info)"
@@ -138,15 +149,24 @@ checkRedisStateIsOkByInfo(){
 
 getRedisCheckResponse(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
-  runRedisCmd -h $1 --cluster check $firstNodeIpInStableNode:$REDIS_PORT
+  runRedisCmd --cluster check $1:$REDIS_PORT
 }
+
+# checkForAllAgree(){
+#   local checkResponse retCode=0
+#   checkResponse="$(getRedisCheckResponse $1 || retCode=$?)"
+#   [[ "$checkResponse" == *"OK] All nodes agree about slots configuration."* ]]
+#   [[ "$checkInfo" != *"Nodes don't agree about configuration"* ]]
+#   return $retCode
+# }
 
 checkForAllAgree(){
   local checkResponse retCode=0
-  checkResponse="$(getRedisCheckResponse $1 || retCode=$?)"
-  [[ "$checkResponse" == *"OK] All nodes agree about slots configuration."* ]]
-  [[ "$checkInfo" != *"Nodes don't agree about configuration"* ]]
-  return $retCode
+  checkResponse="$(runRedisCmd -h $1 cluster nodes || retCode=$?)"
+  cnt=$(echo "$checkResponse" | grep -c 'connected')
+  sum=$(echo "$checkResponse" | wc -l)
+  log "check nodes status: ready $cnt, all $sum"
+  test $cnt -eq $sum
 }
 
 
@@ -175,6 +195,10 @@ getStableNodesIps(){
 
 getFirstNodeIpInStableNodesExceptLeavingNodes(){
   awk 'BEGIN{RS=" ";ORS="\n";FS="/"}NR==FNR{a[$NF]}NR>FNR{ if(!($NF in a ) && !ip  ) ip=$NF}END{print ip}' <(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" ) <(echo "$REDIS_NODES" )
+}
+
+getFirstNodeIdInStableNodesExceptLeavingNodes(){
+  awk 'BEGIN{RS=" ";ORS="\n";FS="/"}NR==FNR{a[$NF]}NR>FNR{ if(!($NF in a ) && !ip  ){ip=$NF; id=$(NF-1)}}END{print id}' <(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" ) <(echo "$REDIS_NODES" )
 }
 
 findMasterIdByJoiningSlaveIp(){
@@ -251,6 +275,8 @@ scaleOut() {
       stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
     fi
   done
+  # wait 5s for new nodes discovery
+  sleep 5
   # rebalance slots
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
@@ -952,10 +978,14 @@ aclManage() {
   log "acl $command end"
 }
 
+clusterFailover() {
+  log "manual failover to promote me to be the master, begin..."
+  runRedisCmd CLUSTER FAILOVER
+  log "manual failover to promote me to be the master, done."
+}
+
 upgrade() {
-  chown syslog:adm /data/appctl/logs/*
-  if [ ! -d $REDIS_DIR/tls ]; then
-    initNode
-  fi
+  chown syslog:adm /data/appctl/logs/* || :
+  initNode
   configure
 }
