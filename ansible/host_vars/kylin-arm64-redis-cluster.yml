@@ -1,0 +1,3 @@
+default_os: kylin
+default_osv: 10sp2
+default_arch: arm64
