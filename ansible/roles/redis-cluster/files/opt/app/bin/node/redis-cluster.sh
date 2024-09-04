@@ -980,7 +980,8 @@ aclManage() {
 
 clusterFailover() {
   log "manual failover to promote me to be the master, begin..."
-  runRedisCmd CLUSTER FAILOVER
+  # timeout 120s
+  runRedisCmd --timeout 120 CLUSTER FAILOVER
   log "manual failover to promote me to be the master, done."
 }
 
@@ -988,4 +989,39 @@ upgrade() {
   chown syslog:adm /data/appctl/logs/* || :
   initNode
   configure
+}
+
+isMaster() {
+  local res=$(runRedisCmd INFO REPLICATION)
+  echo "$res" | grep 'role:master'
+}
+
+preBackup(){
+  local info info=$(runRedisCmd info all)
+  echo "$info" | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
+}
+
+# only exec on node which role is master
+backup2() {
+  log "Start backup"
+  # check if need failover
+  if ! isMaster; then
+    # "failover"
+    clusterFailover
+    # wait 10s
+    sleep 10
+  fi
+  retry 600 3 0 preBackup
+
+  local lastsave="LASTSAVE" bgsave="BGSAVE"
+  local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
+  local lastTime; lastTime="$(runRedisCmd $lastsaveCmd)"
+  runRedisCmd $bgsaveCmd
+  retry 600 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  log "backup successfully"
+}
+
+restore() {
+  log "start restore"
+  sleep 3600
 }
