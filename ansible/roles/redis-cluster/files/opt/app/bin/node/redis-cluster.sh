@@ -1021,7 +1021,85 @@ backup2() {
   log "backup successfully"
 }
 
+APPCTL_ENV_FILE=/opt/app/bin/envs/appctl.env
+# appctl.env
+# REVIVE_ENABLED=false
+disableHealthCheck() {
+  sed -i '/^REVIVE_ENABLED/d' $APPCTL_ENV_FILE
+  echo "REVIVE_ENABLED=false" >> $APPCTL_ENV_FILE
+}
+
+enableHealthCheck() {
+  sed -i '/^REVIVE_ENABLED/d' $APPCTL_ENV_FILE
+}
+
+restoreReplica() {
+  disableHealthCheck
+}
+
+getFirstMasterIp() {
+  local nodeRole
+  local node; for node in $REDIS_NODES; do
+    nodeRole=$(echo "$node" | cut -d'/' -f3)
+    if [ "$nodeRole" = "master" ]; then
+      echo "${node##*/}"
+      break
+    fi
+  done
+}
+
+clusterMeet() {
+  log "cluster meet $1, begin"
+  if ! runRedisCmd CLUSTER MEET $1 $REDIS_PORT; then
+    log "cluster meet $1, failed."
+    return 1
+  fi
+  log "cluster meet $1, done"
+  return 0
+}
+
+batchClusterMeetMaster() {
+  local nodeRole nodeIp
+  local node; for node in $REDIS_NODES; do
+    nodeRole=$(echo "$node" | cut -d'/' -f3)
+    if [ ! "$nodeRole" = "master" ]; then
+      continue
+    fi
+    nodeIp="${node##*/}"
+    if [ "$nodeIp" = "$MY_IP" ]; then continue; fi
+    retry 60 3 0 clusterMeet $nodeIp
+  done
+}
+
+restoreMaster() {
+  log "restore master"
+  local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
+  local runid=$(grep "myself" "$tmplConf" | awk '{print $1}')
+  # only reserve myself
+  sed -i '/myself/!d' $NODE_CONF_FILE
+  # use new runid
+  sed -i "s/^[^ ]*/$runid/" $NODE_CONF_FILE
+  # use new ip
+  sed -i "s/\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\):/$MY_IP:/" $NODE_CONF_FILE
+  # start myself
+  start
+  # retry to meet other master
+  local firstIp=$(getFirstMasterIp)
+  if [ ! "$firstIp" = "$MY_IP" ]; then
+    log "not the first master, job is done"
+    return 0
+  fi
+  log "try to meet other masters"
+  batchClusterMeetMaster
+  log "restore master, done"
+}
+
 restore() {
   log "start restore"
-  sleep 3600
+  if [ "$MY_ROLE" = "master" ]; then
+    restoreMaster
+  else
+    restoreReplica
+  fi
+  log "restore successfully"
 }
