@@ -1,4 +1,4 @@
-flush /etc/systemd/system/redis_exporter.service << REDIS_EXPORTER_CONF_EOF
+flush /lib/systemd/system/redis_exporter.service << REDIS_EXPORTER_CONF_EOF
 [Unit]
 Description=redis_exporter
 After=network.target
