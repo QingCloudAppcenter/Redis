@@ -20,7 +20,7 @@
             "type": "kvm",
             "zone": "pek3",
             "sriov_nic": true,
-            "image": "img-ofyr1zmd"
+            "image": "img-g3hnrblh"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -123,6 +123,7 @@
                 "cmd": "appctl backup2"
             },
             "restore": {
+                "timeout": 86400,
                 "cmd": "appctl restore"
             }
         }

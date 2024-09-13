@@ -16,6 +16,7 @@ CLUSTER_STATE_NOT_OK=223
 LOAD_ACLFILE_ERR=224
 ACL_SWITCH_ERR=225
 ACL_MANAGE_ERR=226
+LXC_UNSUPPORT_ERR=227
 
 ROOT_CONF_DIR=/opt/app/conf/redis-cluster
 CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
@@ -322,6 +323,21 @@ preScaleOut(){
   return 0
 }
 
+clusterAddNode() {
+  if ! runRedisCmd --timeout 120 -h "$2" --cluster add-node ${1##*/}:$REDIS_PORT $2:$REDIS_PORT >> $logFile; then
+    return 1
+  fi
+  return 0
+}
+
+clusterRebalance() {
+  if ! runRedisCmd --timeout 86400 -h $1 --cluster rebalance --cluster-use-empty-masters $1:$REDIS_PORT >> $logFile; then
+    log "ERROR failed to rebalance the cluster ($?)."
+    return 1
+  fi
+  return 0
+}
+
 scaleOut() {
   local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
   rotate $NODE_CONF_FILE
@@ -339,7 +355,7 @@ scaleOut() {
     if [[ "$(echo "$node"|cut -d "/" -f3)" == "master" ]];then
       waitUntilAllNodesIsOk "$stableNodesIps"
       log "add master node ${node##*/}"
-      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT >> $logFile
+      retry 120 2 0 clusterAddNode $node $firstNodeIpInStableNode
       retry 120 1 0 checkAllAddSuccess "${node##*/}" "$stableNodesIps" 
       log "add master node ${node##*/} end"
       stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
@@ -352,10 +368,7 @@ scaleOut() {
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
-  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT >> $logFile || {
-      log "ERROR failed to rebalance the cluster ($?)."
-      return $REBALANCE_ERR
-  }
+  retry 120 2 0 clusterRebalance $firstNodeIpInStableNode
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
@@ -1088,8 +1101,18 @@ preBackup(){
   echo "$info" | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
 }
 
+lxcCheck() {
+  local res=$(systemd-detect-virt)
+  if [ "$res" = "lxc" ]; then return 0; fi
+  return 1
+}
+
 # only exec on node which role is master
 backup2() {
+  if lxcCheck; then
+    log "unsupported virt type: lxc, exit!"
+    return $LXC_UNSUPPORT_ERR
+  fi
   log "Start backup"
   # check if need failover
   if ! isMaster; then
