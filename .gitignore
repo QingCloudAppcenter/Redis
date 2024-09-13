@@ -3,7 +3,6 @@ app/*.zip
 ansible/roles/*/files/tmp
 ansible/file/tmp/*
 ansible/test*.yml
-ansible/hosts
 app-standalone/*.zip
 app-standalone/*.tar.gz
 app-standalone/*.tgz

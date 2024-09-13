@@ -482,7 +482,7 @@
             "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
           }, {
             "description": "client output buffer limit for replica clients",
-            "default": "256mb 64mb 60",
+            "default": "256mb 128mb 60",
             "required": "no",
             "label": "client-output-buffer-limit(replica)",
             "key": "client-output-buffer-limit-replica",

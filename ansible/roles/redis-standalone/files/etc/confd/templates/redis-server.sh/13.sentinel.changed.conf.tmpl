@@ -33,10 +33,10 @@ logfile /data/redis/logs/redis-sentinel.log
 port "{{ getv "/env/sentinel.port" "26379" }}"
 tls-port "{{ getv "/env/sentinel.tls-port" "0" }}"
 protected-mode no
-masterauth "{{ getv "/env/sentinel.requirepass" "" }}"
-requirepass "{{ getv "/env/sentinel.requirepass" "" }}"
+masterauth "{{ replace (getv "/env/sentinel.requirepass" "") `$` `\$` -1 }}"
+requirepass "{{ replace (getv "/env/sentinel.requirepass" "") `$` `\$` -1 }}"
 {{- if (ne (getv "/env/requirepass") "") }}
-sentinel auth-pass $SENTINEL_MONITOR_CLUSTER_NAME "{{ getv "/env/requirepass" "" }}"
+sentinel auth-pass $SENTINEL_MONITOR_CLUSTER_NAME "{{ replace (getv "/env/requirepass" "") `$` `\$` -1 }}"
 {{- end }}
 sentinel client-reconfig-script $SENTINEL_MONITOR_CLUSTER_NAME /opt/app/bin/node/failover.sh
 sentinel down-after-milliseconds $SENTINEL_MONITOR_CLUSTER_NAME {{ getv "/env/sentinel.down-after-milliseconds" "4000" }}

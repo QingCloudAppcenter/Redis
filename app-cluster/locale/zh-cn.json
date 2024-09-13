@@ -125,6 +125,7 @@
   "err_code220": "切换私有网络处发生异常，请通过工单与我们联系",
   "err_code221": "存在节点发生错位，请通过工单与我们联系",
   "err_code224": "ACL配置错误, 请检查\"账号设置\"",
+  "err_code227": "不支持的虚拟化类型: lxc",
   "run_command": "执行命令",
   "command": "命令",
   "The common for master node": "在主节点执行的命令",

@@ -16,6 +16,7 @@ CLUSTER_STATE_NOT_OK=223
 LOAD_ACLFILE_ERR=224
 ACL_SWITCH_ERR=225
 ACL_MANAGE_ERR=226
+LXC_UNSUPPORT_ERR=227
 
 ROOT_CONF_DIR=/opt/app/conf/redis-cluster
 CHANGED_CONFIG_FILE=$ROOT_CONF_DIR/redis.changed.conf
@@ -48,12 +49,15 @@ execute() {
 }
 
 initNode() {
+  local caddyPath="/data/caddy"
+  mkdir -p $caddyPath
   mkdir -p $REDIS_DIR/{logs,tls}
   mkdir -p $REDIS_EXPORTER $REDIS_EXPORTER_LOGS_DIR
   touch $REDIS_DIR/tls/{ca.crt,redis.crt,redis.dh,redis.key}
   touch $RUNTIME_ACL_FILE
   touch $REDIS_EXPORTER_PID_FILE
   chown -R redis.svc $REDIS_DIR
+  chown -R caddy.svc $caddyPath
   chown -R prometheus.svc $REDIS_EXPORTER
   local htmlFile=/data/index.html; [ -e "$htmlFile" ] || ln -s /opt/app/conf/caddy/index.html $htmlFile
   _initNode
@@ -107,9 +111,10 @@ start() {
   isNodeInitialized || execute initNode
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then 
     sudo -u redis touch $ACL_CLEAR
-    local ACL_CMD node_ip=$(echo ${REDIS_NODES%% *} | cut -d "/" -f5)
-    ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(echo ${REDIS_NODES%% *} | cut -d "/" -f4)" ACL)"
-    runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
+    local ACL_CMD node_ip=$(getFirstNodeIpInStableNodesExceptLeavingNodes)
+    ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(getFirstNodeIdInStableNodesExceptLeavingNodes)" ACL)"
+    # runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
+    retry 60 1 0 helperUpdateAclFile $node_ip $ACL_CMD
   fi
 
   # only exec at first start
@@ -127,6 +132,16 @@ start() {
   fi
 }
 
+helperUpdateAclFile(){
+  log "update acl file begin..."
+  if ! runRedisCmd -h $1 $2 LIST > $RUNTIME_ACL_FILE; then
+    log "update acl file failed."
+    return 1
+  fi
+  log "update acl file end."
+  return 0
+}
+
 checkRedisStateIsOkByInfo(){
   local oKTag="cluster_state:ok" 
   local infoResponse; infoResponse="$(runRedisCmd -h $1 cluster info)"
@@ -135,15 +150,34 @@ checkRedisStateIsOkByInfo(){
 
 getRedisCheckResponse(){
   local firstNodeIpInStableNode; firstNodeIpInStableNode="$(getFirstNodeIpInStableNodesExceptLeavingNodes)"
-  runRedisCmd -h $1 --cluster check $firstNodeIpInStableNode:$REDIS_PORT
+  runRedisCmd --cluster check $1:$REDIS_PORT
 }
+
+# checkForAllAgree(){
+#   local checkResponse retCode=0
+#   checkResponse="$(getRedisCheckResponse $1 || retCode=$?)"
+#   [[ "$checkResponse" == *"OK] All nodes agree about slots configuration."* ]]
+#   [[ "$checkInfo" != *"Nodes don't agree about configuration"* ]]
+#   return $retCode
+# }
 
 checkForAllAgree(){
   local checkResponse retCode=0
-  checkResponse="$(getRedisCheckResponse $1 || retCode=$?)"
-  [[ "$checkResponse" == *"OK] All nodes agree about slots configuration."* ]]
-  [[ "$checkInfo" != *"Nodes don't agree about configuration"* ]]
-  return $retCode
+  checkResponse="$(runRedisCmd -h $1 cluster nodes || retCode=$?)"
+  cnt=$(echo "$checkResponse" | grep -c 'connected')
+  ids=$(echo "$checkResponse" | grep master | grep 'connected$' | awk '{print $1}')
+  local excludedCnt=0
+  if [ -n "$LEAVING_REDIS_NODES" ]; then
+    if echo "$LEAVING_REDIS_NODES" | grep 'master'; then
+      local id; for id in $ids; do
+        excludedCnt=$((excludedCnt+$(echo "$checkResponse" | grep $id | wc -l)))
+      done
+    else
+      excludedCnt=$(echo $LEAVING_REDIS_NODES|xargs -n1 | wc -l)
+    fi
+  fi
+  log "check nodes status: ready $cnt, excluded $excludedCnt, want $2"
+  test $((cnt-excludedCnt)) -eq $2
 }
 
 
@@ -159,19 +193,83 @@ checkAllAddSuccess(){
 
 waitUntilAllNodesIsOk(){
   local ip ips=$@
+  local sum=$(echo $ips|xargs -n1 | wc -l)
   for ip in $(echo $ips|xargs -n1);do
     log --debug "check node $ip"
     retry 120 1 0 checkRedisStateIsOkByInfo $ip
-    retry 600 1 0 checkForAllAgree $ip
+    retry 600 1 0 checkForAllAgree $ip $sum
   done
 }
 
 getStableNodesIps(){
-  awk 'BEGIN{RS=" ";ORS="\n";FS="/"}NR==FNR{a[$NF]}NR>FNR{ if(!($NF in a)) print $NF}' <(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" ) <(echo "$REDIS_NODES" )
+  unstableNodes=$(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" | sed 's/^[ \t]*//; s/[ \t]*$//; s/[ \t]+/ /g')
+  echo "$REDIS_NODES" | awk -F' ' '
+  BEGIN {
+      if (length("'"$unstableNodes"'") > 0) {
+          split("'"$unstableNodes"'", ignored_words, " ")
+          for (i in ignored_words) {
+              if (ignored_words[i] != "") {
+                  ignored[ignored_words[i]] = 1
+              }
+          }
+      }
+  }
+  {
+      for (i = 1; i <= NF; i++) {
+          if (!($i in ignored)) {
+              split($i, fields, "/")
+              print fields[5]
+          }
+      }
+  }'
 }
 
 getFirstNodeIpInStableNodesExceptLeavingNodes(){
-  awk 'BEGIN{RS=" ";ORS="\n";FS="/"}NR==FNR{a[$NF]}NR>FNR{ if(!($NF in a ) && !ip  ) ip=$NF}END{print ip}' <(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" ) <(echo "$REDIS_NODES" )
+  unstableNodes=$(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" | sed 's/^[ \t]*//; s/[ \t]*$//; s/[ \t]+/ /g')
+  echo "$REDIS_NODES" | awk -F' ' '
+  BEGIN {
+      if (length("'"$unstableNodes"'") > 0) {
+          split("'"$unstableNodes"'", ignored_words, " ")
+          for (i in ignored_words) {
+              if (ignored_words[i] != "") {
+                  ignored[ignored_words[i]] = 1
+              }
+          }
+      }
+  }
+  {
+      for (i = 1; i <= NF; i++) {
+          if (!($i in ignored)) {
+              split($i, fields, "/")
+              print fields[5]
+              exit 0
+          }
+      }
+  }'
+}
+
+getFirstNodeIdInStableNodesExceptLeavingNodes(){
+    unstableNodes=$(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" | sed 's/^[ \t]*//; s/[ \t]*$//; s/[ \t]+/ /g')
+  echo "$REDIS_NODES" | awk -F' ' '
+  BEGIN {
+      if (length("'"$unstableNodes"'") > 0) {
+          split("'"$unstableNodes"'", ignored_words, " ")
+          for (i in ignored_words) {
+              if (ignored_words[i] != "") {
+                  ignored[ignored_words[i]] = 1
+              }
+          }
+      }
+  }
+  {
+      for (i = 1; i <= NF; i++) {
+          if (!($i in ignored)) {
+              split($i, fields, "/")
+              print fields[4]
+              exit 0
+          }
+      }
+  }'
 }
 
 findMasterIdByJoiningSlaveIp(){
@@ -225,6 +323,21 @@ preScaleOut(){
   return 0
 }
 
+clusterAddNode() {
+  if ! runRedisCmd --timeout 120 -h "$2" --cluster add-node ${1##*/}:$REDIS_PORT $2:$REDIS_PORT >> $logFile; then
+    return 1
+  fi
+  return 0
+}
+
+clusterRebalance() {
+  if ! runRedisCmd --timeout 86400 -h $1 --cluster rebalance --cluster-use-empty-masters $1:$REDIS_PORT >> $logFile; then
+    log "ERROR failed to rebalance the cluster ($?)."
+    return 1
+  fi
+  return 0
+}
+
 scaleOut() {
   local logFile=/data/appctl/logs/preScaleIn.$(date +%s).$$.log
   rotate $NODE_CONF_FILE
@@ -242,21 +355,20 @@ scaleOut() {
     if [[ "$(echo "$node"|cut -d "/" -f3)" == "master" ]];then
       waitUntilAllNodesIsOk "$stableNodesIps"
       log "add master node ${node##*/}"
-      runRedisCmd --timeout 120 -h "$firstNodeIpInStableNode" --cluster add-node ${node##*/}:$REDIS_PORT $firstNodeIpInStableNode:$REDIS_PORT >> $logFile
+      retry 120 2 0 clusterAddNode $node $firstNodeIpInStableNode
       retry 120 1 0 checkAllAddSuccess "${node##*/}" "$stableNodesIps" 
       log "add master node ${node##*/} end"
       stableNodesIps="$(echo "$stableNodesIps ${node##*/}")"
     fi
   done
+  # wait 5s for new nodes discovery
+  sleep 5
   # rebalance slots
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
   log "== rebalance start =="
   # 在配置未同步完的情况下，会出现 --cluster-use-empty-masters 未生效的情况
-  runRedisCmd --timeout 86400 -h $firstNodeIpInStableNode --cluster rebalance --cluster-use-empty-masters $firstNodeIpInStableNode:$REDIS_PORT >> $logFile || {
-      log "ERROR failed to rebalance the cluster ($?)."
-      return $REBALANCE_ERR
-  }
+  retry 120 2 0 clusterRebalance $firstNodeIpInStableNode
   log "== rebanlance end =="
   log "check stableNodesIps: $stableNodesIps"
   waitUntilAllNodesIsOk "$stableNodesIps"
@@ -313,6 +425,24 @@ checkMemoryIsEnoughAfterScaled(){
   return 0
 }
 
+checkRealForget(){
+  local checkResponse retCode=0
+  checkResponse="$(runRedisCmd -h $1 cluster nodes || retCode=$?)"
+  if echo "$checkResponse" | grep "$2"; then
+    log "still remember node $2, from $1"
+    return 1
+  fi
+  log "really forgot node $2, from $1"
+  return 0
+}
+
+waitUntilAllNodesForget() {
+  local stableNodesIps; stableNodesIps="$(getStableNodesIps)"
+  local sip; for sip in $stableNodesIps; do
+    retry 600 1 0 checkRealForget $sip $1
+  done
+}
+
 # redis-cli --cluster rebalance --weight xxx=0 yyy=0
 preScaleIn() {
   checkClusterPort
@@ -356,7 +486,6 @@ preScaleIn() {
   # Make sure that forget slave node before master node is forgotten
   local leavingNodeIps; leavingNodeIps="$(sortOutLeavingNodesIps)"
   local leavingNodeIp; for leavingNodeIp in $leavingNodeIps; do
-    waitUntilAllNodesIsOk "$stableNodesIps"
     log "forget $leavingNodeIp"
     local leavingNodeId; leavingNodeId="$(getMyIdByMyIp $leavingNodeIp)"
     local node nodeIp; for node in $REDIS_NODES; do
@@ -368,7 +497,7 @@ preScaleIn() {
     done
     log "forget $leavingNodeIp end"
     resetMynode $leavingNodeIp
-    stableNodesIps="$(echo "$stableNodesIps" |grep -Ev "^${leavingNodeIp//\./\\.}$")"
+    waitUntilAllNodesForget $leavingNodeIp
   done
 }
 
@@ -949,10 +1078,193 @@ aclManage() {
   log "acl $command end"
 }
 
+clusterFailover() {
+  log "manual failover to promote me to be the master, begin..."
+  # timeout 120s
+  runRedisCmd --timeout 120 CLUSTER FAILOVER
+  log "manual failover to promote me to be the master, done."
+}
+
 upgrade() {
-  chown syslog:adm /data/appctl/logs/*
-  if [ ! -d $REDIS_DIR/tls ]; then
-    initNode
-  fi
+  chown syslog:adm /data/appctl/logs/* || :
+  initNode
   configure
+}
+
+isMaster() {
+  local res=$(runRedisCmd INFO REPLICATION)
+  echo "$res" | grep 'role:master'
+}
+
+preBackup(){
+  local info info=$(runRedisCmd info all)
+  echo "$info" | awk -F "[\r:]+" '/^(loading|rdb_bgsave_in_progress|aof_rewrite_in_progress|master_sync_in_progress):/{count+=$2}END{exit count}'
+}
+
+lxcCheck() {
+  local res=$(systemd-detect-virt)
+  if [ "$res" = "lxc" ]; then return 0; fi
+  return 1
+}
+
+# only exec on node which role is master
+backup2() {
+  if lxcCheck; then
+    log "unsupported virt type: lxc, exit!"
+    return $LXC_UNSUPPORT_ERR
+  fi
+  log "Start backup"
+  # check if need failover
+  if ! isMaster; then
+    # "failover"
+    clusterFailover
+    # wait 10s
+    sleep 10
+  fi
+  retry 600 3 0 preBackup
+
+  local lastsave="LASTSAVE" bgsave="BGSAVE"
+  local lastsaveCmd bgsaveCmd; lastsaveCmd="$(getRuntimeNameOfCmd $lastsave)" bgsaveCmd="$(getRuntimeNameOfCmd $bgsave)"
+  local lastTime; lastTime="$(runRedisCmd $lastsaveCmd)"
+  runRedisCmd $bgsaveCmd
+  retry 600 3 $EC_BACKUP_ERR checkBgsaveDone $lastTime
+  log "backup successfully"
+}
+
+APPCTL_ENV_FILE=/opt/app/bin/envs/appctl.env
+# appctl.env
+# REVIVE_ENABLED=false
+disableHealthCheck() {
+  sed -i '/^REVIVE_ENABLED/d' $APPCTL_ENV_FILE
+  echo "REVIVE_ENABLED=false" >> $APPCTL_ENV_FILE
+}
+
+enableHealthCheck() {
+  sed -i '/^REVIVE_ENABLED/d' $APPCTL_ENV_FILE
+}
+
+restoreReplica() {
+  log "restore replica"
+  # clear node-6379.conf
+  >$NODE_CONF_FILE || :
+  # remove dump.rdb
+  rm -f $REDIS_DIR/dump.rdb
+  # remove aof files
+  rm -rf $REDIS_DIR/appendonlydir/*
+  # start myself
+  start
+  log "restore replica, done"
+}
+
+getFirstMasterIp() {
+  local nodeRole
+  local node; for node in $REDIS_NODES; do
+    nodeRole=$(echo "$node" | cut -d'/' -f3)
+    if [ "$nodeRole" = "master" ]; then
+      echo "${node##*/}"
+      break
+    fi
+  done
+}
+
+clusterMeet() {
+  log "cluster meet $1, begin"
+  if ! runRedisCmd CLUSTER MEET $1 $REDIS_PORT $CLUSTER_PORT; then
+    log "cluster meet $1, failed."
+    return 1
+  fi
+  log "cluster meet $1, done"
+  return 0
+}
+
+batchClusterMeetMaster() {
+  local nodeRole nodeIp
+  local node; for node in $REDIS_NODES; do
+    nodeRole=$(echo "$node" | cut -d'/' -f3)
+    nodeIp="${node##*/}"
+    if [ ! "$nodeRole" = "master" ]; then
+      log "skip role: $nodeRole, $nodeIp"
+      continue
+    fi
+    if [ "$nodeIp" = "$MY_IP" ]; then continue; fi
+    log "use role: $nodeRole, $nodeIp"
+    retry 600 6 0 clusterMeet $nodeIp
+  done
+}
+
+getMasterIdByNodeIp() {
+  local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
+  grep $1 $tmplConf | awk '{print $4}'
+}
+
+clusterAddReplia() {
+  log "cluster add replica $1, begin"
+  if ! runRedisCmd --cluster add-node $1:$REDIS_PORT $MY_IP:$REDIS_PORT --cluster-slave --cluster-master-id $2; then
+    log "cluster add replica $1, failed."
+    return 1
+  fi
+  log "cluster add replica $1, done"
+  return 0
+}
+
+batchClusterAddReplica() {
+  local nodeRole nodeIp masterId
+  local node; for node in $REDIS_NODES; do
+    nodeRole=$(echo "$node" | cut -d'/' -f3)
+    if [ "$nodeRole" = "master" ]; then
+      continue
+    fi
+    nodeIp="${node##*/}"
+    masterId="$(getMasterIdByNodeIp $nodeIp)"
+    retry 600 6 0 clusterAddReplia $nodeIp $masterId
+  done
+}
+
+getRestoreMasterIps() {
+  local nodeRole nodeIp ips=""
+  local node; for node in $REDIS_NODES; do
+    nodeRole=$(echo "$node" | cut -d'/' -f3)
+    if [ ! "$nodeRole" = "master" ]; then
+      continue
+    fi
+    ips="$ips ${node##*/}"
+  done
+  echo $ips
+}
+
+restoreMaster() {
+  log "restore master"
+  local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
+  local runid=$(grep "myself" "$tmplConf" | awk '{print $1}')
+  # only reserve myself
+  sed -i '/myself/!d' $NODE_CONF_FILE
+  # use new runid
+  sed -i "s/^[^ ]*/$runid/" $NODE_CONF_FILE
+  # use new ip
+  sed -i "s/\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\):/$MY_IP:/" $NODE_CONF_FILE
+  # start myself
+  start
+  # retry to meet other master
+  local firstIp=$(getFirstMasterIp)
+  if [ ! "$firstIp" = "$MY_IP" ]; then
+    log "not the first master, job is done"
+    return 0
+  fi
+  log "try to meet other masters"
+  batchClusterMeetMaster
+  # wait for all master nodes ok
+  waitUntilAllNodesIsOk "$(getRestoreMasterIps)"
+  log "try to add replicas"
+  batchClusterAddReplica
+  log "restore master, done"
+}
+
+restore() {
+  log "start restore"
+  if [ "$MY_ROLE" = "master" ]; then
+    restoreMaster
+  else
+    restoreReplica
+  fi
+  log "restore successfully"
 }

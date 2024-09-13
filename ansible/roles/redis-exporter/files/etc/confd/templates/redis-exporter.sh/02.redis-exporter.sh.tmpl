@@ -1,4 +1,4 @@
-flush /etc/systemd/system/redis_exporter.service << REDIS_EXPORTER_CONF_EOF
+flush /lib/systemd/system/redis_exporter.service << REDIS_EXPORTER_CONF_EOF
 [Unit]
 Description=redis_exporter
 After=network.target
@@ -6,11 +6,10 @@ After=network.target
 [Service]
 Type=simple
 User=prometheus
-{{ if eq (getv "/env/requirepass") "0" -}}
-ExecStart=/opt/prometheus/redis_exporter/redis_exporter -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" -web.listen-address 0.0.0.0:9121 -redis.password "{{ getv "/env/requirepass" "" }}"
-{{- else -}}
-ExecStart=/opt/prometheus/redis_exporter/redis_exporter -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" -web.listen-address 0.0.0.0:9121
+{{ if ne (getv "/env/requirepass") "" -}}
+Environment=REDIS_PASSWORD={{ replace (getv "/env/requirepass" "") `$` `\$` -1 }}
 {{- end }}
+ExecStart=/opt/prometheus/redis_exporter/current/redis_exporter -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" -web.listen-address 0.0.0.0:9121
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target

@@ -5,6 +5,7 @@
     os: "{{ os | d(default_os) }}"
     osv: "{{ osv | d(default_osv) }}"
     arch: "{{ arch | d(default_arch) }}"
+    installPath: "/opt/redis"
 
 - name: add the service group
   group:
@@ -22,29 +23,35 @@
     comment: "Service User"
     state: present
 
-- name: create directories
+- name: prepare dir
   file:
-    path: /opt/redis/{{ redis_version }}
+    path: "{{ installPath }}/{{ redis_version }}"
     state: directory
 
-- name: link binary dir
+- name: link for current
   file:
-    src: "{{ redis_version }}"
-    dest: /opt/redis/current
+    src: "{{ installPath }}/{{ redis_version }}"
+    dest: "{{ installPath }}/current"
     state: link
 
+# will set var downloaded
 - include_role:
-    name: install-1.0.6
+    name: downloader
   vars:
     opts:
       pkg_name: redis
       pkg_version: "{{ redis_version }}"
+      pkg_feature: "{{ os }}-{{ osv }}-{{ arch }}"
+      pkg_fileType: ".tgz"
       pkg_url: "https://github.com/djangoyi-yunify/redis-compiler/releases/download/redis-{{ redis_version }}_{{ os }}-{{ osv }}/redis-{{ redis_version }}-{{ arch }}.tgz"
-      pkg_type: tgz
-      creates: bin
-      extracts: yes
-      extra_opts:
-        - "--strip-components=1"
+
+- name: decompress file
+  unarchive:
+    src: "{{ downloaded }}"
+    dest: "{{ installPath }}/current"
+    creates: "{{ installPath }}/current/redis-cli"
+    extra_opts:
+    - --strip-components=1
 
 - name: install services
   copy:

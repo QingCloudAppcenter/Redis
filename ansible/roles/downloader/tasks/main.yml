@@ -1,0 +1,34 @@
+---
+- name: set up variables
+  set_fact:
+    local_cache_path: "{{ local_cache_path | d('file/tmp') }}"
+    pkg_name: "{{ opts.pkg_name }}"
+    pkg_version: "{{ opts.pkg_version }}"
+    pkg_feature: "{{ opts.pkg_feature }}"
+    pkg_fileType: "{{ opts.pkg_fileType }}"
+    pkg_url: "{{ opts.pkg_url }}"
+
+- name: prepare dir
+  file:
+    path: "{{ local_cache_path }}/{{ pkg_name }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+
+- name: check if file exists
+  stat:
+    path: "{{ local_cache_path }}/{{ pkg_name }}/{{ pkg_name }}-{{ pkg_version }}-{{ pkg_feature }}{{ pkg_fileType }}"
+  register: cached_file
+  delegate_to: localhost
+
+- name: download file
+  get_url:
+    url: "{{ pkg_url }}"
+    dest: "{{ local_cache_path }}/{{ pkg_name }}/{{ pkg_name }}-{{ pkg_version }}-{{ pkg_feature }}{{ pkg_fileType }}"
+  delegate_to: localhost
+  when:
+  - cached_file.stat.exists == false
+
+- name: setup output
+  set_fact:
+    downloaded: "{{ local_cache_path }}/{{ pkg_name }}/{{ pkg_name }}-{{ pkg_version }}-{{ pkg_feature }}{{ pkg_fileType }}"

@@ -27,7 +27,7 @@
       "type": "kvm",
       "sriov_nic": true,
       "zone": "pek3",
-      "image": "img-b8sv8mzr"
+      "image": "img-v2fkbvb2"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -139,6 +139,14 @@
       },
       "upgrade": {
           "cmd": "appctl upgrade"
+      },
+      "force_to_master": {
+          "type": "custom",
+          "cmd": "appctl forceToMaster",
+          "timeout": 60,
+          "service_params": {
+                "confirm": {{service_params.forceToMaster_confirm}}
+          }
       }
     }
   }],
@@ -206,7 +214,8 @@
     "tls-ca-cert": {{env.tls-ca-cert}},
     "tls-dh-params": {{env.tls-dh-params}},
     "io-threads-do-reads": {{env.io-threads-do-reads}},
-    "io-threads": {{env.io-threads}}
+    "io-threads": {{env.io-threads}},
+    "preferred-az": {{env.preferred-az}}
   },
   "monitor": {
     "enable": true,

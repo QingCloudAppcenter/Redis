@@ -151,6 +151,14 @@
       "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
       "multiline": true,
       "required": "yes"
+    }, {
+      "key": "forceToMaster_confirm",
+      "label": "confirm",
+      "description": "Will promote survived slave node to master. Only for emergency, choose 'yes' to continue",
+      "type": "string",
+      "default": "no",
+      "required": "yes",
+      "range": ["yes", "no"]
     }]
   }, {
     "key": "env",
@@ -526,7 +534,7 @@
       "pattern": "^\\d+(?:[kKmMgG][bB]?)?\\s+\\d+(?:[kKmMgG][bB]?)?\\s+\\d+$"
     }, {
       "description": "client output buffer limit for replica clients",
-      "default": "256mb 64mb 60",
+      "default": "256mb 128mb 60",
       "required": "no",
       "label": "client-output-buffer-limit(replica)",
       "key": "client-output-buffer-limit-replica",
@@ -702,6 +710,13 @@
       "description": "password of admin web console",
       "type": "password",
       "pattern": "^\\w{0,24}$",
+      "default": "",
+      "required": "no"
+    }, {
+      "key": "preferred-az",
+      "label": "Preferred AZ",
+      "description": "preferred AZ where master node will be elected",
+      "type": "string",
       "default": "",
       "required": "no"
     }]

@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=prometheus
-ExecStart=/opt/prometheus/redis_exporter/redis_exporter -redis.addr 127.0.0.1:6379  -web.listen-address 0.0.0.0:9121
+ExecStart=/opt/prometheus/redis_exporter/current/redis_exporter -redis.addr 127.0.0.1:6379  -web.listen-address 0.0.0.0:9121
 Restart=on-failure
 
 [Install]

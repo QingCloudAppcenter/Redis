@@ -1,0 +1,3 @@
+default_os: ubuntu
+default_osv: "22.04"
+default_arch: amd64

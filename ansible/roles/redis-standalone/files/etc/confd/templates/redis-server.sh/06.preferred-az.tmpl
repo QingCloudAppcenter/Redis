@@ -1,0 +1,6 @@
+flush /opt/app/conf/redis-standalone/preferred-az.conf <<PREFERRED_AZ_EOF
+{{ getv "/env/preferred-az" }}
+{{- if exists "/cluster/main_zone"}}
+{{ getv "/cluster/main_zone" }}
+{{- end }}
+PREFERRED_AZ_EOF

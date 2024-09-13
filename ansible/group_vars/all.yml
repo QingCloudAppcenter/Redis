@@ -1,6 +1,10 @@
-appAgentVersion: v1.0.6
+appAgentVersion: v1.0.7
+jq_version: "1.7"
 redis_version: 7.2.5
 local_cache_path: "file/tmp"
-default_os: ubuntu
-default_osv: "22.04"
-default_arch: amd64
+arping_version: "20211215-1"
+default_timezone: "Asia/Shanghai"
+caddy_version: "v2.8.4"
+node_exporter_version: "1.8.2"
+redis_exporter_version: "v1.62.0"
+tar_version: "1.32-4"

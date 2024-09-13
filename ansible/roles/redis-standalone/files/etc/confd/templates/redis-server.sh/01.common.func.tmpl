@@ -3,4 +3,31 @@ isVotingNode() {
   echo "$ourVotingNodesSid" | grep -q $1
 }
 
+getMyPriority() {
+  local preferredAz="{{ getv "/env/preferred-az" }}"
+  {{- if exists "/cluster/main_zone"}}
+  local mainZone="{{ getv "/cluster/main_zone" }}"
+  {{- else }}
+  local mainZone=""
+  {{- end }}
+  local myZone="{{ getv "/host/zone" }}"
+  if [ -z "$preferredAz" ]; then
+    if [ -z "$mainZone" ]; then
+      echo 200
+    else
+      if [ "$myZone" = "$mainZone" ]; then
+        echo 100
+      else
+        echo 200
+      fi
+    fi
+  else
+    if [ "$myZone" = "$preferredAz" ]; then
+      echo 100
+    else
+      echo 200
+    fi
+  fi
+}
+
 SENTINEL_MONITOR_CLUSTER_NAME="{{ getv "/cluster/cluster_id" }}"
