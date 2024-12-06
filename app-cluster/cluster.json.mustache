@@ -6,22 +6,16 @@
     "backup_policy": "device",
     "incremental_backup_supported": true,
     "upgrade_policy": [
-        "appv-fq0atfpt",
-        "appv-3x5sw2u0",
-        "appv-79rlu7jt",
-        "appv-1pbmp78g",
-        "appv-tqzrokkb",
-        "appv-9yvinzz0",
-        "appv-okxhok17"
+        "appv-6baybp7x"
     ],    
     "upgrading_policy": "sequential",
     "nodes": [{
         "role": "master",
         "container": {
             "type": "kvm",
-            "zone": "pek3",
+            "zone": "pekt3",
             "sriov_nic": true,
-            "image": "img-g3hnrblh"
+            "image": "img-r2c6mebu"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
