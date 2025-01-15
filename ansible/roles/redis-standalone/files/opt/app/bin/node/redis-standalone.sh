@@ -385,6 +385,11 @@ getMasterIpForRevive() {
     local rc=0
     if isSvcEnabled redis-sentinel;then
       local otherFirstNodeIp="$(echo $STABLE_REDIS_NODES |awk 'BEGIN{RS=" "} {if ($1!~/'$MY_IP'$/) {print $1;exit 0}}'|awk 'BEGIN{FS="/"} {print $3}')"
+      if [ -z "$otherFirstNodeIp" ]; then
+        log "single node cluster"
+        echo "$MY_IP"
+        return 0
+      fi
       runRedisCmd --ip ${otherFirstNodeIp} -p $SENTINEL_PORT -a "$SENTINEL_PASSWORD" sentinel get-master-addr-by-name $SENTINEL_MONITOR_CLUSTER_NAME |xargs \
         |awk '{if ($2 == '$REDIS_PORT') {print $1} else {'rc'=1;exit 1}}' || \
           log "get master ip from ${otherFirstNodeIp} fail! rc=$rc"
