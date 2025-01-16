@@ -1,0 +1,11 @@
+---
+- name: set up variables
+  set_fact:
+    os: "{{ os | d(default_os) }}"
+
+- name: pwquality - minclass
+  lineinfile:
+    path: /etc/security/pwquality.conf
+    line: 'minclass = 2'
+    state: present
+  when: os == 'kylin'
