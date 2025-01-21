@@ -13,3 +13,10 @@
   command:
     grub2-mkconfig -o /boot/efi/EFI/kylin/grub.cfg
   when: os == 'kylin'
+
+- name: disable kdump.service
+  systemd:
+    name: kdump.service
+    state: stopped
+    enabled: no
+  when: os == 'kylin'
