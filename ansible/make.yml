@@ -13,7 +13,7 @@
   - appctl
   - redis-bin
   - arping
-  - openssl
+  # - openssl
   - timezone
   - caddy
   - node-exporter
