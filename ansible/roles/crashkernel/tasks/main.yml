@@ -1,0 +1,22 @@
+- name: set up variables
+  set_fact:
+    os: "{{ os | d(default_os) }}"
+
+- name: Remove crashkernel parameter from GRUB_CMDLINE_LINUX
+  replace:
+    path: /etc/default/grub
+    regexp: 'crashkernel=[^ ]* '
+    replace: ''
+  when: os == 'kylin'
+
+- name: update GRUB
+  command:
+    grub2-mkconfig -o /boot/efi/EFI/kylin/grub.cfg
+  when: os == 'kylin'
+
+- name: disable kdump.service
+  systemd:
+    name: kdump.service
+    state: stopped
+    enabled: no
+  when: os == 'kylin'

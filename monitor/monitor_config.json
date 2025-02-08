@@ -1,89 +1,122 @@
 {
     "target_path": "/opt/monitor.sh",
     "cluster": {
-        "roles": [],
-        "cmd": "bash /opt/monitor.sh cluster",
-        "interval": 10,
-        "timeout": 20
-    }, "nodes": {
-        "roles": [],
-        "cmd": "bash /opt/monitor.sh node",
-        "interval": 10,
-        "timeout": 20
+      "cmd": "bash /opt/monitor.sh cluster",
+      "timeout": 20,
+      "roles": [],
+      "interval": 10
+    },
+    "nodes": {
+      "cmd": "bash /opt/monitor.sh node",
+      "timeout": 20,
+      "roles": [],
+      "interval": 10
+    },
+    "item_groups": {
+      "cluster": {
+        "alarms": [
+          "cluster_health"
+        ],
+        "items": [
+          "cluster_health"
+        ]
+      }
     },
     "items": {
-        "cluster_health": {
-            "level": 9,
-            "unit": "",
-            "zh": "集群健康状态",
-            "value_type": "int",
-            "statistics_type": "latest",
-            "min": 0,
-            "max": 0,
-            "suggest": {
-                "=0": {"level": 5, "msg": "集群健康"},
-                "=1": {"level": 5, "msg": "集群无法使用，需要联系管理员"}
-            }
-        }, "node_health": {
-            "level": 9,
-            "unit": "",
-            "zh": "节点健康状态",
-            "value_type": "int",
-            "statistics_type": "latest",
-            "min": 0,
-            "max": 0,
-            "suggest": {
-                "=0": {"level": 5, "msg": "节点健康"},
-                "=1": {"level": 5, "msg": "节点无法使用，需要联系管理员"}
-            }
-        }, "node_role": {
-            "level": 5,
-            "unit": "",
-            "zh": "角色",
-            "value_type": "str",
-            "statistics_type": "latest",
-            "enums": ["master", "slave"]
-        }, "memory_usage": {
-            "zh": "Redis内存使用率",
-            "unit": "%",
-            "value_type": "int",
-            "statistics_type": "avg",
-            "scale_factor_when_display": 0.01,
-            "min": 0,
-            "max": 60
-        }, "connected_clients": {
-            "zh": "Client连接数",
-            "unit": "Times",
-            "value_type": "int",
-            "statistics_type": "delta",
-            "scale_factor_when_display": 1
-        }, "evicted_keys": {
-            "zh": "被拒绝的Key个数",
-            "unit": "Times",
-            "value_type": "int",
-            "statistics_type": "delta",
-            "min": 0,
-            "max": 0,
-            "scale_factor_when_display": 1
-        }, "hit_rate": {
-            "zh": "命中率",
-            "unit": "Times",
-            "value_type": "int",
-            "min": 80,
-            "max": 100,
-            "statistics_type": "delta",
-            "scale_factor_when_display": 1
-        }, "keyspace_misses": {
-            "zh": "Keyspace未命中数",
-            "unit": "Times",
-            "value_type": "int",
-            "statistics_type": "delta",
-            "scale_factor_when_display": 1
-        }
-    }, "item_groups": {
-        "cluster": {
-            "items": ["cluster_health"],
-            "alarms": ["cluster_health"]
-        }
+      "evicted_keys": {
+        "scale_factor_when_display": 1,
+        "statistics_type": "delta",
+        "zh": "被拒绝的Key个数",
+        "min": 0,
+        "max": 0,
+        "level": 5,
+        "value_type": "int",
+        "unit": "Times"
+      },
+      "connected_clients": {
+        "scale_factor_when_display": 1,
+        "statistics_type": "delta",
+        "zh": "Client连接数",
+        "level": 5,
+        "value_type": "int",
+        "unit": "Times"
+      },
+      "keyspace_misses": {
+        "scale_factor_when_display": 1,
+        "statistics_type": "delta",
+        "zh": "Keyspace未命中数",
+        "level": 5,
+        "value_type": "int",
+        "unit": "Times"
+      },
+      "cluster_node_role": {
+        "statistics_type": "latest",
+        "zh": "集群节点角色",
+        "level": 5,
+        "value_type": "str",
+        "enums": [
+          "master",
+          "slave"
+        ],
+        "unit": ""
+      },
+      "node_health": {
+        "statistics_type": "latest",
+        "zh": "节点健康状态",
+        "min": 0,
+        "max": 0,
+        "level": 9,
+        "value_type": "int",
+        "suggest": {
+          "=1": {
+            "msg": "节点无法使用，需要联系管理员",
+            "level": 5
+          },
+          "=0": {
+            "msg": "节点健康",
+            "level": 5
+          }
+        },
+        "unit": ""
+      },
+      "cluster_health": {
+        "statistics_type": "latest",
+        "zh": "集群健康状态",
+        "min": 0,
+        "max": 0,
+        "level": 9,
+        "value_type": "int",
+        "suggest": {
+          "=1": {
+            "msg": "集群无法使用，需要联系管理员",
+            "level": 5
+          },
+          "=0": {
+            "msg": "集群健康",
+            "level": 5
+          }
+        },
+        "unit": ""
+      },
+      "hit_rate": {
+        "scale_factor_when_display": 1,
+        "statistics_type": "delta",
+        "zh": "命中率",
+        "min": 80,
+        "max": 100,
+        "level": 5,
+        "value_type": "int",
+        "unit": "Times"
+      },
+      "memory_usage": {
+        "scale_factor_when_display": 0.01,
+        "statistics_type": "avg",
+        "zh": "Redis内存使用率",
+        "min": 0,
+        "max": 60,
+        "level": 5,
+        "value_type": "int",
+        "unit": "%"
+      }
     }
-}
+  }

@@ -13,11 +13,14 @@
   - appctl
   - redis-bin
   - arping
+  # - openssl
   - timezone
   - caddy
   - node-exporter
   - redis-exporter
   - users_groups
+  - crashkernel
+  - pwquality
 
 - name: redis standalone
   hosts: redisstandalone

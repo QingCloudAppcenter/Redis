@@ -35,7 +35,7 @@ infoAll=$(runRedisCmd info all|sed 's/\r//g')
 cat << NODE_INFO_EOF
 {
   "node_health": $(runRedisCmd ping | awk 'BEGIN{c=1}{if ($0~/^PONG$/){c=0}}END{print c}'),
-  "node_role": "$(echo "$infoAll" | awk -F "[:\r]+" '$1=="role"{print $2}')",
+  "cluster_node_role": "$(echo "$infoAll" | awk -F "[:\r]+" '$1=="role"{print $2}')",
   "memory_usage": $(echo "$infoAll" | awk -F":" '{a[$1]=$2}END{print a["used_memory"]/a["maxmemory"]*100}'),
   "connected_clients": $(echo "$infoAll" | awk -F"[:\n\r]+" '$1=="connected_clients"{print $2}'),
   "evicted_keys": $(echo "$infoAll" | sed -n "s/^evicted_keys://p"),
@@ -49,7 +49,7 @@ NODE_INFO_EOF
 cluster() {
 if [[ "app-zydumbxo" == "$APP_ID" ]];then
   VIP=$(curl -s metadata/self/cluster/endpoints/reserved_ips/vip/value)
-  CLUSTER_HEALTH="$(runRedisCmd --ip "$VIP" ping | awk 'BEGIN{c=1}{if ($0~/^PONG$/){c=0}}END{print c}')"
+  CLUSTER_HEALTH="$(runRedisCmd -h "$VIP" ping | awk 'BEGIN{c=1}{if ($0~/^PONG$/){c=0}}END{print c}')"
 else
   CLUSTER_HEALTH="$(runRedisCmd cluster info | awk 'BEGIN{c=1}{if ($0~/^cluster_state:ok\r/){c=0}}END{print c}')"
 fi

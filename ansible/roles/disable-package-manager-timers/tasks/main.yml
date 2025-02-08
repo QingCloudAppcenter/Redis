@@ -2,6 +2,7 @@
 - name: set vars
   set_fact:
     os: "{{ os | d(default_os) }}"
+    osv: "{{ osv | d(default_osv) }}"
 
 - name: ubuntu
   systemd:
@@ -17,7 +18,11 @@
     loop_var: svc_name
   when: os == 'ubuntu'
 
-- name: kylin
+- name: ubuntu fix apt issues
+  shell: dpkg --configure -a
+  when: os == 'ubuntu'
+
+- name: kylin - 10sp2
   systemd:
     name: "{{ svc_name }}"
     state: stopped
@@ -31,7 +36,24 @@
   - dnf-automatic-notifyonly.service
   - dnf-automatic.timer
   - dnf-automatic.service
+  - dnf-makecache.timer
+  - dnf-makecache.service
   loop_control:
     loop_var: svc_name
-  when: os == 'kylin'
-  
+  when:
+  - os == 'kylin'
+  - osv == '10sp2'
+
+- name: kylin - 10sp3
+  systemd:
+    name: "{{ svc_name }}"
+    state: stopped
+    masked: yes
+  loop:
+  - dnf-makecache.timer
+  - dnf-makecache.service
+  loop_control:
+    loop_var: svc_name
+  when:
+  - os == 'kylin'
+  - osv == '10sp3'
