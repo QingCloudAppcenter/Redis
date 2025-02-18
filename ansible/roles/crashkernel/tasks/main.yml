@@ -9,9 +9,14 @@
     replace: ''
   when: os == 'kylin'
 
-- name: update GRUB
+- name: update GRUB for efi
   command:
     grub2-mkconfig -o /boot/efi/EFI/kylin/grub.cfg
+  when: os == 'kylin'
+
+- name: update GRUB for bios
+  command:
+    grub2-mkconfig -o /boot/grub2/grub.cfg
   when: os == 'kylin'
 
 - name: disable kdump.service
