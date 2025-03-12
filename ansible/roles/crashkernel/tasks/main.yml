@@ -5,7 +5,7 @@
 - name: Remove crashkernel parameter from GRUB_CMDLINE_LINUX
   replace:
     path: /etc/default/grub
-    regexp: 'crashkernel=[^ ]* '
+    regexp: 'crashkernel=[^ \"]*'
     replace: ''
   when: os == 'kylin'
 
