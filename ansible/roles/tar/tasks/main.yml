@@ -47,5 +47,6 @@
 - name: Install RPM package
   dnf:
     name: "/tmp/{{ downloaded | basename }}"
+    disable_gpg_check: yes
     state: present
   when: os == 'kylin'

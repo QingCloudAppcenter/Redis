@@ -63,9 +63,7 @@ start() {
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then
     log "enable acl:$ENABLE_ACL $JOINING_REDIS_NODES"
     sudo -u redis touch $ACL_CLEAR
-    local ACL_CMD node_ip=$(echo ${STABLE_REDIS_NODES%% *} | cut -d "/" -f3)
-    ACL_CMD="$(getRuntimeNameOfCmd ACL)"
-    runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
+    retry 600 3 0 getAclListForJoinNodes
   fi
 
   configure && _start
@@ -101,6 +99,13 @@ start() {
   sleep 15
   # exec failover
   manualFailover
+}
+
+getAclListForJoinNodes() {
+  local ACL_CMD node_ip=$(echo ${STABLE_REDIS_NODES%% *} | cut -d "/" -f3)
+  ACL_CMD="$(getRuntimeNameOfCmd ACL)"
+  log "choose $node_ip as redis-cli target"
+  runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
 }
 
 manualFailover() {
