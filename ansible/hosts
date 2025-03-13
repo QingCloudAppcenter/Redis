@@ -6,3 +6,4 @@ kylin-amd64-redis-standalone ansible_host=yourhost ansible_port=30024
 [rediscluster]
 ubuntu-amd64-redis-cluster ansible_host=172.22.2.8
 kylin-arm64-redis-cluster ansible_host=yourhost ansible_port=30022
+kylin-amd64-redis-cluster ansible_host=yourhost ansible_port=30024
