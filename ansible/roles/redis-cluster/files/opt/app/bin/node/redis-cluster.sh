@@ -1151,6 +1151,8 @@ restoreReplica() {
   rm -f $REDIS_DIR/dump.rdb
   # remove aof files
   rm -rf $REDIS_DIR/appendonlydir/*
+  # recreate redis.conf: rename-command issue
+  configureForRedis
   # start myself
   start
   log "restore replica, done"
@@ -1242,6 +1244,8 @@ restoreMaster() {
   sed -i "s/^[^ ]*/$runid/" $NODE_CONF_FILE
   # use new ip
   sed -i "s/\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\):/$MY_IP:/" $NODE_CONF_FILE
+  # recreate redis.conf: rename-command issue
+  configureForRedis
   # start myself
   start
   # retry to meet other master
