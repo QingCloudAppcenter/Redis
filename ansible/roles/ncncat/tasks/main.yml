@@ -1,0 +1,23 @@
+- name: set up variables
+  set_fact:
+    os: "{{ os | d(default_os) }}"
+
+- name: install ncat on ubuntu
+  apt:
+    name: "ncat"
+    state: present
+  when: os == 'ubuntu'
+
+- name: link nc to ncat
+  file:
+    src: /usr/bin/ncat
+    dest: /usr/bin/nc
+    state: link
+    force: yes
+  when: os == "ubuntu"
+
+- name: Install nc and ncat on kylin
+  dnf:
+    name: "nmap"
+    state: present
+  when: os == 'kylin'
