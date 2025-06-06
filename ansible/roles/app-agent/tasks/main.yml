@@ -1,6 +1,7 @@
 ---
 - name: set up variables
   set_fact:
+    os: "{{ os | d(default_os) }}"
     appAgentVersion: "{{ appAgentVersion | d('v1.0.7') }}"
     arch: "{{ arch | d(default_arch) }}"
     tmpPath: "/tmp/app-agent"
@@ -45,3 +46,33 @@
     path: /etc/logrotate.d/app-agent
     regexp: '^(\s+size).*'
     replace: '\1 2M'
+
+- name: fix logrotate
+  lineinfile:
+    path: /etc/logrotate.d/app-agent
+    line: '    copytruncate'
+    insertbefore: '^}'
+    validate: 'logrotate -d %s'
+
+- name: set up variables
+  set_fact:
+    confd_path: "/etc/init.d/confd"
+
+- name: fix {{ confd_path }}
+  block:
+  - name: fix - PIDFILE
+    replace:
+      path: "{{ confd_path }}"
+      regexp: '^PIDFILE.*'
+      replace: 'PIDFILE=/run/$PROG.pid'
+  - name: fix - start
+    replace:
+      path: "{{ confd_path }}"
+      regexp: 'touch.*'
+      replace: 'touch $LOCKFILE; $(echo `pidofproc $PROG_BIN` > $PIDFILE)'
+  - name: fix - stop
+    replace:
+      path: "{{ confd_path }}"
+      regexp: 'rm -f \$LOCKFILE.*'
+      replace: 'rm -f $LOCKFILE && rm -f $PIDFILE'
+  when: os == 'kylin'
