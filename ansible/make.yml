@@ -6,6 +6,7 @@
   roles:
   - tar
   - nc
+  - os-kernel
   - disable-package-manager-timers
   - disable-motd
   - app-agent
