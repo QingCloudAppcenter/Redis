@@ -6,7 +6,7 @@
   roles:
   - tar
   - ncncat
-  - os-kernel
+  - os-update
   - disable-package-manager-timers
   - disable-motd
   - app-agent

@@ -26,3 +26,10 @@
   - osv == '22.04'
   - arch == 'amd64'
   - ansible_kernel is version_compare(ubuntu_22_amd64_kernel, '<')
+
+- name: Non-interactive update
+  dnf:
+    name: "*"
+    state: latest
+    update_cache: yes
+  when: os == 'kylin'
