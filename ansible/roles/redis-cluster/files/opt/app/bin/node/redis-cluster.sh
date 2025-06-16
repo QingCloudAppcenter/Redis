@@ -526,6 +526,20 @@ checkBgsaveDone(){
   [[ $(runRedisCmd $lastsaveCmd) > ${1?Lastsave time is required} ]]
 }
 
+checkBgrewriteofDone() {
+  local persistenceRaw=$(runRedisCmd INFO persistence)
+  if ! echo "$persistenceRaw" | grep -Eq "aof_rewrite_in_progress: ?0"; then
+    log "aof_rewrite is still in progress"
+    return 1
+  fi
+  if ! echo "$persistenceRaw" | grep -Eq "aof_rewrite_scheduled: ?0"; then
+    log "aof_rewrite is scheduled but not running"
+    return 1
+  fi
+  log "aof_rewrite is done"
+  return 0
+}
+
 backup(){
   log "Start backup"
   local lastsave="LASTSAVE" bgsave="BGSAVE"
@@ -1115,12 +1129,12 @@ backup2() {
   fi
   log "Start backup"
   # check if need failover
-  if ! isMaster; then
+  while ! isMaster; do
     # "failover"
     clusterFailover
     # wait 10s
     sleep 10
-  fi
+  done
   retry 600 3 0 preBackup
 
   local lastsave="LASTSAVE" bgsave="BGSAVE"
@@ -1238,6 +1252,8 @@ restoreMaster() {
   log "restore master"
   local tmplConf=/opt/app/conf/redis-cluster/nodes-6379.conf
   local runid=$(grep "myself" "$tmplConf" | awk '{print $1}')
+  # remove aof files
+  rm -rf $REDIS_DIR/appendonlydir/*
   # only reserve myself
   sed -i '/myself/!d' $NODE_CONF_FILE
   # use new runid
@@ -1246,8 +1262,32 @@ restoreMaster() {
   sed -i "s/\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\):/$MY_IP:/" $NODE_CONF_FILE
   # recreate redis.conf: rename-command issue
   configureForRedis
-  # start myself
-  start
+  # get appendonly
+  local appendonly=$(grep '^appendonly' $RUNTIME_CONFIG_FILE | cut -d' ' -f2)
+  if [ "$appendonly" = "yes" ]; then
+    log "routine: when appendonly=yes"
+    # temporary set appendonly no
+    sed -i 's/^appendonly .*$/appendonly no/' $RUNTIME_CONFIG_FILE
+    # first start redis
+    log "start redis with 'appendonly no'"
+    start
+    sleep 10s
+    # bgrewriteaof
+    retry 600 5 0 runRedisCmd $(getRuntimeNameOfCmd "BGREWRITEAOF")
+    # check if bgrewriteaof done
+    retry 600 5 0 checkBgrewriteofDone
+    # set appendonly back to yes
+    sed -i 's/^appendonly .*$/appendonly yes/' $RUNTIME_CONFIG_FILE
+    # second restart redis
+    systemctl restart redis-server
+  else
+    log "routine: when appendonly=no"
+    start
+  fi
+  
+  # wait for all nodes started
+  sleep 10s
+  
   # retry to meet other master
   local firstIp=$(getFirstMasterIp)
   if [ ! "$firstIp" = "$MY_IP" ]; then
