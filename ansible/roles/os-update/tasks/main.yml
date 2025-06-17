@@ -1,0 +1,35 @@
+---
+- name: set vars
+  set_fact:
+    os: "{{ os | d(default_os) }}"
+    osv: "{{ osv | d(default_osv) }}"
+    arch: "{{ arch | d(default_arch) }}"
+
+- name: update apt source
+  apt:
+    update_cache: yes
+  when: os == 'ubuntu'
+
+- name: prepare for ubuntu 22.04, amd64
+  block:
+  - name: upgrade kernal
+    apt:
+      name: "linux-image-{{ ubuntu_22_amd64_kernel }}"
+      state: present
+  - name: reboot os
+    reboot:
+      reboot_timeout: 600
+      connect_timeout: 30
+      test_command: uptime
+  when:
+  - os == 'ubuntu'
+  - osv == '22.04'
+  - arch == 'amd64'
+  - ansible_kernel is version_compare(ubuntu_22_amd64_kernel, '<')
+
+- name: Non-interactive update
+  dnf:
+    name: "*"
+    state: latest
+    update_cache: yes
+  when: os == 'kylin'

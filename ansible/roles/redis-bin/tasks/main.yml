@@ -5,6 +5,7 @@
     os: "{{ os | d(default_os) }}"
     osv: "{{ osv | d(default_osv) }}"
     arch: "{{ arch | d(default_arch) }}"
+    kylin_gcc_version: "{{ kylin_gcc_version | d('11.5.0') }}"
     installPath: "/opt/redis"
 
 - name: add the service group
@@ -106,3 +107,36 @@
     - etc
   loop_control:
     loop_var: path
+
+- name: update gcc lib for kylin
+  block:
+    - name: download gcc
+      include_role:
+        name: downloader
+      vars:
+        opts:
+          pkg_name: gcc
+          pkg_version: "{{ kylin_gcc_version }}"
+          pkg_feature: "{{ os }}-{{ osv }}-{{ arch }}"
+          pkg_fileType: ".tgz"
+          pkg_url: "https://github.com/djangoyi-yunify/kylin-tools/releases/download/gcc-{{ kylin_gcc_version }}_kylin-10sp3/gcc-{{ kylin_gcc_version }}-{{ arch }}.tgz"
+
+    - name: decompress file
+      unarchive:
+        src: "{{ downloaded }}"
+        dest: /lib64
+        extra_opts:
+          - "--transform=s|tmp/gcc-output/usr/local/lib64/||"
+        includes:
+          - "tmp/gcc-output/usr/local/lib64/libstdc++.so.6.0.29"
+        creates: "/lib64/libstdc++.so.6.0.29"
+
+    - name: link nc to ncat
+      file:
+        src: /lib64/libstdc++.so.6.0.29
+        dest: /lib64/libstdc++.so.6
+        state: link
+        force: yes
+  when:
+  - os == "kylin"
+  - redis_version is match('^8\\..*')

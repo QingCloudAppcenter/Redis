@@ -5,7 +5,8 @@
     target_env: "{{ lookup('env', 'target') }}"
   roles:
   - tar
-  - nc
+  - ncncat
+  - os-update
   - disable-package-manager-timers
   - disable-motd
   - app-agent
