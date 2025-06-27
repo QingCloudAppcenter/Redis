@@ -112,7 +112,7 @@ start() {
   if [[ -n "$JOINING_REDIS_NODES" && "$ENABLE_ACL" == "yes" ]] ; then 
     sudo -u redis touch $ACL_CLEAR
     local ACL_CMD node_ip=$(getFirstNodeIpInStableNodesExceptLeavingNodes)
-    ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(getFirstNodeIdInStableNodesExceptLeavingNodes)" ACL)"
+    ACL_CMD="$(getRuntimeNameOfCmd --node-id "$(getParentNodeId $(getFirstNodeIdInStableNodesExceptLeavingNodes))" ACL)"
     # runRedisCmd -h $node_ip $ACL_CMD LIST > $RUNTIME_ACL_FILE
     retry 60 1 0 helperUpdateAclFile $node_ip $ACL_CMD
   fi
@@ -246,6 +246,10 @@ getFirstNodeIpInStableNodesExceptLeavingNodes(){
           }
       }
   }'
+}
+
+getParentNodeId() {
+  echo $NODE_GROUPS= | tr ' ' '\n' | grep ":$1" | cut -d':' -f1
 }
 
 getFirstNodeIdInStableNodesExceptLeavingNodes(){
@@ -675,7 +679,7 @@ runRedisCmd() {
 }
 
 getRuntimeNameOfCmd() {
-  node_id=${NODE_ID}
+  node_id=${PARENT_NODE_ID}
   if [[ "$1" == "--node-id" ]]; then  node_id=$2; shift 2; fi
   if [[ "$DISABLED_COMMANDS" == *"$1"* ]];then
     echo -n "${CLUSTER_ID}${node_id}${1}" | md5sum | cut -f 1 -d " "
@@ -1103,6 +1107,20 @@ upgrade() {
   chown syslog:adm /data/appctl/logs/* || :
   initNode
   configure
+
+  # only for upgrade to 7.2.9
+  # if from version is 7.2.9 or above, should remove the codes below
+  if [ $MY_ROLE = "master" ]; then
+    return 0
+  fi
+  cmdFlushDB=$(getRuntimeNameOfCmd "FLUSHDB")
+  cmdFlushDBOld=$(getRuntimeNameOfCmd --node-id "$NODE_ID" "FLUSHDB")
+  cmdFlushAll=$(getRuntimeNameOfCmd "FLUSHALL")
+  cmdFlushAllOld=$(getRuntimeNameOfCmd --node-id "$NODE_ID" "FLUSHALL")
+  
+  log "hack for master-replica"
+  log "replace FLUSHDB/FLUSHALL hash in *.aof"
+  find $REDIS_DIR/appendonlydir -type f -name "*.aof" -exec sed -i "s/$cmdFlushDBOld/$cmdFlushDB/g; s/$cmdFlushAllOld/$cmdFlushAll/g" {} \;
 }
 
 isMaster() {
