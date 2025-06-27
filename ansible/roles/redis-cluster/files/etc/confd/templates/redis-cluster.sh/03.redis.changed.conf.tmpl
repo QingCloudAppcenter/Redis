@@ -1,5 +1,5 @@
 encodeCmd() {
-  echo -n "{{ getv "/cluster/cluster_id" }}{{ getv "/host/node_id" }}$1" | md5sum | cut -f 1 -d " "
+  echo -n "{{ getv "/cluster/cluster_id" }}{{ print $parent_node_id }}$1" | md5sum | cut -f 1 -d " "
 }
 
 
