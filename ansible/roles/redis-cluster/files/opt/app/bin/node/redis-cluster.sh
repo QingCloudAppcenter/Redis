@@ -1107,6 +1107,20 @@ upgrade() {
   chown syslog:adm /data/appctl/logs/* || :
   initNode
   configure
+
+  # only for upgrade to 7.2.9
+  # if from version is 7.2.9 or above, should remove the codes below
+  if [ $MY_ROLE = "master" ]; then
+    return 0
+  fi
+  cmdFlushDB=$(getRuntimeNameOfCmd "FLUSHDB")
+  cmdFlushDBOld=$(getRuntimeNameOfCmd --node-id "$NODE_ID" "FLUSHDB")
+  cmdFlushAll=$(getRuntimeNameOfCmd "FLUSHALL")
+  cmdFlushAllOld=$(getRuntimeNameOfCmd --node-id "$NODE_ID" "FLUSHALL")
+  
+  log "hack for master-replica"
+  log "replace FLUSHDB/FLUSHALL hash in *.aof"
+  find $REDIS_DIR/appendonlydir -type f -name "*.aof" -exec sed -i "s/$cmdFlushDBOld/$cmdFlushDB/g; s/$cmdFlushAllOld/$cmdFlushAll/g" {} \;
 }
 
 isMaster() {
