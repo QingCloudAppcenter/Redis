@@ -687,7 +687,12 @@ configureForRedis() {
   fi
   rotate $RUNTIME_CONFIG_FILE_TMP
   # flush every time even no master IP switches, but port is changed or in case double-master in revive
-  [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo "replicaof $masterIp $REDIS_PORT" > $slaveofFile
+  if [ -z "$masterIp" ]; then
+    log "no masterip detected, do nothing"
+  else
+    log "masterip: $masterIp detected, change replicaof configure"
+    [ "$MY_IP" == "$masterIp" ] && > $slaveofFile || echo "replicaof $masterIp $REDIS_PORT" > $slaveofFile
+  fi
 
   awk '$0~/^[^ #$]/ ? $1~/^(client-output-buffer-limit|rename-command)$/ ? !a[$1$2]++ : !a[$1]++ : 0' \
     $CHANGED_CONFIG_FILE $slaveofFile $DEFAULT_CONFIG_FILE $RUNTIME_CONFIG_FILE_TMP.1 > $RUNTIME_CONFIG_FILE_TMP
