@@ -88,6 +88,10 @@ start() {
   # create preferred-az.conf.1 if not exist
   if [ ! -f $PREFERRED_AZ_CONFIG_FILE.1 ]; then
     rotate $PREFERRED_AZ_CONFIG_FILE
+    if [ -z "$(cat $PREFERRED_AZ_CONFIG_FILE)" ]; then
+      log "no preferred az config, skip manual failover"
+      return 0
+    fi
   fi
   # first stable exec failover
   firstStableNode="$(echo "$STABLE_REDIS_NODES" |cut -d" " -f1)"
