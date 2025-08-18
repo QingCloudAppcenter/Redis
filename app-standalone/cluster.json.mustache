@@ -7,7 +7,8 @@
   "backup_policy": "device",
   "incremental_backup_supported": true,
   "upgrade_policy": [
-    "appv-zjm2hwih"
+    "appv-zjm2hwih",
+    "appv-xmhf5y8t"
   ],
   "upgrading_policy": "sequential",
   "nodes": [{
@@ -15,7 +16,7 @@
       "type": "kvm",
       "sriov_nic": true,
       "zone": "pekt3",
-      "image": "img-vb073g79"
+      "image": "img-zl7pjagt"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -142,6 +143,7 @@
     "disabled-commands": {{env.disabled-commands}},
     "enable-acl": {{env.enable-acl}},
     "activerehashing": {{env.activerehashing}},
+    "save": {{env.save}},
     "appendonly": {{env.appendonly}},
     "appendfsync": {{env.appendfsync}},
     "databases": {{env.databases}},

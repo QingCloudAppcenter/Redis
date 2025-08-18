@@ -41,7 +41,7 @@
   "activerehashing_label": "activerehashing",
   "activerehashing_description": "是否开启rehashing以节省内存空间，重启生效",
   "appendonly_label": "appendonly",
-  "appendonly_description": "是否使用AOF持久化，重启生效",
+  "appendonly_description": "是否使用AOF持久化，重启生效。警告！！！切换 禁用/启用 AOF持久化配置，可能导致数据丢失，详情参考<a href=\"https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/\">Redis文档</a>",
   "appendfsync_label": "appendfsync",
   "appendfsync_description": "AOF的同步策略，重启生效",
   "hash-max-listpack-entries_label": "hash-max-listpack-entries",
@@ -239,5 +239,6 @@
   "Preferred AZ": "优先的 Zone",
   "preferred AZ where master node will be elected": "该 Zone 中的节点将被优先选举为主节点，重启生效",
   "force_to_master": "强制转换 master",
-  "Will promote survived slave node to master. Only for emergency, choose 'yes' to continue": "将把存活的从节点强制转换为主节点。仅用于紧急修复，选择\"yes\"继续"
+  "Will promote survived slave node to master. Only for emergency, choose 'yes' to continue": "将把存活的从节点强制转换为主节点。仅用于紧急修复，选择\"yes\"继续",
+  "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.": "Redis 快照配置，数据将被保存到 *.rdb 文件中，空表示禁用快照，重启生效。警告！！！切换 禁用/启用 快照配置，可能导致数据丢失，详情参考<a href=\"https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/\">Redis文档</a>"
 }

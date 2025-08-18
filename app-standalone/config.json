@@ -279,6 +279,13 @@
       "key": "activerehashing",
       "type": "string"
     }, {
+      "description": "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.",
+      "default": "",
+      "required": "no",
+      "label": "save",
+      "key": "save",
+      "type": "string"
+    }, {
       "description": "appendonly_description",
       "default": "yes",
       "required": "no",
