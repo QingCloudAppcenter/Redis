@@ -333,7 +333,7 @@
       "label": "requirepass_label",
       "key": "requirepass",
       "type": "password",
-      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
+      "pattern": "^([a-zA-Z0-9_!@$%^&*()./;]{6,}|)$"
     }, {
       "description": "maxmemory-policy_description",
       "default": "volatile-lru",
