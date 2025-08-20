@@ -900,6 +900,19 @@ getRedisRoles(){
   done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","allow_deletion"],"data":.}'
 }
 
+getRedisRolesAndAOF(){
+  local stableNodesCount=$(findStableNodesCount)
+  local CONFIG_CMD="$(getRuntimeNameOfCmd CONFIG)"
+  local node nodeIp myRole allow_deletion counter=0; for node in $(echo "$STABLE_REDIS_NODES" |sort -n -t"/" -k1); do
+    counter=$(($counter+1))
+    nodeIp="$(echo "$node" |cut -d"/" -f3)"
+    myRole="$(runRedisCmd --ip "$nodeIp" role | head -n1 || echo "unknown")"
+    myAOF="$(runRedisCmd --ip "$nodeIp" --json $CONFIG_CMD GET appendonly | jq -r .appendonly)"
+    if [[ "$myRole" == "master" ]]; then allow_deletion="false";else allow_deletion="true";fi
+    echo "$nodeIp $myRole $allow_deletion $myAOF"
+  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","allow_deletion","appendonly"],"data":.}'
+}
+
 getNodesOrder() {
   local slaveIps
   slaveIps=$(runRedisCmd -h $REDIS_VIP Info Replication | awk '/^slave[0-9]/{print $0=gensub(/^.*ip=([0-9\.]+),.*/, "\\1", "g")}')
@@ -1122,4 +1135,12 @@ endRepair() {
   enableHealthCheck
   echo "repair node ended."
   echo "please check each nodes' role using 'redis-cli role'"
+}
+
+tmpOnOffAOF() {
+  log "will config appendonly temporarily"
+  local res="$(echo $1 |jq -r .confirm)"
+  local CONFIG_CMD="$(getRuntimeNameOfCmd CONFIG)"
+  log "set appendonly: $res"
+  runRedisCmd $CONFIG_CMD SET appendonly $res
 }

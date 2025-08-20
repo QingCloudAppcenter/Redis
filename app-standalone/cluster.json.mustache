@@ -16,7 +16,7 @@
       "type": "kvm",
       "sriov_nic": true,
       "zone": "pekt3",
-      "image": "img-zl7pjagt"
+      "image": "img-n32ctwll"
     },
     "instance_class": {{cluster.node.instance_class}},
     "count": {{cluster.node.count}},
@@ -135,6 +135,14 @@
           "timeout": 60,
           "service_params": {
                 "confirm": {{service_params.forceToMaster_confirm}}
+          }
+      },
+      "tmp_OnOff_AOF": {
+          "type": "custom",
+          "cmd": "appctl tmpOnOffAOF",
+          "timeout": 60,
+          "service_params": {
+                "confirm": {{service_params.tmpOnOffAOF_confirm}}
           }
       }
     }
@@ -635,7 +643,7 @@
   },
   "display_tabs" : {
     "roles" : {
-    "cmd" : "appctl getRedisRoles"
+    "cmd" : "appctl getRedisRolesAndAOF"
     },
     "ACL_List" : {
         "cmd" : "appctl getUserList"
