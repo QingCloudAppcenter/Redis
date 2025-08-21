@@ -7,7 +7,7 @@ After=network.target
 Type=simple
 User=prometheus
 {{ if ne (getv "/env/requirepass") "" -}}
-Environment=REDIS_PASSWORD={{ replace (getv "/env/requirepass" "") `$` `\$` -1 }}
+Environment=REDIS_PASSWORD={{ replace (replace (getv "/env/requirepass" "") `$` `\$` -1) `%` `%%` -1 }}
 {{- end }}
 ExecStart=/opt/prometheus/redis_exporter/current/redis_exporter -redis.addr "{{ getv "/host/ip" }}:{{ getv "/env/port" "6379" }}" -web.listen-address 0.0.0.0:9121
 Restart=on-failure
