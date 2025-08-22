@@ -1,12 +1,12 @@
 appAgentVersion: v1.0.7
 jq_version: "1.8.0"
-redis_version: 7.2.9
+redis_version: 7.2.10
 local_cache_path: "file/tmp"
 arping_version: "20211215-1"
 default_timezone: "Asia/Shanghai"
 caddy_version: "v2.8.4"
 node_exporter_version: "1.9.1"
-redis_exporter_version: "v1.73.0"
+redis_exporter_version: "v1.75.0"
 tar_version: "1.32-4"
 ubuntu_22_amd64_kernel: 5.15.0-136-generic
 kylin_gcc_version: 11.5.0

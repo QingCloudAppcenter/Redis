@@ -159,6 +159,14 @@
       "default": "no",
       "required": "yes",
       "range": ["yes", "no"]
+    }, {
+      "key": "tmpOnOffAOF_confirm",
+      "label": "appendonly setting",
+      "description": "Will temporarily turn on/off AOF, choose 'yes' to continue. Warning!!! Wrong configuration and operation may result in data loss, be sure to do it",
+      "type": "string",
+      "default": "yes",
+      "required": "yes",
+      "range": ["yes", "no"]
     }]
   }, {
     "key": "env",
@@ -234,7 +242,7 @@
       "default": "",
       "required": "no",
       "type": "password",
-      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
+      "pattern": "^([a-zA-Z0-9_!@$%^&*()./;]{6,}|)$"
     }, {
       "description": "enable-commands_description",
       "required": "no",
@@ -277,6 +285,13 @@
         "no"
       ],
       "key": "activerehashing",
+      "type": "string"
+    }, {
+      "description": "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.",
+      "default": "",
+      "required": "no",
+      "label": "save",
+      "key": "save",
       "type": "string"
     }, {
       "description": "appendonly_description",
@@ -326,7 +341,7 @@
       "label": "requirepass_label",
       "key": "requirepass",
       "type": "password",
-      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
+      "pattern": "^([a-zA-Z0-9_!@$%^&*()./;]{6,}|)$"
     }, {
       "description": "maxmemory-policy_description",
       "default": "volatile-lru",
@@ -423,8 +438,7 @@
       "label": "slowlog-log-slower-than_label",
       "key": "slowlog-log-slower-than",
       "type": "integer",
-      "min": -1,
-      "max": 60000
+      "min": -1
     }, {
       "description": "slowlog-max-len_description",
       "default": 128,

@@ -6,47 +6,46 @@
     arch: "{{ arch | d(default_arch) }}"
     url_prefix: "http://update.cs2c.com.cn:8080/NS"
 
-- name: set up major and minor
-  set_fact:
-    major: "{{ osv.split('sp')[0] }}"
-    minor: "sp{{ osv.split('sp')[1] }}"
-  when: os == 'kylin'
+# - name: set up major and minor
+#   set_fact:
+#     major: "{{ osv.split('sp')[0] }}"
+#     minor: "sp{{ osv.split('sp')[1] }}"
+#   when: os == 'kylin'
 
-- name: set up cpu for kylin amd64
-  set_fact:
-    cpu: "x86_64"
-  when:
-  - os == 'kylin'
-  - arch == 'amd64'
+# - name: set up cpu for kylin amd64
+#   set_fact:
+#     cpu: "x86_64"
+#   when:
+#   - os == 'kylin'
+#   - arch == 'amd64'
 
-- name: set up cpu for kylin arm64
-  set_fact:
-    cpu: "aarch64"
-  when:
-  - os == 'kylin'
-  - arch == 'arm64'
+# - name: set up cpu for kylin arm64
+#   set_fact:
+#     cpu: "aarch64"
+#   when:
+#   - os == 'kylin'
+#   - arch == 'arm64'
 
-# will set var downloaded
-- include_role:
-    name: downloader
-  vars:
-    opts:
-      pkg_name: tar
-      pkg_version: "{{ tar_version }}"
-      pkg_feature: "{{ os }}-{{ osv }}-{{ arch }}"
-      pkg_fileType: ".rpm"
-      pkg_url: "{{ url_prefix }}/V{{ major }}/V{{ major }}{{ minor | upper }}/os/adv/lic/updates/{{ cpu }}/Packages/tar-{{ tar_version }}.ky{{ major }}.{{ cpu }}.rpm"
-  when: os == 'kylin'
+# # will set var downloaded
+# - include_role:
+#     name: downloader
+#   vars:
+#     opts:
+#       pkg_name: tar
+#       pkg_version: "{{ tar_version }}"
+#       pkg_feature: "{{ os }}-{{ osv }}-{{ arch }}"
+#       pkg_fileType: ".rpm"
+#       pkg_url: "{{ url_prefix }}/V{{ major }}/V{{ major }}{{ minor | upper }}/os/adv/lic/updates/{{ cpu }}/Packages/tar-{{ tar_version }}.ky{{ major }}.{{ cpu }}.rpm"
+#   when: os == 'kylin'
 
-- name: copy file
-  copy:
-    src: "{{ downloaded }}"
-    dest: "/tmp"
-  when: os == 'kylin'
+# - name: copy file
+#   copy:
+#     src: "{{ downloaded }}"
+#     dest: "/tmp"
+#   when: os == 'kylin'
 
 - name: Install RPM package
   dnf:
-    name: "/tmp/{{ downloaded | basename }}"
-    disable_gpg_check: yes
+    name: tar
     state: present
   when: os == 'kylin'

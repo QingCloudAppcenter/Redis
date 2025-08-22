@@ -55,6 +55,7 @@ flush /opt/app/conf/redis-standalone/redis.changed.conf << REDIS_CHANGED_CONF_EO
 replica-priority $(getMyPriority)
 databases {{ getv "/env/databases" "16" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
+save "{{ replace (getv "/env/save" "") `$` `\$` -1 }}"
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
 latency-monitor-threshold {{ getv "/env/latency-monitor-threshold" "0" }}
