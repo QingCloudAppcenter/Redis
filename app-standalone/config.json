@@ -242,7 +242,7 @@
       "default": "",
       "required": "no",
       "type": "password",
-      "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$"
+      "pattern": "^([a-zA-Z0-9_!@$%^&*()./;]{6,}|)$"
     }, {
       "description": "enable-commands_description",
       "required": "no",
