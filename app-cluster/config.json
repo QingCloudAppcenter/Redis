@@ -151,7 +151,15 @@
                 "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
                 "multiline": true,
                 "required": "yes"
-              }
+              }, {
+                "key": "tmpOnOffAOF_confirm",
+                "label": "appendonly setting",
+                "description": "Will temporarily turn on/off AOF, choose 'yes' to continue. Warning!!! Wrong configuration and operation may result in data loss, be sure to do it",
+                "type": "string",
+                "default": "yes",
+                "required": "yes",
+                "range": ["yes", "no"]
+            }
 
         ]
     }, {

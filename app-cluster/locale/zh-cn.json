@@ -224,5 +224,8 @@
   "client output buffer limit for normal clients": "针对普通客户端的 output buffer 限制，重启生效",
   "client output buffer limit for replica clients": "针对 redis 副本的 output buffer 限制，重启生效",
   "client output buffer limit for pubsub clients": "针对订阅的 output buffer 限制，重启生效",
-  "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.": "Redis 快照配置，数据将被保存到 *.rdb 文件中，空表示禁用快照，重启生效。警告！！！切换 禁用/启用 快照配置，可能导致数据丢失，详情参考<a href=\"https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/\">Redis文档</a>"
+  "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.": "Redis 快照配置，数据将被保存到 *.rdb 文件中，空表示禁用快照，重启生效。警告！！！切换 禁用/启用 快照配置，可能导致数据丢失，详情参考<a href=\"https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/\">Redis文档</a>",
+  "appendonly setting": "appendonly配置",
+  "tmp_OnOff_AOF": "临时启用/停用AOF",
+  "Will temporarily turn on/off AOF, choose 'yes' to continue. Warning!!! Wrong configuration and operation may result in data loss, be sure to do it": "将临时启用/停用各节点的appendonly配置，选择\"是\"表示启用，选择\"否\"表示停用。警告！！！错误配置或操作可能会造成数据丢失，请确认无误再进行操作"
 }
