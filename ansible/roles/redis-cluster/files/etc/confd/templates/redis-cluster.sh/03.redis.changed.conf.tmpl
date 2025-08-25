@@ -53,6 +53,7 @@ cluster-port {{ getv "/env/cluster-port" "0" }}
 tls-port {{ getv "/env/tls-port" "0" }}
 tls-cluster {{ getv "/env/tls-cluster" "no" }}
 activerehashing {{ getv "/env/activerehashing" "yes" }}
+save "{{ replace (getv "/env/save" "") `$` `\$` -1 }}"
 appendfsync {{ getv "/env/appendfsync" "everysec" }}
 appendonly {{ getv "/env/appendonly" "yes" }}
 cluster-node-timeout {{ getv "/env/cluster-node-timeout" "15000" }}

@@ -260,9 +260,16 @@
             "range": ["yes", "no"],
             "required": "no"
         }, {
+            "description": "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.",
+            "default": "",
+            "required": "no",
+            "label": "save",
+            "key": "save",
+            "type": "string"
+        }, {
             "key": "appendonly",
             "label": "appendonly",
-            "description": "The Append Only File is an alternative persistence mode that provides much better durability.",
+            "description": "Whether to enable AOF persistence. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.",
             "type": "string",
             "default": "yes",
             "range": ["yes", "no"],

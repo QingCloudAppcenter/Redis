@@ -35,7 +35,7 @@
   "The replica number for each master": "每个分片（主节点）的副本点数量<br>输入每个分片的副本数量, 推荐1,（范围0-5）",
   "The volume size for each instance": "每个节点的硬盘大小，建议最小设置为内存大小的三倍",
   "Active rehashing uses 1 millisecond every 100 milliseconds of CPU time in order to help rehashing the main Redis hash table": "是否开启rehashing以节省内存空间，重启生效",
-  "The Append Only File is an alternative persistence mode that provides much better durability.": "是否使用AOF持久化，重启生效",
+  "Whether to enable AOF persistence. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.": "是否使用AOF持久化，重启生效。警告！！！切换 禁用/启用 AOF持久化配置，可能导致数据丢失，详情参考<a href=\"https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/\">Redis文档</a>",
   "It tells the Operating System to actually write data on disk instead of waiting for more data in the output buffer.": "AOF的同步策略，重启生效",
   "Hashes are encoded using a memory efficient data structure when they have a small number of entries": "在hash对象中保存的键值对数量少于多少时使用ziplist来编码，以节省内存空间，重启生效",
   "Hashes are encoded using a memory efficient data structure when they have a small number of entries, and the biggest entry does not exceed a given threshold": "在hash对象中保存的最大键值对长度小于多少字节时，使用ziplist来编码，以节省内存空间，重启生效",
@@ -223,5 +223,6 @@
   "swith threading of reads and protocol parsing": "开/关读取线程和协议解析.\n为 \"auto\" 时, 根据 CPU 数自行调整，重启生效",
   "client output buffer limit for normal clients": "针对普通客户端的 output buffer 限制，重启生效",
   "client output buffer limit for replica clients": "针对 redis 副本的 output buffer 限制，重启生效",
-  "client output buffer limit for pubsub clients": "针对订阅的 output buffer 限制，重启生效"
+  "client output buffer limit for pubsub clients": "针对订阅的 output buffer 限制，重启生效",
+  "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.": "Redis 快照配置，数据将被保存到 *.rdb 文件中，空表示禁用快照，重启生效。警告！！！切换 禁用/启用 快照配置，可能导致数据丢失，详情参考<a href=\"https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/\">Redis文档</a>"
 }
