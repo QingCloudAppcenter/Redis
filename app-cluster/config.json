@@ -393,6 +393,7 @@
             "description": "It logs queries that exceeded a specified execution time.",
             "type": "integer",
             "default": -1,
+            "min": -1,
             "required": "no"
         }, {
             "key": "slowlog-max-len",
