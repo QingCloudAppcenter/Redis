@@ -224,6 +224,28 @@ getStableNodesIps(){
   }'
 }
 
+getStableNodes(){
+  unstableNodes=$(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" | sed 's/^[ \t]*//; s/[ \t]*$//; s/[ \t]+/ /g')
+  echo "$REDIS_NODES" | awk -F' ' '
+  BEGIN {
+      if (length("'"$unstableNodes"'") > 0) {
+          split("'"$unstableNodes"'", ignored_words, " ")
+          for (i in ignored_words) {
+              if (ignored_words[i] != "") {
+                  ignored[ignored_words[i]] = 1
+              }
+          }
+      }
+  }
+  {
+      for (i = 1; i <= NF; i++) {
+          if (!($i in ignored)) {
+              print $i
+          }
+      }
+  }'
+}
+
 getFirstNodeIpInStableNodesExceptLeavingNodes(){
   unstableNodes=$(echo "$LEAVING_REDIS_NODES $JOINING_REDIS_NODES" | sed 's/^[ \t]*//; s/[ \t]*$//; s/[ \t]+/ /g')
   echo "$REDIS_NODES" | awk -F' ' '
@@ -909,6 +931,29 @@ getRedisRoles(){
   echo "$secondProcssResult" |jq -c '{"labels":["ip","role","master_ip"],"data":.}'
 }
 
+getRedisRolesAndAOF(){
+  local stableNodes=$(getStableNodes)
+  local node nodeIp parId myRole myMaster myAOF CONFIG_CMD groupId counter=0; for node in $(echo "$stableNodes" | sort -n -t"/" -k1); do
+    counter=$(($counter+1))
+    groupId="$(echo "$node" |cut -d"/" -f1)"
+    nodeIp="$(echo "$node" |cut -d"/" -f5)"
+    parId="$(echo "$stableNodes" | grep "^$groupId/" | grep master | cut -d"/" -f4)"
+    roleRaw="$(runRedisCmd -h "$nodeIp" role || :)"
+    if [ -z "$roleRaw" ]; then
+      myRole=unknown
+    else
+      myRole=$(echo "$roleRaw" | head -n1)
+    fi
+    myMaster="None"
+    if [ "slave" = "$myRole" ]; then
+      myMaster=$(echo "$roleRaw" | head -n2 | tail -n1)
+    fi
+    CONFIG_CMD="$(getRuntimeNameOfCmd --node-id $parId CONFIG)"
+    myAOF="$(runRedisCmd -h "$nodeIp" --json $CONFIG_CMD GET appendonly | jq -r .appendonly)"
+    echo "$nodeIp $myRole $myMaster $myAOF"
+  done | jq -Rc 'split(" ") | [ . ]' | jq -s add | jq -c '{"labels":["ip","role","master_ip","appendonly"],"data":.}'
+}
+
 getGroupMatched(){
   local clusterNodes port="($REDIS_PLAIN_PORT|$REDIS_TLS_PORT)" groupMatched="true" targetIp="${1:-$MY_IP}"
   if [[ "$targetIp" == "$MY_IP" ]]; then
@@ -1329,4 +1374,12 @@ restore() {
     restoreReplica
   fi
   log "restore successfully"
+}
+
+tmpOnOffAOF() {
+  log "will config appendonly temporarily"
+  local res="$(echo $1 |jq -r .confirm)"
+  local CONFIG_CMD="$(getRuntimeNameOfCmd CONFIG)"
+  log "set appendonly: $res"
+  runRedisCmd $CONFIG_CMD SET appendonly $res
 }

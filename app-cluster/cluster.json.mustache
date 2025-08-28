@@ -6,7 +6,8 @@
     "backup_policy": "device",
     "incremental_backup_supported": true,
     "upgrade_policy": [
-        "appv-lpuqsmkk"
+        "appv-lpuqsmkk",
+        "appv-iuccnf0p"
     ],    
     "upgrading_policy": "sequential",
     "nodes": [{
@@ -15,7 +16,7 @@
             "type": "kvm",
             "zone": "pekt3",
             "sriov_nic": true,
-            "image": "img-ta2y3n85"
+            "image": "img-trwansnh"
         },
         "instance_class": {{cluster.master.instance_class}},
         "count": {{cluster.master.count}},
@@ -120,6 +121,14 @@
             "restore": {
                 "timeout": 86400,
                 "cmd": "appctl restore"
+            },
+            "tmp_OnOff_AOF": {
+                "type": "custom",
+                "cmd": "appctl tmpOnOffAOF",
+                "timeout": 60,
+                "service_params": {
+                    "confirm": {{service_params.tmpOnOffAOF_confirm}}
+                }
             }
         }
     }],
@@ -133,6 +142,7 @@
         "cluster-port": {{env.cluster-port}},
         "appctl.maxmemory.percent": {{env.appctl.maxmemory.percent}},
         "activerehashing": {{env.activerehashing}},
+        "save": {{env.save}},
         "appendonly": {{env.appendonly}},
         "appendfsync": {{env.appendfsync}},
         "cluster-node-timeout": {{env.cluster-node-timeout}},
@@ -611,7 +621,7 @@
     },
     "display_tabs" : {
         "roles" : {
-        "cmd" : "appctl getRedisRoles"
+        "cmd" : "appctl getRedisRolesAndAOF"
         },
         "ACL_List" : {
         "cmd" : "appctl getUserList"

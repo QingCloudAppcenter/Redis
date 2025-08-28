@@ -132,7 +132,7 @@
                 "description": "Require clients to issue \"AUTH <USERNAME> <PASSWORD>\" before processing any other commands.",  
                 "default": "",
                 "type": "password",
-                "pattern": "^([a-zA-Z0-9!@#$%^&*()./;]{6,}|)$",
+                "pattern": "^([a-zA-Z0-9!@$%^&*()./;]{6,}|)$",
                 "required": "yes"
               }, {
                 "key": "switch",
@@ -151,7 +151,15 @@
                 "pattern": "^(?!(.* )?(on|off|nopass|resetpass|[#<>!].*)( .*)?$)(.*)$",
                 "multiline": true,
                 "required": "yes"
-              }
+              }, {
+                "key": "tmpOnOffAOF_confirm",
+                "label": "appendonly setting",
+                "description": "Will temporarily turn on/off AOF, choose 'yes' to continue. Warning!!! Wrong configuration and operation may result in data loss, be sure to do it",
+                "type": "string",
+                "default": "yes",
+                "required": "yes",
+                "range": ["yes", "no"]
+            }
 
         ]
     }, {
@@ -249,7 +257,7 @@
             "description": "Require clients to issue AUTH <PASSWORD> before processing any other commands.",
             "type": "password",
             "default": "",
-            "pattern": "^([a-zA-Z0-9_!@#$%^&*()./;]{6,}|)$",
+            "pattern": "^([a-zA-Z0-9_!@$%^&*()./;]{6,}|)$",
             "required": "no"
         }, {
             "key": "activerehashing",
@@ -260,9 +268,16 @@
             "range": ["yes", "no"],
             "required": "no"
         }, {
+            "description": "Redis snapshot configuration, data will be save to *.rdb file if configured, empty means disable snapshot. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.",
+            "default": "",
+            "required": "no",
+            "label": "save",
+            "key": "save",
+            "type": "string"
+        }, {
             "key": "appendonly",
             "label": "appendonly",
-            "description": "The Append Only File is an alternative persistence mode that provides much better durability.",
+            "description": "Whether to enable AOF persistence. Warning!!! Switch between disable/enable will result in data loss, please refer to Redis Doc to get solution.",
             "type": "string",
             "default": "yes",
             "range": ["yes", "no"],
@@ -393,6 +408,7 @@
             "description": "It logs queries that exceeded a specified execution time.",
             "type": "integer",
             "default": -1,
+            "min": -1,
             "required": "no"
         }, {
             "key": "slowlog-max-len",
@@ -517,7 +533,7 @@
             "label": "TLS-Ciphers",
             "description": "tls-ciphers-description",
             "type": "string",
-            "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
+            "pattern": "^[a-zA-Z0-9!@$%^&*()./:;]*",
             "default": "",
             "required": "no"
         }, {
@@ -525,7 +541,7 @@
             "label": "TLS-Ciphersuites",
             "description": "tls-ciphersuites-description",
             "type": "string",
-            "pattern": "^[a-zA-Z0-9!@#$%^&*()./:;]*",
+            "pattern": "^[a-zA-Z0-9!@$%^&*()./:;]*",
             "default": "",
             "required": "no"
         }, {
