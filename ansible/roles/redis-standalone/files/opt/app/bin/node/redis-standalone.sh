@@ -814,7 +814,11 @@ configure() {
   rotateTLS
   local masterIp; masterIp="$(findMasterIp)"
   configureForRestore
-  setUpVip $masterIp
+  if [ "$UPGRADE_AUDIT" -eq 0 ]; then
+    setUpVip $masterIp
+  else
+    log "skipping setup vip during upgrading"
+  fi
 }
 
 runCommand(){
