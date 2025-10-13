@@ -1,6 +1,6 @@
 appAgentVersion: v1.0.7
 jq_version: "1.8.0"
-redis_version: 7.2.10
+redis_version: 7.2.11
 local_cache_path: "file/tmp"
 arping_version: "20211215-1"
 default_timezone: "Asia/Shanghai"
