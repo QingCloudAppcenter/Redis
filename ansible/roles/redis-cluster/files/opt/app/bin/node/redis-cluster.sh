@@ -130,6 +130,11 @@ start() {
     log "retry 86400 1 0 getLoadStatus"
     retry 86400 1 0 getLoadStatus
   fi
+
+  if [ "${UPGRADE_AUDIT_NEW}" -gt 0 ]; then
+    log "upgrading: wait 20s for data sync"
+    sleep 20
+  fi
 }
 
 helperUpdateAclFile(){
@@ -1165,7 +1170,7 @@ upgrade() {
   
   log "hack for master-replica"
   log "replace FLUSHDB/FLUSHALL hash in *.aof"
-  find $REDIS_DIR/appendonlydir -type f -name "*.aof" -exec sed -i "s/$cmdFlushDBOld/$cmdFlushDB/g; s/$cmdFlushAllOld/$cmdFlushAll/g" {} \;
+  find $REDIS_DIR/appendonlydir -type f -name "*.aof" -exec sed -i "s/$cmdFlushDBOld/$cmdFlushDB/g; s/$cmdFlushAllOld/$cmdFlushAll/g" {} \; || :
 }
 
 isMaster() {
